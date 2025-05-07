@@ -23,15 +23,18 @@ void unreachable() {
     fatal_error("unreachable");
 }
 
-void read_all(char* buf) {
+char* read_all() {
+    char* buf = calloc(1024 * 1024, sizeof(char));
+    char* cur = buf;
     while (1) {
         int c = getchar();
         if (c == -1) {
             break;
         }
-        *buf = c;
-        ++buf;
+        *cur = c;
+        ++cur;
     }
+    return buf;
 }
 
 enum TokenKind {
@@ -1523,7 +1526,8 @@ struct AstNode* parse_toplevel(struct Parser* p) {
     }
 }
 
-struct Program* parse(struct Parser* p) {
+struct Program* parse(struct Token* tokens) {
+    struct Parser* p = parser_new(tokens);
     struct AstNode* list = ast_new_list(1024);
     while (eof(p)) {
         struct AstNode* n = parse_toplevel(p);
@@ -1536,6 +1540,9 @@ struct Program* parse(struct Parser* p) {
     prog->funcs = list;
     prog->str_literals = p->str_literals;
     return prog;
+}
+
+void analyze(struct Program* prog) {
 }
 
 enum GenMode {
@@ -1555,14 +1562,14 @@ struct CodeGen* codegen_new() {
     return g;
 }
 
-int gen_new_label(struct CodeGen* g) {
+int codegen_new_label(struct CodeGen* g) {
     int new_label = g->next_label;
     ++g->next_label;
     return new_label;
 }
 
-void gen_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode);
-void gen_stmt(struct CodeGen* g, struct AstNode* ast);
+void codegen_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode);
+void codegen_stmt(struct CodeGen* g, struct AstNode* ast);
 
 const char* param_reg(int n) {
     if (n == 0) {
@@ -1582,7 +1589,7 @@ const char* param_reg(int n) {
     }
 }
 
-void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
+void codegen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
     int i;
@@ -1592,23 +1599,23 @@ void gen_func_prologue(struct CodeGen* g, struct AstNode* ast) {
     printf("  sub rsp, %d\n", 8 * LVAR_MAX);
 }
 
-void gen_func_epilogue(struct CodeGen* g, struct AstNode* ast) {
+void codegen_func_epilogue(struct CodeGen* g, struct AstNode* ast) {
     printf("  mov rsp, rbp\n");
     printf("  pop rbp\n");
     printf("  ret\n");
 }
 
-void gen_int_expr(struct CodeGen* g, struct AstNode* ast) {
+void codegen_int_expr(struct CodeGen* g, struct AstNode* ast) {
     printf("  push %d\n", ast->node_int_value);
 }
 
-void gen_str_expr(struct CodeGen* g, struct AstNode* ast) {
+void codegen_str_expr(struct CodeGen* g, struct AstNode* ast) {
     printf("  mov rax, OFFSET FLAG:.Lstr__%d\n", ast->node_idx);
     printf("  push rax\n");
 }
 
-void gen_unary_expr(struct CodeGen* g, struct AstNode* ast) {
-    gen_expr(g, ast->node_operand, GEN_RVAL);
+void codegen_unary_expr(struct CodeGen* g, struct AstNode* ast) {
+    codegen_expr(g, ast->node_operand, GEN_RVAL);
     if (ast->node_op == TK_NOT) {
         printf("  pop rax\n");
         printf("  mov rdi, 0\n");
@@ -1621,11 +1628,11 @@ void gen_unary_expr(struct CodeGen* g, struct AstNode* ast) {
     }
 }
 
-void gen_ref_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
-    gen_expr(g, ast->node_operand, GEN_LVAL);
+void codegen_ref_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
+    codegen_expr(g, ast->node_operand, GEN_LVAL);
 }
 
-void gen_lval2rval(struct Type* ty) {
+void codegen_lval2rval(struct Type* ty) {
     int size = type_sizeof(ty);
 
     printf("  pop rax\n");
@@ -1639,42 +1646,42 @@ void gen_lval2rval(struct Type* ty) {
     printf("  push rax\n");
 }
 
-void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
-    gen_expr(g, ast->node_operand, GEN_RVAL);
+void codegen_deref_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
+    codegen_expr(g, ast->node_operand, GEN_RVAL);
     if (gen_mode == GEN_RVAL) {
-        gen_lval2rval(ast->node_operand->ty->to);
+        codegen_lval2rval(ast->node_operand->ty->to);
     }
 }
 
-void gen_logical_expr(struct CodeGen* g, struct AstNode* ast) {
-    int label = gen_new_label(g);
+void codegen_logical_expr(struct CodeGen* g, struct AstNode* ast) {
+    int label = codegen_new_label(g);
 
     if (ast->node_op == TK_ANDAND) {
-        gen_expr(g, ast->node_lhs, GEN_RVAL);
+        codegen_expr(g, ast->node_lhs, GEN_RVAL);
         printf("  pop rax\n");
         printf("  cmp rax, 0\n");
         printf("  je .Lelse%d\n", label);
-        gen_expr(g, ast->node_rhs, GEN_RVAL);
+        codegen_expr(g, ast->node_rhs, GEN_RVAL);
         printf("  jmp .Lend%d\n", label);
         printf(".Lelse%d:\n", label);
         printf("  push 0\n");
         printf(".Lend%d:\n", label);
     } else {
-        gen_expr(g, ast->node_lhs, GEN_RVAL);
+        codegen_expr(g, ast->node_lhs, GEN_RVAL);
         printf("  pop rax\n");
         printf("  cmp rax, 0\n");
         printf("  je .Lelse%d\n", label);
         printf("  push 1\n");
         printf("  jmp .Lend%d\n", label);
         printf(".Lelse%d:\n", label);
-        gen_expr(g, ast->node_rhs, GEN_RVAL);
+        codegen_expr(g, ast->node_rhs, GEN_RVAL);
         printf(".Lend%d:\n", label);
     }
 }
 
-void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
-    gen_expr(g, ast->node_lhs, gen_mode);
-    gen_expr(g, ast->node_rhs, gen_mode);
+void codegen_binary_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
+    codegen_expr(g, ast->node_lhs, gen_mode);
+    codegen_expr(g, ast->node_rhs, gen_mode);
     printf("  pop rdi\n");
     printf("  pop rax\n");
     if (ast->node_op == TK_PLUS) {
@@ -1712,21 +1719,21 @@ void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mo
     printf("  push rax\n");
 }
 
-void gen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
-    gen_expr(g, ast->node_lhs, GEN_LVAL);
-    gen_expr(g, ast->node_rhs, GEN_RVAL);
+void codegen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
+    codegen_expr(g, ast->node_lhs, GEN_LVAL);
+    codegen_expr(g, ast->node_rhs, GEN_RVAL);
     if (ast->node_op == TK_ASSIGN) {
     } else if (ast->node_op == TK_ASSIGN_ADD) {
         printf("  pop rdi\n");
         printf("  push [rsp]\n");
-        gen_lval2rval(ast->node_lhs->ty);
+        codegen_lval2rval(ast->node_lhs->ty);
         printf("  pop rax\n");
         printf("  add rax, rdi\n");
         printf("  push rax\n");
     } else if (ast->node_op == TK_ASSIGN_SUB) {
         printf("  pop rdi\n");
         printf("  push [rsp]\n");
-        gen_lval2rval(ast->node_lhs->ty);
+        codegen_lval2rval(ast->node_lhs->ty);
         printf("  pop rax\n");
         printf("  sub rax, rdi\n");
         printf("  push rax\n");
@@ -1745,19 +1752,19 @@ void gen_assign_expr(struct CodeGen* g, struct AstNode* ast) {
     printf("  push rdi\n");
 }
 
-void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
+void codegen_func_call(struct CodeGen* g, struct AstNode* ast) {
     char* func_name = ast->name;
     struct AstNode* args = ast->node_args;
     int i;
     for (i = 0; i < args->node_len; ++i) {
         struct AstNode* arg = args->node_items + i;
-        gen_expr(g, arg, GEN_RVAL);
+        codegen_expr(g, arg, GEN_RVAL);
     }
     for (i = args->node_len - 1; i >= 0; --i) {
         printf("  pop %s\n", param_reg(i));
     }
 
-    int label = gen_new_label(g);
+    int label = codegen_new_label(g);
 
     printf("  mov rax, rsp\n");
     printf("  and rax, 15\n");
@@ -1780,84 +1787,84 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
     printf(".Lend%d:\n", label);
 }
 
-void gen_lvar(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
+void codegen_lvar(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
     int offset = 8 + ast->node_idx * 8;
     printf("  mov rax, rbp\n");
     printf("  sub rax, %d\n", offset);
     printf("  push rax\n");
     if (gen_mode == GEN_RVAL) {
-        gen_lval2rval(ast->ty);
+        codegen_lval2rval(ast->ty);
     }
 }
 
-void gen_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
+void codegen_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
     if (ast->kind == AST_INT_EXPR) {
-        gen_int_expr(g, ast);
+        codegen_int_expr(g, ast);
     } else if (ast->kind == AST_STR_EXPR) {
-        gen_str_expr(g, ast);
+        codegen_str_expr(g, ast);
     } else if (ast->kind == AST_UNARY_EXPR) {
-        gen_unary_expr(g, ast);
+        codegen_unary_expr(g, ast);
     } else if (ast->kind == AST_REF_EXPR) {
-        gen_ref_expr(g, ast, gen_mode);
+        codegen_ref_expr(g, ast, gen_mode);
     } else if (ast->kind == AST_DEREF_EXPR) {
-        gen_deref_expr(g, ast, gen_mode);
+        codegen_deref_expr(g, ast, gen_mode);
     } else if (ast->kind == AST_BINARY_EXPR) {
-        gen_binary_expr(g, ast, gen_mode);
+        codegen_binary_expr(g, ast, gen_mode);
     } else if (ast->kind == AST_LOGICAL_EXPR) {
-        gen_logical_expr(g, ast);
+        codegen_logical_expr(g, ast);
     } else if (ast->kind == AST_ASSIGN_EXPR) {
-        gen_assign_expr(g, ast);
+        codegen_assign_expr(g, ast);
     } else if (ast->kind == AST_FUNC_CALL) {
-        gen_func_call(g, ast);
+        codegen_func_call(g, ast);
     } else if (ast->kind == AST_LVAR) {
-        gen_lvar(g, ast, gen_mode);
+        codegen_lvar(g, ast, gen_mode);
     } else {
         unreachable();
     }
 }
 
-void gen_return_stmt(struct CodeGen* g, struct AstNode* ast) {
+void codegen_return_stmt(struct CodeGen* g, struct AstNode* ast) {
     if (ast->node_expr) {
-        gen_expr(g, ast->node_expr, GEN_RVAL);
+        codegen_expr(g, ast->node_expr, GEN_RVAL);
         printf("  pop rax\n");
     }
-    gen_func_epilogue(g, ast);
+    codegen_func_epilogue(g, ast);
 }
 
-void gen_if_stmt(struct CodeGen* g, struct AstNode* ast) {
-    int label = gen_new_label(g);
+void codegen_if_stmt(struct CodeGen* g, struct AstNode* ast) {
+    int label = codegen_new_label(g);
 
-    gen_expr(g, ast->node_cond, GEN_RVAL);
+    codegen_expr(g, ast->node_cond, GEN_RVAL);
     printf("  pop rax\n");
     printf("  cmp rax, 0\n");
     printf("  je .Lelse%d\n", label);
-    gen_stmt(g, ast->node_then);
+    codegen_stmt(g, ast->node_then);
     printf("  jmp .Lend%d\n", label);
     printf(".Lelse%d:\n", label);
     if (ast->node_else) {
-        gen_stmt(g, ast->node_else);
+        codegen_stmt(g, ast->node_else);
     }
     printf(".Lend%d:\n", label);
 }
 
-void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
-    int label = gen_new_label(g);
+void codegen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
+    int label = codegen_new_label(g);
     ++g->loop_labels;
     *g->loop_labels = label;
 
     if (ast->node_init) {
-        gen_expr(g, ast->node_init, GEN_RVAL);
+        codegen_expr(g, ast->node_init, GEN_RVAL);
         printf("  pop rax\n");
     }
     printf(".Lbegin%d:\n", label);
-    gen_expr(g, ast->node_cond, GEN_RVAL);
+    codegen_expr(g, ast->node_cond, GEN_RVAL);
     printf("  pop rax\n");
     printf("  cmp rax, 0\n");
     printf("  je .Lend%d\n", label);
-    gen_stmt(g, ast->node_body);
+    codegen_stmt(g, ast->node_body);
     printf(".Lcontinue%d:\n", label);
     if (ast->node_update) {
-        gen_expr(g, ast->node_update, GEN_RVAL);
+        codegen_expr(g, ast->node_update, GEN_RVAL);
         printf("  pop rax\n");
     }
     printf("  jmp .Lbegin%d\n", label);
@@ -1866,65 +1873,67 @@ void gen_for_stmt(struct CodeGen* g, struct AstNode* ast) {
     --g->loop_labels;
 }
 
-void gen_break_stmt(struct CodeGen* g, struct AstNode* ast) {
+void codegen_break_stmt(struct CodeGen* g, struct AstNode* ast) {
     int label = *g->loop_labels;
     printf("  jmp .Lend%d\n", label);
 }
 
-void gen_continue_stmt(struct CodeGen* g, struct AstNode* ast) {
+void codegen_continue_stmt(struct CodeGen* g, struct AstNode* ast) {
     int label = *g->loop_labels;
     printf("  jmp .Lcontinue%d\n", label);
 }
 
-void gen_expr_stmt(struct CodeGen* g, struct AstNode* ast) {
-    gen_expr(g, ast->node_expr, GEN_RVAL);
+void codegen_expr_stmt(struct CodeGen* g, struct AstNode* ast) {
+    codegen_expr(g, ast->node_expr, GEN_RVAL);
     printf("  pop rax\n");
 }
 
-void gen_var_decl(struct CodeGen* g, struct AstNode* ast) {
+void codegen_var_decl(struct CodeGen* g, struct AstNode* ast) {
 }
 
-void gen_block_stmt(struct CodeGen* g, struct AstNode* ast) {
+void codegen_block_stmt(struct CodeGen* g, struct AstNode* ast) {
     int i;
     for (i = 0; i < ast->node_len; ++i) {
         struct AstNode* stmt = ast->node_items + i;
-        gen_stmt(g, stmt);
+        codegen_stmt(g, stmt);
     }
 }
 
-void gen_stmt(struct CodeGen* g, struct AstNode* ast) {
+void codegen_stmt(struct CodeGen* g, struct AstNode* ast) {
     if (ast->kind == AST_LIST) {
-        gen_block_stmt(g, ast);
+        codegen_block_stmt(g, ast);
     } else if (ast->kind == AST_RETURN_STMT) {
-        gen_return_stmt(g, ast);
+        codegen_return_stmt(g, ast);
     } else if (ast->kind == AST_IF_STMT) {
-        gen_if_stmt(g, ast);
+        codegen_if_stmt(g, ast);
     } else if (ast->kind == AST_FOR_STMT) {
-        gen_for_stmt(g, ast);
+        codegen_for_stmt(g, ast);
     } else if (ast->kind == AST_BREAK_STMT) {
-        gen_break_stmt(g, ast);
+        codegen_break_stmt(g, ast);
     } else if (ast->kind == AST_CONTINUE_STMT) {
-        gen_continue_stmt(g, ast);
+        codegen_continue_stmt(g, ast);
     } else if (ast->kind == AST_EXPR_STMT) {
-        gen_expr_stmt(g, ast);
+        codegen_expr_stmt(g, ast);
     } else if (ast->kind == AST_VAR_DECL) {
-        gen_var_decl(g, ast);
+        codegen_var_decl(g, ast);
     } else {
         unreachable();
     }
 }
 
-void gen_func(struct CodeGen* g, struct AstNode* ast) {
+void codegen_func(struct CodeGen* g, struct AstNode* ast) {
     printf("%s:\n", ast->name);
 
-    gen_func_prologue(g, ast);
-    gen_stmt(g, ast->node_body);
-    gen_func_epilogue(g, ast);
+    codegen_func_prologue(g, ast);
+    codegen_stmt(g, ast->node_body);
+    codegen_func_epilogue(g, ast);
 
     printf("\n");
 }
 
-void gen(struct CodeGen* g, struct Program* prog) {
+void codegen(struct Program* prog) {
+    struct CodeGen* g = codegen_new();
+
     printf(".intel_syntax noprefix\n\n");
 
     int i;
@@ -1937,20 +1946,15 @@ void gen(struct CodeGen* g, struct Program* prog) {
 
     for (i = 0; i < prog->funcs->node_len; ++i) {
         struct AstNode* func = prog->funcs->node_items + i;
-        gen_func(g, func);
+        codegen_func(g, func);
     }
 }
 
 int main() {
-    char* source = calloc(1024 * 1024, sizeof(char));
-    read_all(source);
+    char* source = read_all();
     struct Token* tokens = tokenize(source);
-
-    struct Parser* parser = parser_new(tokens);
-    struct Program* prog = parse(parser);
-
-    struct CodeGen* codegen = codegen_new();
-    gen(codegen, prog);
-
+    struct Program* prog = parse(tokens);
+    analyze(prog);
+    codegen(prog);
     return 0;
 }
