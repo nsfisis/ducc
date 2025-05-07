@@ -1,4 +1,4 @@
-int atoi(char*);
+int atoi(const char*);
 void* calloc(long, long);
 void exit(int);
 int getchar(void);
@@ -9,12 +9,12 @@ int isspace(int);
 void* memcpy(void*, void*, long);
 int printf();
 int sprintf();
-int strcmp(char*, char*);
-char* strstr(char*, char*);
+int strcmp(const char*, const char*);
+char* strstr(const char*, const char*);
 
 #define NULL 0
 
-void fatal_error(char* msg) {
+void fatal_error(const char* msg) {
     printf("%s\n", msg);
     exit(1);
 }
@@ -55,6 +55,7 @@ enum TokenKind {
     TK_IDENT,
     TK_K_BREAK,
     TK_K_CHAR,
+    TK_K_CONST,
     TK_K_CONTINUE,
     TK_K_ELSE,
     TK_K_ENUM,
@@ -240,6 +241,8 @@ struct Token* tokenize(char* src) {
                 tok->kind = TK_K_BREAK;
             } else if (ident_len == 4 && strstr(src + start, "char") == src + start) {
                 tok->kind = TK_K_CHAR;
+            } else if (ident_len == 5 && strstr(src + start, "const") == src + start) {
+                tok->kind = TK_K_CONST;
             } else if (ident_len == 8 && strstr(src + start, "continue") == src + start) {
                 tok->kind = TK_K_CONTINUE;
             } else if (ident_len == 4 && strstr(src + start, "else") == src + start) {
@@ -366,8 +369,8 @@ int type_is_unsized(struct Type* ty) {
 
 int type_sizeof_struct(struct Type* ty);
 int type_alignof_struct(struct Type* ty);
-int type_offsetof(struct Type* ty, char* name);
-struct Type* type_member_typeof(struct Type* ty, char* name);
+int type_offsetof(struct Type* ty, const char* name);
+struct Type* type_member_typeof(struct Type* ty, const char* name);
 
 int type_sizeof(struct Type* ty) {
     if (!type_is_unsized(ty)) {
@@ -628,7 +631,7 @@ int type_alignof_struct(struct Type* ty) {
     return struct_align;
 }
 
-int type_offsetof(struct Type* ty, char* name) {
+int type_offsetof(struct Type* ty, const char* name) {
     if (ty->kind != TY_STRUCT) {
         fatal_error("type_offsetof: type is not a struct");
     }
@@ -654,7 +657,7 @@ int type_offsetof(struct Type* ty, char* name) {
     fatal_error("type_offsetof: member not found");
 }
 
-struct Type* type_member_typeof(struct Type* ty, char* name) {
+struct Type* type_member_typeof(struct Type* ty, const char* name) {
     if (ty->kind != TY_STRUCT) {
         fatal_error("type_offsetof: type is not a struct");
     }
@@ -731,7 +734,7 @@ struct Token* expect(struct Parser* p, int expected) {
     fatal_error(buf);
 }
 
-int find_lvar(struct Parser* p, char* name) {
+int find_lvar(struct Parser* p, const char* name) {
     int i;
     for (i = 0; i < p->n_lvars; ++i) {
         if (strcmp(p->lvars[i].name, name) == 0) {
@@ -741,7 +744,7 @@ int find_lvar(struct Parser* p, char* name) {
     return -1;
 }
 
-int find_func(struct Parser* p, char* name) {
+int find_func(struct Parser* p, const char* name) {
     int i;
     for (i = 0; i < p->n_funcs; ++i) {
         if (strcmp(p->funcs[i].name, name) == 0) {
@@ -751,7 +754,7 @@ int find_func(struct Parser* p, char* name) {
     return -1;
 }
 
-int find_struct(struct Parser* p, char* name) {
+int find_struct(struct Parser* p, const char* name) {
     int i;
     for (i = 0; i < p->n_structs; ++i) {
         if (strcmp(p->structs[i].name, name) == 0) {
@@ -761,7 +764,7 @@ int find_struct(struct Parser* p, char* name) {
     return -1;
 }
 
-int find_enum(struct Parser* p, char* name) {
+int find_enum(struct Parser* p, const char* name) {
     int i;
     for (i = 0; i < p->n_enums; ++i) {
         if (strcmp(p->enums[i].name, name) == 0) {
@@ -771,7 +774,7 @@ int find_enum(struct Parser* p, char* name) {
     return -1;
 }
 
-int find_enum_member(struct Parser* p, char* name) {
+int find_enum_member(struct Parser* p, const char* name) {
     int i;
     int j;
     for (i = 0; i < p->n_enums; ++i) {
@@ -906,7 +909,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
 
 int is_type_token(enum TokenKind token_kind) {
     return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID ||
-           token_kind == TK_K_ENUM || token_kind == TK_K_STRUCT;
+           token_kind == TK_K_ENUM || token_kind == TK_K_STRUCT || token_kind == TK_K_CONST;
 }
 
 struct Type* parse_type(struct Parser* p) {
@@ -917,6 +920,9 @@ struct Type* parse_type(struct Parser* p) {
         buf = calloc(1024, sizeof(char));
         sprintf(buf, "parse_type: unknown type, %d", t->kind);
         fatal_error(buf);
+    }
+    if (t->kind == TK_K_CONST) {
+        t = next_token(p);
     }
     struct Type* ty = type_new(TY_UNKNOWN);
     if (t->kind == TK_K_INT) {
@@ -1558,7 +1564,7 @@ int gen_new_label(struct CodeGen* g) {
 void gen_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode);
 void gen_stmt(struct CodeGen* g, struct AstNode* ast);
 
-char* param_reg(int n) {
+const char* param_reg(int n) {
     if (n == 0) {
         return "rdi";
     } else if (n == 1) {

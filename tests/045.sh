@@ -3,7 +3,7 @@ set -e
 cat <<'EOF' > expected
 EOF
 bash ../../test_diff.sh <<'EOF'
-int atoi(char*);
+int atoi(const char*);
 void* calloc(long, long);
 void exit(int);
 int getchar(void);
@@ -12,8 +12,10 @@ int isalpha(int);
 int isdigit(int);
 int isspace(int);
 void* memcpy(void*, void*, long);
-int strcmp(char*, char*);
-char* strstr(char*, char*);
+int printf();
+int sprintf();
+int strcmp(const char*, const char*);
+char* strstr(const char*, const char*);
 
 int main() { return 0; }
 EOF
