@@ -5,15 +5,15 @@ all: build
 build N="1":
     #!/usr/bin/env bash
     if [[ {{N}} = 1 ]]; then
-        gcc -g -O0 -o p4dcc main.c {{CFLAGS}}
+        gcc -g -O0 -o ducc main.c {{CFLAGS}}
     else
         if [[ {{N}} = 2 ]]; then
             prev=""
         else
             prev=$(({{N}} - 1))
         fi
-        "./p4dcc${prev}" < main.c > main{{N}}.s
-        gcc -s -Wl,-z,noexecstack -o p4dcc{{N}} main{{N}}.s
+        "./ducc${prev}" < main.c > main{{N}}.s
+        gcc -s -Wl,-z,noexecstack -o ducc{{N}} main{{N}}.s
     fi
 
 build-upto-5-gen:
@@ -24,11 +24,11 @@ build-upto-5-gen:
     just build 5
 
 test-self-hosted: build-upto-5-gen
-    diff -u ./p4dcc2 ./p4dcc3
-    diff -u ./p4dcc3 ./p4dcc4
-    diff -u ./p4dcc4 ./p4dcc5
+    diff -u ./ducc2 ./ducc3
+    diff -u ./ducc3 ./ducc4
+    diff -u ./ducc4 ./ducc5
 
-test TESTCASE="all" $BIN="p4dcc": build
+test TESTCASE="all" $BIN="ducc": build
     #!/usr/bin/env bash
     if [[ {{TESTCASE}} = all ]]; then
         bash tests/all.sh
@@ -38,13 +38,13 @@ test TESTCASE="all" $BIN="p4dcc": build
 
 test-all:
     just test-self-hosted
-    just test all p4dcc
-    just test all p4dcc2
-    just test all p4dcc3
-    just test all p4dcc4
-    just test all p4dcc5
+    just test all ducc
+    just test all ducc2
+    just test all ducc3
+    just test all ducc4
+    just test all ducc5
 
 clean:
     rm -f main*.s
-    rm -f p4dcc*
+    rm -f ducc*
     rm -rf tests/tmp

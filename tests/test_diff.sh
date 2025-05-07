@@ -1,6 +1,6 @@
 cat > main.c
 
-"$p4dcc" < main.c > main.s
+"$ducc" < main.c > main.s
 if [[ $? -ne 0 ]]; then
     cat main.s >&2
     exit 1
