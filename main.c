@@ -34,57 +34,60 @@ void read_all(char* buf) {
     }
 }
 
-#define TK_EOF 0
+enum TokenKind {
+    TK_EOF,
 
-#define TK_AND 1
-#define TK_ANDAND 2
-#define TK_ARROW 3
-#define TK_ASSIGN 4
-#define TK_ASSIGN_ADD 5
-#define TK_ASSIGN_SUB 6
-#define TK_BRACE_L 7
-#define TK_BRACE_R 8
-#define TK_BRACKET_L 9
-#define TK_BRACKET_R 10
-#define TK_COMMA 11
-#define TK_DOT 12
-#define TK_EQ 13
-#define TK_GE 14
-#define TK_GT 15
-#define TK_IDENT 16
-#define TK_K_BREAK 17
-#define TK_K_CHAR 18
-#define TK_K_CONTINUE 19
-#define TK_K_ELSE 20
-#define TK_K_FOR 21
-#define TK_K_IF 22
-#define TK_K_INT 23
-#define TK_K_LONG 24
-#define TK_K_RETURN 25
-#define TK_K_SIZEOF 26
-#define TK_K_STRUCT 27
-#define TK_K_VOID 28
-#define TK_K_WHILE 29
-#define TK_LE 30
-#define TK_LT 31
-#define TK_L_INT 32
-#define TK_L_STR 33
-#define TK_MINUS 34
-#define TK_MINUSMINUS 35
-#define TK_NE 36
-#define TK_NOT 37
-#define TK_OROR 38
-#define TK_PAREN_L 39
-#define TK_PAREN_R 40
-#define TK_PERCENT 41
-#define TK_PLUS 42
-#define TK_PLUSPLUS 43
-#define TK_SEMICOLON 44
-#define TK_SLASH 45
-#define TK_STAR 46
+    TK_AND,
+    TK_ANDAND,
+    TK_ARROW,
+    TK_ASSIGN,
+    TK_ASSIGN_ADD,
+    TK_ASSIGN_SUB,
+    TK_BRACE_L,
+    TK_BRACE_R,
+    TK_BRACKET_L,
+    TK_BRACKET_R,
+    TK_COMMA,
+    TK_DOT,
+    TK_EQ,
+    TK_GE,
+    TK_GT,
+    TK_IDENT,
+    TK_K_BREAK,
+    TK_K_CHAR,
+    TK_K_CONTINUE,
+    TK_K_ELSE,
+    TK_K_ENUM,
+    TK_K_FOR,
+    TK_K_IF,
+    TK_K_INT,
+    TK_K_LONG,
+    TK_K_RETURN,
+    TK_K_SIZEOF,
+    TK_K_STRUCT,
+    TK_K_VOID,
+    TK_K_WHILE,
+    TK_LE,
+    TK_LT,
+    TK_L_INT,
+    TK_L_STR,
+    TK_MINUS,
+    TK_MINUSMINUS,
+    TK_NE,
+    TK_NOT,
+    TK_OROR,
+    TK_PAREN_L,
+    TK_PAREN_R,
+    TK_PERCENT,
+    TK_PLUS,
+    TK_PLUSPLUS,
+    TK_SEMICOLON,
+    TK_SLASH,
+    TK_STAR,
+};
 
 struct Token {
-    int kind;
+    enum TokenKind kind;
     char* value;
 };
 
@@ -241,6 +244,8 @@ struct Token* tokenize(char* src) {
                 tok->kind = TK_K_CONTINUE;
             } else if (ident_len == 4 && strstr(src + start, "else") == src + start) {
                 tok->kind = TK_K_ELSE;
+            } else if (ident_len == 4 && strstr(src + start, "enum") == src + start) {
+                tok->kind = TK_K_ENUM;
             } else if (ident_len == 3 && strstr(src + start, "for") == src + start) {
                 tok->kind = TK_K_FOR;
             } else if (ident_len == 2 && strstr(src + start, "if") == src + start) {
@@ -322,24 +327,27 @@ struct Token* tokenize(char* src) {
     return tokens;
 }
 
-#define TY_UNKNOWN 0
+enum TypeKind {
+    TY_UNKNOWN,
 
-#define TY_CHAR 1
-#define TY_INT 2
-#define TY_LONG 3
-#define TY_VOID 4
-#define TY_PTR 5
-#define TY_STRUCT 6
+    TY_CHAR,
+    TY_INT,
+    TY_LONG,
+    TY_VOID,
+    TY_PTR,
+    TY_ENUM,
+    TY_STRUCT,
+};
 
 struct AstNode;
 
 struct Type {
-    int kind;
+    enum TypeKind kind;
     struct Type* to;
-    struct AstNode* struct_def;
+    struct AstNode* def;
 };
 
-struct Type* type_new(int kind) {
+struct Type* type_new(enum TypeKind kind) {
     struct Type* ty = calloc(1, sizeof(struct Type));
     ty->kind = kind;
     return ty;
@@ -374,6 +382,8 @@ int type_sizeof(struct Type* ty) {
         return 4;
     } else if (ty->kind == TY_LONG) {
         return 8;
+    } else if (ty->kind == TY_ENUM) {
+        return 4;
     } else {
         return type_sizeof_struct(ty);
     }
@@ -392,38 +402,44 @@ int type_alignof(struct Type* ty) {
         return 4;
     } else if (ty->kind == TY_LONG) {
         return 8;
+    } else if (ty->kind == TY_ENUM) {
+        return 4;
     } else {
         return type_alignof_struct(ty);
     }
 }
 
-#define AST_UNKNOWN 0
+enum AstNodeKind {
+    AST_UNKNOWN,
 
-#define AST_ASSIGN_EXPR 1
-#define AST_BINARY_EXPR 2
-#define AST_BREAK_STMT 3
-#define AST_CONTINUE_STMT 4
-#define AST_DEREF_EXPR 5
-#define AST_EXPR_STMT 6
-#define AST_FOR_STMT 7
-#define AST_FUNC_CALL 8
-#define AST_FUNC_DECL 9
-#define AST_FUNC_DEF 10
-#define AST_IF_STMT 11
-#define AST_INT_EXPR 12
-#define AST_LIST 13
-#define AST_LOGICAL_EXPR 14
-#define AST_LVAR 15
-#define AST_PARAM 16
-#define AST_REF_EXPR 17
-#define AST_RETURN_STMT 18
-#define AST_STRUCT_DECL 19
-#define AST_STRUCT_DEF 20
-#define AST_STRUCT_MEMBER 21
-#define AST_STR_EXPR 22
-#define AST_TYPE 23
-#define AST_UNARY_EXPR 24
-#define AST_VAR_DECL 25
+    AST_ASSIGN_EXPR,
+    AST_BINARY_EXPR,
+    AST_BREAK_STMT,
+    AST_CONTINUE_STMT,
+    AST_DEREF_EXPR,
+    AST_ENUM_DEF,
+    AST_ENUM_MEMBER,
+    AST_EXPR_STMT,
+    AST_FOR_STMT,
+    AST_FUNC_CALL,
+    AST_FUNC_DECL,
+    AST_FUNC_DEF,
+    AST_IF_STMT,
+    AST_INT_EXPR,
+    AST_LIST,
+    AST_LOGICAL_EXPR,
+    AST_LVAR,
+    AST_PARAM,
+    AST_REF_EXPR,
+    AST_RETURN_STMT,
+    AST_STRUCT_DECL,
+    AST_STRUCT_DEF,
+    AST_STRUCT_MEMBER,
+    AST_STR_EXPR,
+    AST_TYPE,
+    AST_UNARY_EXPR,
+    AST_VAR_DECL,
+};
 
 #define node_items __n1
 #define node_len __i
@@ -445,7 +461,7 @@ int type_alignof(struct Type* ty) {
 #define node_op __i
 
 struct AstNode {
-    int kind;
+    enum AstNodeKind kind;
     char* name;
     struct Type* ty;
     struct AstNode* __n1;
@@ -460,7 +476,7 @@ struct Program {
     char** str_literals;
 };
 
-struct AstNode* ast_new(int kind) {
+struct AstNode* ast_new(enum AstNodeKind kind) {
     struct AstNode* ast = calloc(1, sizeof(struct AstNode));
     ast->kind = kind;
     return ast;
@@ -576,8 +592,8 @@ int type_sizeof_struct(struct Type* ty) {
     int padding;
 
     int i;
-    for (i = 0; i < ty->struct_def->node_members->node_len; ++i) {
-        struct AstNode* member = ty->struct_def->node_members->node_items + i;
+    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+        struct AstNode* member = ty->def->node_members->node_items + i;
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -601,8 +617,8 @@ int type_alignof_struct(struct Type* ty) {
     int struct_align = 0;
 
     int i;
-    for (i = 0; i < ty->struct_def->node_members->node_len; ++i) {
-        struct AstNode* member = ty->struct_def->node_members->node_items + i;
+    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+        struct AstNode* member = ty->def->node_members->node_items + i;
         int align = type_alignof(member->ty);
 
         if (struct_align < align) {
@@ -620,8 +636,8 @@ int type_offsetof(struct Type* ty, char* name) {
     int next_offset = 0;
 
     int i;
-    for (i = 0; i < ty->struct_def->node_members->node_len; ++i) {
-        struct AstNode* member = ty->struct_def->node_members->node_items + i;
+    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+        struct AstNode* member = ty->def->node_members->node_items + i;
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -644,8 +660,8 @@ struct Type* type_member_typeof(struct Type* ty, char* name) {
     }
 
     int i;
-    for (i = 0; i < ty->struct_def->node_members->node_len; ++i) {
-        struct AstNode* member = ty->struct_def->node_members->node_items + i;
+    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+        struct AstNode* member = ty->def->node_members->node_items + i;
         if (strcmp(member->name, name) == 0) {
             return member->ty;
         }
@@ -675,6 +691,8 @@ struct Parser {
     int n_funcs;
     struct AstNode* structs;
     int n_structs;
+    struct AstNode* enums;
+    int n_enums;
     char** str_literals;
     int n_str_literals;
 };
@@ -684,6 +702,7 @@ struct Parser* parser_new(struct Token* tokens) {
     p->tokens = tokens;
     p->funcs = calloc(128, sizeof(struct Func));
     p->structs = calloc(64, sizeof(struct AstNode));
+    p->enums = calloc(16, sizeof(struct AstNode));
     p->str_literals = calloc(1024, sizeof(char*));
     return p;
 }
@@ -742,6 +761,29 @@ int find_struct(struct Parser* p, char* name) {
     return -1;
 }
 
+int find_enum(struct Parser* p, char* name) {
+    int i;
+    for (i = 0; i < p->n_enums; ++i) {
+        if (strcmp(p->enums[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_enum_member(struct Parser* p, char* name) {
+    int i;
+    int j;
+    for (i = 0; i < p->n_enums; ++i) {
+        for (j = 0; j < p->enums[i].node_members->node_len; ++j) {
+            if (strcmp(p->enums[i].node_members->node_items[j].name, name) == 0) {
+                return i * 1000 + j;
+            }
+        }
+    }
+    return -1;
+}
+
 struct AstNode* parse_expr(struct Parser* p);
 struct AstNode* parse_stmt(struct Parser* p);
 
@@ -787,9 +829,18 @@ struct AstNode* parse_primary_expr(struct Parser* p) {
 
         int var_idx = find_lvar(p, name);
         if (var_idx == -1) {
-            buf = calloc(1024, sizeof(char));
-            sprintf(buf, "undefined variable: %s", name);
-            fatal_error(buf);
+            int enum_member_idx = find_enum_member(p, name);
+            if (enum_member_idx == -1) {
+                buf = calloc(1024, sizeof(char));
+                sprintf(buf, "undefined variable: %s", name);
+                fatal_error(buf);
+            }
+            int enum_idx = enum_member_idx / 1000;
+            int n = enum_member_idx % 1000;
+            e = ast_new_int(p->enums[enum_idx].node_members->node_items[n].node_int_value);
+            e->ty = type_new(TY_ENUM);
+            e->ty->def = p->enums + enum_idx;
+            return e;
         }
 
         e = ast_new(AST_LVAR);
@@ -826,7 +877,7 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
     struct AstNode* e;
     char* name;
     while (1) {
-        int tk = peek_token(p)->kind;
+        enum TokenKind tk = peek_token(p)->kind;
         if (tk == TK_PAREN_L) {
             next_token(p);
             struct AstNode* args = parse_arg_list(p);
@@ -853,14 +904,15 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
     return ret;
 }
 
-int is_type_token(int token_kind) {
+int is_type_token(enum TokenKind token_kind) {
     return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID ||
-           token_kind == TK_K_STRUCT;
+           token_kind == TK_K_ENUM || token_kind == TK_K_STRUCT;
 }
 
 struct Type* parse_type(struct Parser* p) {
     struct Token* t = next_token(p);
     char* buf;
+    char* name;
     if (!is_type_token(t->kind)) {
         buf = calloc(1024, sizeof(char));
         sprintf(buf, "parse_type: unknown type, %d", t->kind);
@@ -875,16 +927,26 @@ struct Type* parse_type(struct Parser* p) {
         ty->kind = TY_CHAR;
     } else if (t->kind == TK_K_VOID) {
         ty->kind = TY_VOID;
+    } else if (t->kind == TK_K_ENUM) {
+        ty->kind = TY_ENUM;
+        name = parse_ident(p);
+        int enum_idx = find_enum(p, name);
+        if (enum_idx == -1) {
+            buf = calloc(1024, sizeof(char));
+            sprintf(buf, "parse_type: unknown enum, %s", name);
+            fatal_error(buf);
+        }
+        ty->def = p->enums + enum_idx;
     } else if (t->kind == TK_K_STRUCT) {
         ty->kind = TY_STRUCT;
-        char* name = parse_ident(p);
+        name = parse_ident(p);
         int struct_idx = find_struct(p, name);
         if (struct_idx == -1) {
             buf = calloc(1024, sizeof(char));
             sprintf(buf, "parse_type: unknown struct, %s", name);
             fatal_error(buf);
         }
-        ty->struct_def = p->structs + struct_idx;
+        ty->def = p->structs + struct_idx;
     } else {
         unreachable();
     }
@@ -901,7 +963,7 @@ struct Type* parse_type(struct Parser* p) {
 
 struct AstNode* parse_prefix_expr(struct Parser* p) {
     struct AstNode* operand;
-    int op = peek_token(p)->kind;
+    enum TokenKind op = peek_token(p)->kind;
     if (op == TK_MINUS) {
         next_token(p);
         operand = parse_prefix_expr(p);
@@ -939,7 +1001,7 @@ struct AstNode* parse_prefix_expr(struct Parser* p) {
 struct AstNode* parse_multiplicative_expr(struct Parser* p) {
     struct AstNode* lhs = parse_prefix_expr(p);
     while (1) {
-        int op = peek_token(p)->kind;
+        enum TokenKind op = peek_token(p)->kind;
         if (op == TK_STAR || op == TK_SLASH || op == TK_PERCENT) {
             next_token(p);
             struct AstNode* rhs = parse_prefix_expr(p);
@@ -955,7 +1017,7 @@ struct AstNode* parse_additive_expr(struct Parser* p) {
     struct AstNode* lhs = parse_multiplicative_expr(p);
     struct AstNode* rhs;
     while (1) {
-        int op = peek_token(p)->kind;
+        enum TokenKind op = peek_token(p)->kind;
         if (op == TK_PLUS) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
@@ -988,7 +1050,7 @@ struct AstNode* parse_relational_expr(struct Parser* p) {
     struct AstNode* lhs = parse_additive_expr(p);
     struct AstNode* rhs;
     while (1) {
-        int op = peek_token(p)->kind;
+        enum TokenKind op = peek_token(p)->kind;
         if (op == TK_LT || op == TK_LE) {
             next_token(p);
             rhs = parse_additive_expr(p);
@@ -1011,7 +1073,7 @@ struct AstNode* parse_relational_expr(struct Parser* p) {
 struct AstNode* parse_equality_expr(struct Parser* p) {
     struct AstNode* lhs = parse_relational_expr(p);
     while (1) {
-        int op = peek_token(p)->kind;
+        enum TokenKind op = peek_token(p)->kind;
         if (op == TK_EQ || op == TK_NE) {
             next_token(p);
             struct AstNode* rhs = parse_relational_expr(p);
@@ -1026,7 +1088,7 @@ struct AstNode* parse_equality_expr(struct Parser* p) {
 struct AstNode* parse_logical_and_expr(struct Parser* p) {
     struct AstNode* lhs = parse_equality_expr(p);
     while (1) {
-        int op = peek_token(p)->kind;
+        enum TokenKind op = peek_token(p)->kind;
         if (op == TK_ANDAND) {
             next_token(p);
             struct AstNode* rhs = parse_equality_expr(p);
@@ -1046,7 +1108,7 @@ struct AstNode* parse_logical_and_expr(struct Parser* p) {
 struct AstNode* parse_logical_or_expr(struct Parser* p) {
     struct AstNode* lhs = parse_logical_and_expr(p);
     while (1) {
-        int op = peek_token(p)->kind;
+        enum TokenKind op = peek_token(p)->kind;
         if (op == TK_OROR) {
             next_token(p);
             struct AstNode* rhs = parse_logical_and_expr(p);
@@ -1067,7 +1129,7 @@ struct AstNode* parse_assignment_expr(struct Parser* p) {
     struct AstNode* lhs = parse_logical_or_expr(p);
     struct AstNode* rhs;
     while (1) {
-        int op = peek_token(p)->kind;
+        enum TokenKind op = peek_token(p)->kind;
         if (op == TK_ASSIGN) {
             next_token(p);
             rhs = parse_logical_or_expr(p);
@@ -1384,9 +1446,63 @@ struct AstNode* parse_struct_decl_or_def(struct Parser* p) {
     return p->structs + struct_idx;
 }
 
+struct AstNode* parse_enum_member(struct Parser* p) {
+    char* name = parse_ident(p);
+    struct AstNode* member = ast_new(AST_ENUM_MEMBER);
+    member->name = name;
+    return member;
+}
+
+struct AstNode* parse_enum_members(struct Parser* p) {
+    int next_value = 0;
+    struct AstNode* list = ast_new_list(256);
+    while (peek_token(p)->kind != TK_BRACE_R) {
+        struct AstNode* member = parse_enum_member(p);
+        member->node_int_value = next_value;
+        ++next_value;
+        ast_append(list, member);
+        if (peek_token(p)->kind != TK_COMMA) {
+            break;
+        }
+        next_token(p);
+    }
+    return list;
+}
+
+struct AstNode* parse_enum_def(struct Parser* p) {
+    expect(p, TK_K_ENUM);
+    char* name = parse_ident(p);
+
+    if (peek_token(p)->kind != TK_BRACE_L) {
+        p->pos = p->pos - 2;
+        return parse_func_decl_or_def(p);
+    }
+
+    int enum_idx = find_enum(p, name);
+    if (enum_idx == -1) {
+        enum_idx = p->n_enums;
+        p->enums[enum_idx].kind = AST_ENUM_DEF;
+        p->enums[enum_idx].name = name;
+        ++p->n_enums;
+    } else {
+        char* buf = calloc(1024, sizeof(char));
+        sprintf(buf, "parse_enum_def: enum %s redefined", name);
+        fatal_error(buf);
+    }
+    expect(p, TK_BRACE_L);
+    struct AstNode* members = parse_enum_members(p);
+    expect(p, TK_BRACE_R);
+    expect(p, TK_SEMICOLON);
+    p->enums[enum_idx].node_members = members;
+    return p->enums + enum_idx;
+}
+
 struct AstNode* parse_toplevel(struct Parser* p) {
-    if (peek_token(p)->kind == TK_K_STRUCT) {
+    enum TokenKind tk = peek_token(p)->kind;
+    if (tk == TK_K_STRUCT) {
         return parse_struct_decl_or_def(p);
+    } else if (tk == TK_K_ENUM) {
+        return parse_enum_def(p);
     } else {
         return parse_func_decl_or_def(p);
     }
@@ -1407,8 +1523,10 @@ struct Program* parse(struct Parser* p) {
     return prog;
 }
 
-#define GEN_LVAL 0
-#define GEN_RVAL 1
+enum GenMode {
+    GEN_LVAL,
+    GEN_RVAL,
+};
 
 struct CodeGen {
     int next_label;
@@ -1428,7 +1546,7 @@ int gen_new_label(struct CodeGen* g) {
     return new_label;
 }
 
-void gen_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode);
+void gen_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode);
 void gen_stmt(struct CodeGen* g, struct AstNode* ast);
 
 char* param_reg(int n) {
@@ -1488,7 +1606,7 @@ void gen_unary_expr(struct CodeGen* g, struct AstNode* ast) {
     }
 }
 
-void gen_ref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
+void gen_ref_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
     gen_expr(g, ast->node_operand, GEN_LVAL);
 }
 
@@ -1506,7 +1624,7 @@ void gen_lval2rval(struct Type* ty) {
     printf("  push rax\n");
 }
 
-void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
+void gen_deref_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
     gen_expr(g, ast->node_operand, GEN_RVAL);
     if (gen_mode == GEN_RVAL) {
         gen_lval2rval(ast->node_operand->ty->to);
@@ -1539,7 +1657,7 @@ void gen_logical_expr(struct CodeGen* g, struct AstNode* ast) {
     }
 }
 
-void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
+void gen_binary_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
     gen_expr(g, ast->node_lhs, gen_mode);
     gen_expr(g, ast->node_rhs, gen_mode);
     printf("  pop rdi\n");
@@ -1647,7 +1765,7 @@ void gen_func_call(struct CodeGen* g, struct AstNode* ast) {
     printf(".Lend%d:\n", label);
 }
 
-void gen_lvar(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
+void gen_lvar(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
     int offset = 8 + ast->node_idx * 8;
     printf("  mov rax, rbp\n");
     printf("  sub rax, %d\n", offset);
@@ -1657,7 +1775,7 @@ void gen_lvar(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
     }
 }
 
-void gen_expr(struct CodeGen* g, struct AstNode* ast, int gen_mode) {
+void gen_expr(struct CodeGen* g, struct AstNode* ast, enum GenMode gen_mode) {
     if (ast->kind == AST_INT_EXPR) {
         gen_int_expr(g, ast);
     } else if (ast->kind == AST_STR_EXPR) {
