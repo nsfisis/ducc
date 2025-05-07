@@ -1,16 +1,16 @@
-int atoi();
-void* calloc();
-void exit();
-int getchar();
-int isalnum();
-int isalpha();
-int isdigit();
-int isspace();
-void* memcpy();
+int atoi(char*);
+void* calloc(long, long);
+void exit(int);
+int getchar(void);
+int isalnum(int);
+int isalpha(int);
+int isdigit(int);
+int isspace(int);
+void* memcpy(void*, void*, long);
 int printf();
 int sprintf();
-int strcmp();
-char* strstr();
+int strcmp(char*, char*);
+char* strstr(char*, char*);
 
 #define NULL 0
 
@@ -1345,10 +1345,11 @@ void register_func(struct Parser* p, char* name, struct Type* ty) {
 
 struct AstNode* parse_param(struct Parser* p) {
     struct Type* ty = parse_type(p);
-    if (!type_is_unsized(ty)) {
-        fatal_error("parse_param: invalid type for variable");
+    char* name = NULL;
+    enum TokenKind tk = peek_token(p)->kind;
+    if (tk != TK_COMMA && tk != TK_PAREN_R) {
+        name = parse_ident(p);
     }
-    char* name = parse_ident(p);
     struct AstNode* param = ast_new(AST_PARAM);
     param->ty = ty;
     param->name = name;
@@ -1356,9 +1357,11 @@ struct AstNode* parse_param(struct Parser* p) {
 }
 
 struct AstNode* parse_param_list(struct Parser* p) {
+    int has_void = 0;
     struct AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TK_PAREN_R) {
         struct AstNode* param = parse_param(p);
+        has_void = has_void || param->ty->kind == TY_VOID;
         ast_append(list, param);
         if (peek_token(p)->kind == TK_COMMA) {
             next_token(p);
@@ -1368,6 +1371,12 @@ struct AstNode* parse_param_list(struct Parser* p) {
     }
     if (list->node_len > 6) {
         fatal_error("too many parameters");
+    }
+    if (has_void) {
+        if (list->node_len != 1) {
+            fatal_error("invalid use of void param");
+        }
+        list->node_len = 0;
     }
     return list;
 }
