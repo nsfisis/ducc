@@ -34,54 +34,54 @@ void read_all(char* buf) {
     }
 }
 
-#define TK_EOF        0
+#define TK_EOF 0
 
-#define TK_AND        1
-#define TK_ANDAND     2
-#define TK_ARROW      3
-#define TK_ASSIGN     4
+#define TK_AND 1
+#define TK_ANDAND 2
+#define TK_ARROW 3
+#define TK_ASSIGN 4
 #define TK_ASSIGN_ADD 5
 #define TK_ASSIGN_SUB 6
-#define TK_BRACE_L    7
-#define TK_BRACE_R    8
-#define TK_BRACKET_L  9
-#define TK_BRACKET_R  10
-#define TK_COMMA      11
-#define TK_DOT        12
-#define TK_EQ         13
-#define TK_GE         14
-#define TK_GT         15
-#define TK_IDENT      16
-#define TK_K_BREAK    17
-#define TK_K_CHAR     18
+#define TK_BRACE_L 7
+#define TK_BRACE_R 8
+#define TK_BRACKET_L 9
+#define TK_BRACKET_R 10
+#define TK_COMMA 11
+#define TK_DOT 12
+#define TK_EQ 13
+#define TK_GE 14
+#define TK_GT 15
+#define TK_IDENT 16
+#define TK_K_BREAK 17
+#define TK_K_CHAR 18
 #define TK_K_CONTINUE 19
-#define TK_K_ELSE     20
-#define TK_K_FOR      21
-#define TK_K_IF       22
-#define TK_K_INT      23
-#define TK_K_LONG     24
-#define TK_K_RETURN   25
-#define TK_K_SIZEOF   26
-#define TK_K_STRUCT   27
-#define TK_K_VOID     28
-#define TK_K_WHILE    29
-#define TK_LE         30
-#define TK_LT         31
-#define TK_L_INT      32
-#define TK_L_STR      33
-#define TK_MINUS      34
+#define TK_K_ELSE 20
+#define TK_K_FOR 21
+#define TK_K_IF 22
+#define TK_K_INT 23
+#define TK_K_LONG 24
+#define TK_K_RETURN 25
+#define TK_K_SIZEOF 26
+#define TK_K_STRUCT 27
+#define TK_K_VOID 28
+#define TK_K_WHILE 29
+#define TK_LE 30
+#define TK_LT 31
+#define TK_L_INT 32
+#define TK_L_STR 33
+#define TK_MINUS 34
 #define TK_MINUSMINUS 35
-#define TK_NE         36
-#define TK_NOT        37
-#define TK_OROR       38
-#define TK_PAREN_L    39
-#define TK_PAREN_R    40
-#define TK_PERCENT    41
-#define TK_PLUS       42
-#define TK_PLUSPLUS   43
-#define TK_SEMICOLON  44
-#define TK_SLASH      45
-#define TK_STAR       46
+#define TK_NE 36
+#define TK_NOT 37
+#define TK_OROR 38
+#define TK_PAREN_L 39
+#define TK_PAREN_R 40
+#define TK_PERCENT 41
+#define TK_PLUS 42
+#define TK_PLUSPLUS 43
+#define TK_SEMICOLON 44
+#define TK_SLASH 45
+#define TK_STAR 46
 
 struct Token {
     int kind;
@@ -94,7 +94,7 @@ struct Define {
 };
 
 struct Token* tokenize(char* src) {
-    struct Token* tokens = calloc(1024*1024, sizeof(struct Token));
+    struct Token* tokens = calloc(1024 * 1024, sizeof(struct Token));
     struct Token* tok = tokens;
     struct Define* defines = calloc(1024, sizeof(struct Define));
     struct Define* def = defines;
@@ -324,12 +324,12 @@ struct Token* tokenize(char* src) {
 
 #define TY_UNKNOWN 0
 
-#define TY_CHAR    1
-#define TY_INT     2
-#define TY_LONG    3
-#define TY_VOID    4
-#define TY_PTR     5
-#define TY_STRUCT  6
+#define TY_CHAR 1
+#define TY_INT 2
+#define TY_LONG 3
+#define TY_VOID 4
+#define TY_PTR 5
+#define TY_STRUCT 6
 
 struct AstNode;
 
@@ -397,52 +397,52 @@ int type_alignof(struct Type* ty) {
     }
 }
 
-#define AST_UNKNOWN            0
+#define AST_UNKNOWN 0
 
-#define AST_ASSIGN_EXPR   1
-#define AST_BINARY_EXPR   2
-#define AST_BREAK_STMT    3
+#define AST_ASSIGN_EXPR 1
+#define AST_BINARY_EXPR 2
+#define AST_BREAK_STMT 3
 #define AST_CONTINUE_STMT 4
-#define AST_DEREF_EXPR    5
-#define AST_EXPR_STMT     6
-#define AST_FOR_STMT      7
-#define AST_FUNC_CALL     8
-#define AST_FUNC_DECL     9
-#define AST_FUNC_DEF      10
-#define AST_IF_STMT       11
-#define AST_INT_EXPR      12
-#define AST_LIST          13
-#define AST_LOGICAL_EXPR  14
-#define AST_LVAR          15
-#define AST_PARAM         16
-#define AST_REF_EXPR      17
-#define AST_RETURN_STMT   18
-#define AST_STRUCT_DECL   19
-#define AST_STRUCT_DEF    20
+#define AST_DEREF_EXPR 5
+#define AST_EXPR_STMT 6
+#define AST_FOR_STMT 7
+#define AST_FUNC_CALL 8
+#define AST_FUNC_DECL 9
+#define AST_FUNC_DEF 10
+#define AST_IF_STMT 11
+#define AST_INT_EXPR 12
+#define AST_LIST 13
+#define AST_LOGICAL_EXPR 14
+#define AST_LVAR 15
+#define AST_PARAM 16
+#define AST_REF_EXPR 17
+#define AST_RETURN_STMT 18
+#define AST_STRUCT_DECL 19
+#define AST_STRUCT_DEF 20
 #define AST_STRUCT_MEMBER 21
-#define AST_STR_EXPR      22
-#define AST_TYPE          23
-#define AST_UNARY_EXPR    24
-#define AST_VAR_DECL      25
+#define AST_STR_EXPR 22
+#define AST_TYPE 23
+#define AST_UNARY_EXPR 24
+#define AST_VAR_DECL 25
 
-#define node_items     __n1
-#define node_len       __i
-#define node_expr      __n1
-#define node_lhs       __n1
-#define node_rhs       __n2
-#define node_operand   __n1
-#define node_cond      __n1
-#define node_init      __n2
-#define node_update    __n3
-#define node_then      __n2
-#define node_else      __n3
-#define node_body      __n4
-#define node_members   __n1
-#define node_params    __n1
-#define node_args      __n1
+#define node_items __n1
+#define node_len __i
+#define node_expr __n1
+#define node_lhs __n1
+#define node_rhs __n2
+#define node_operand __n1
+#define node_cond __n1
+#define node_init __n2
+#define node_update __n3
+#define node_then __n2
+#define node_else __n3
+#define node_body __n4
+#define node_members __n1
+#define node_params __n1
+#define node_args __n1
 #define node_int_value __i
-#define node_idx       __i
-#define node_op        __i
+#define node_idx __i
+#define node_op __i
 
 struct AstNode {
     int kind;
@@ -854,7 +854,8 @@ struct AstNode* parse_postfix_expr(struct Parser* p) {
 }
 
 int is_type_token(int token_kind) {
-    return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID || token_kind == TK_K_STRUCT;
+    return token_kind == TK_K_INT || token_kind == TK_K_LONG || token_kind == TK_K_CHAR || token_kind == TK_K_VOID ||
+           token_kind == TK_K_STRUCT;
 }
 
 struct Type* parse_type(struct Parser* p) {
@@ -959,9 +960,11 @@ struct AstNode* parse_additive_expr(struct Parser* p) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
             if (lhs->ty->kind == TY_PTR) {
-                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
+                lhs = ast_new_binary_expr(op, lhs,
+                                          ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
             } else if (rhs->ty->kind == TY_PTR) {
-                lhs = ast_new_binary_expr(op, ast_new_binary_expr(TK_STAR, lhs, ast_new_int(type_sizeof(rhs->ty->to))), rhs);
+                lhs = ast_new_binary_expr(op, ast_new_binary_expr(TK_STAR, lhs, ast_new_int(type_sizeof(rhs->ty->to))),
+                                          rhs);
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
             }
@@ -969,7 +972,8 @@ struct AstNode* parse_additive_expr(struct Parser* p) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
             if (lhs->ty->kind == TY_PTR) {
-                lhs = ast_new_binary_expr(op, lhs, ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
+                lhs = ast_new_binary_expr(op, lhs,
+                                          ast_new_binary_expr(TK_STAR, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
             }
@@ -1059,7 +1063,7 @@ struct AstNode* parse_logical_or_expr(struct Parser* p) {
     return lhs;
 }
 
-struct AstNode* parse_assignment_expr(struct Parser *p) {
+struct AstNode* parse_assignment_expr(struct Parser* p) {
     struct AstNode* lhs = parse_logical_or_expr(p);
     struct AstNode* rhs;
     while (1) {
@@ -1805,7 +1809,7 @@ void gen(struct CodeGen* g, struct Program* prog) {
 }
 
 int main() {
-    char* source = calloc(1024*1024, sizeof(char));
+    char* source = calloc(1024 * 1024, sizeof(char));
     read_all(source);
     struct Token* tokens = tokenize(source);
 
