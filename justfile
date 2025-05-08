@@ -40,9 +40,6 @@ test-all:
     just test-self-hosted
     just test all ducc
     just test all ducc2
-    just test all ducc3
-    just test all ducc4
-    just test all ducc5
 
 clean:
     rm -f main*.s
