@@ -12,6 +12,8 @@ void* memcpy(void*, void*, size_t);
 int printf(const char*, ...);
 int sprintf(char*, const char*, ...);
 int strcmp(const char*, const char*);
+int strncmp(const char*, const char*, size_t);
+size_t strlen(const char*);
 char* strstr(const char*, const char*);
 
 #define NULL 0
@@ -37,6 +39,16 @@ char* read_all() {
         ++cur;
     }
     return buf;
+}
+
+struct String {
+    char* data;
+    size_t len;
+};
+typedef struct String String;
+
+int string_equals_cstr(String* s1, char* s2) {
+    return strlen(s2) == s1->len && strncmp(s1->data, s2, s1->len) == 0;
 }
 
 enum TokenKind {
@@ -101,23 +113,47 @@ struct Token {
 };
 typedef struct Token Token;
 
-struct Define {
-    char* from;
-    Token* to;
+struct PpDefine {
+    String name;
+    Token* tokens;
 };
-typedef struct Define Define;
+typedef struct PpDefine PpDefine;
 
-Token* tokenize(char* src) {
-    Token* tokens = calloc(1024 * 1024, sizeof(Token));
-    Token* tok = tokens;
-    Define* defines = calloc(1024, sizeof(Define));
-    Define* def = defines;
-    int pos = 0;
+struct Lexer {
+    char* src;
+    int pos;
+    Token* tokens;
+    int n_tokens;
+    PpDefine* pp_defines;
+    int n_pp_defines;
+};
+typedef struct Lexer Lexer;
+
+Lexer* lexer_new(char* src) {
+    Lexer* l = calloc(1, sizeof(Lexer));
+    l->src = src;
+    l->tokens = calloc(1024 * 1024, sizeof(Token));
+    l->pp_defines = calloc(1024, sizeof(PpDefine));
+    return l;
+}
+
+int find_pp_define(Lexer* l, char* name) {
+    int i;
+    for (i = 0; i < l->n_pp_defines; ++i) {
+        if (string_equals_cstr(&l->pp_defines[i].name, name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void tokenize_all(Lexer* l) {
     int ch;
     int start;
-    while (src[pos]) {
-        char c = src[pos];
-        ++pos;
+    while (l->src[l->pos]) {
+        Token* tok = l->tokens + l->n_tokens;
+        char c = l->src[l->pos];
+        ++l->pos;
         if (c == '(') {
             tok->kind = TokenKind_paren_l;
         } else if (c == ')') {
@@ -135,34 +171,34 @@ Token* tokenize(char* src) {
         } else if (c == ';') {
             tok->kind = TokenKind_semicolon;
         } else if (c == '+') {
-            if (src[pos] == '=') {
-                ++pos;
+            if (l->src[l->pos] == '=') {
+                ++l->pos;
                 tok->kind = TokenKind_assign_add;
-            } else if (src[pos] == '+') {
-                ++pos;
+            } else if (l->src[l->pos] == '+') {
+                ++l->pos;
                 tok->kind = TokenKind_plusplus;
             } else {
                 tok->kind = TokenKind_plus;
             }
         } else if (c == '|') {
-            ++pos;
+            ++l->pos;
             tok->kind = TokenKind_oror;
         } else if (c == '&') {
-            if (src[pos] == '&') {
-                ++pos;
+            if (l->src[l->pos] == '&') {
+                ++l->pos;
                 tok->kind = TokenKind_andand;
             } else {
                 tok->kind = TokenKind_and;
             }
         } else if (c == '-') {
-            if (src[pos] == '>') {
-                ++pos;
+            if (l->src[l->pos] == '>') {
+                ++l->pos;
                 tok->kind = TokenKind_arrow;
-            } else if (src[pos] == '=') {
-                ++pos;
+            } else if (l->src[l->pos] == '=') {
+                ++l->pos;
                 tok->kind = TokenKind_assign_sub;
-            } else if (src[pos] == '-') {
-                ++pos;
+            } else if (l->src[l->pos] == '-') {
+                ++l->pos;
                 tok->kind = TokenKind_minusminus;
             } else {
                 tok->kind = TokenKind_minus;
@@ -174,10 +210,10 @@ Token* tokenize(char* src) {
         } else if (c == '%') {
             tok->kind = TokenKind_percent;
         } else if (c == '.') {
-            if (src[pos] == '.') {
-                ++pos;
-                if (src[pos] == '.') {
-                    ++pos;
+            if (l->src[l->pos] == '.') {
+                ++l->pos;
+                if (l->src[l->pos] == '.') {
+                    ++l->pos;
                     tok->kind = TokenKind_ellipsis;
                 } else {
                     fatal_error("unknown token: ..");
@@ -186,170 +222,171 @@ Token* tokenize(char* src) {
                 tok->kind = TokenKind_dot;
             }
         } else if (c == '!') {
-            if (src[pos] == '=') {
-                ++pos;
+            if (l->src[l->pos] == '=') {
+                ++l->pos;
                 tok->kind = TokenKind_ne;
             } else {
                 tok->kind = TokenKind_not;
             }
         } else if (c == '=') {
-            if (src[pos] == '=') {
-                ++pos;
+            if (l->src[l->pos] == '=') {
+                ++l->pos;
                 tok->kind = TokenKind_eq;
             } else {
                 tok->kind = TokenKind_assign;
             }
         } else if (c == '<') {
-            if (src[pos] == '=') {
-                ++pos;
+            if (l->src[l->pos] == '=') {
+                ++l->pos;
                 tok->kind = TokenKind_le;
             } else {
                 tok->kind = TokenKind_lt;
             }
         } else if (c == '>') {
-            if (src[pos] == '=') {
-                ++pos;
+            if (l->src[l->pos] == '=') {
+                ++l->pos;
                 tok->kind = TokenKind_ge;
             } else {
                 tok->kind = TokenKind_gt;
             }
         } else if (c == '\'') {
-            ch = src[pos];
+            ch = l->src[l->pos];
             if (ch == '\\') {
-                ++pos;
-                ch = src[pos];
+                ++l->pos;
+                ch = l->src[l->pos];
                 if (ch == 'n') {
                     ch = '\n';
                 }
             }
-            pos += 2;
+            l->pos += 2;
             tok->kind = TokenKind_literal_int;
             tok->value = calloc(4, sizeof(char));
             sprintf(tok->value, "%d", ch);
         } else if (c == '"') {
-            start = pos;
+            start = l->pos;
             while (1) {
-                ch = src[pos];
+                ch = l->src[l->pos];
                 if (ch == '\\') {
-                    ++pos;
+                    ++l->pos;
                 } else if (ch == '"') {
                     break;
                 }
-                ++pos;
+                ++l->pos;
             }
             tok->kind = TokenKind_literal_str;
-            tok->value = calloc(pos - start + 1, sizeof(char));
-            memcpy(tok->value, src + start, pos - start);
-            ++pos;
+            tok->value = calloc(l->pos - start + 1, sizeof(char));
+            memcpy(tok->value, l->src + start, l->pos - start);
+            ++l->pos;
         } else if (isdigit(c)) {
-            --pos;
-            start = pos;
-            while (isdigit(src[pos])) {
-                ++pos;
+            --l->pos;
+            start = l->pos;
+            while (isdigit(l->src[l->pos])) {
+                ++l->pos;
             }
             tok->kind = TokenKind_literal_int;
-            tok->value = calloc(pos - start + 1, sizeof(char));
-            memcpy(tok->value, src + start, pos - start);
+            tok->value = calloc(l->pos - start + 1, sizeof(char));
+            memcpy(tok->value, l->src + start, l->pos - start);
         } else if (isalpha(c) || c == '_') {
-            --pos;
-            start = pos;
-            while (isalnum(src[pos]) || src[pos] == '_') {
-                ++pos;
+            --l->pos;
+            start = l->pos;
+            while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
+                ++l->pos;
             }
-            int ident_len = pos - start;
-            if (ident_len == 5 && strstr(src + start, "break") == src + start) {
+            int ident_len = l->pos - start;
+            if (ident_len == 5 && strstr(l->src + start, "break") == l->src + start) {
                 tok->kind = TokenKind_keyword_break;
-            } else if (ident_len == 4 && strstr(src + start, "char") == src + start) {
+            } else if (ident_len == 4 && strstr(l->src + start, "char") == l->src + start) {
                 tok->kind = TokenKind_keyword_char;
-            } else if (ident_len == 5 && strstr(src + start, "const") == src + start) {
+            } else if (ident_len == 5 && strstr(l->src + start, "const") == l->src + start) {
                 tok->kind = TokenKind_keyword_const;
-            } else if (ident_len == 8 && strstr(src + start, "continue") == src + start) {
+            } else if (ident_len == 8 && strstr(l->src + start, "continue") == l->src + start) {
                 tok->kind = TokenKind_keyword_continue;
-            } else if (ident_len == 4 && strstr(src + start, "else") == src + start) {
+            } else if (ident_len == 4 && strstr(l->src + start, "else") == l->src + start) {
                 tok->kind = TokenKind_keyword_else;
-            } else if (ident_len == 4 && strstr(src + start, "enum") == src + start) {
+            } else if (ident_len == 4 && strstr(l->src + start, "enum") == l->src + start) {
                 tok->kind = TokenKind_keyword_enum;
-            } else if (ident_len == 3 && strstr(src + start, "for") == src + start) {
+            } else if (ident_len == 3 && strstr(l->src + start, "for") == l->src + start) {
                 tok->kind = TokenKind_keyword_for;
-            } else if (ident_len == 2 && strstr(src + start, "if") == src + start) {
+            } else if (ident_len == 2 && strstr(l->src + start, "if") == l->src + start) {
                 tok->kind = TokenKind_keyword_if;
-            } else if (ident_len == 3 && strstr(src + start, "int") == src + start) {
+            } else if (ident_len == 3 && strstr(l->src + start, "int") == l->src + start) {
                 tok->kind = TokenKind_keyword_int;
-            } else if (ident_len == 4 && strstr(src + start, "long") == src + start) {
+            } else if (ident_len == 4 && strstr(l->src + start, "long") == l->src + start) {
                 tok->kind = TokenKind_keyword_long;
-            } else if (ident_len == 6 && strstr(src + start, "return") == src + start) {
+            } else if (ident_len == 6 && strstr(l->src + start, "return") == l->src + start) {
                 tok->kind = TokenKind_keyword_return;
-            } else if (ident_len == 6 && strstr(src + start, "sizeof") == src + start) {
+            } else if (ident_len == 6 && strstr(l->src + start, "sizeof") == l->src + start) {
                 tok->kind = TokenKind_keyword_sizeof;
-            } else if (ident_len == 6 && strstr(src + start, "struct") == src + start) {
+            } else if (ident_len == 6 && strstr(l->src + start, "struct") == l->src + start) {
                 tok->kind = TokenKind_keyword_struct;
-            } else if (ident_len == 7 && strstr(src + start, "typedef") == src + start) {
+            } else if (ident_len == 7 && strstr(l->src + start, "typedef") == l->src + start) {
                 tok->kind = TokenKind_keyword_typeof;
-            } else if (ident_len == 4 && strstr(src + start, "void") == src + start) {
+            } else if (ident_len == 4 && strstr(l->src + start, "void") == l->src + start) {
                 tok->kind = TokenKind_keyword_void;
-            } else if (ident_len == 5 && strstr(src + start, "while") == src + start) {
+            } else if (ident_len == 5 && strstr(l->src + start, "while") == l->src + start) {
                 tok->kind = TokenKind_keyword_while;
             } else {
                 tok->value = calloc(ident_len + 1, sizeof(char));
-                memcpy(tok->value, src + start, ident_len);
-                int i = 0;
-                while (defines + i != def) {
-                    if (strcmp(tok->value, defines[i].from) == 0) {
-                        tok->kind = defines[i].to->kind;
-                        tok->value = defines[i].to->value;
-                        break;
-                    }
-                    ++i;
-                }
-                if (defines + i == def) {
+                memcpy(tok->value, l->src + start, ident_len);
+                int pp_define_idx = find_pp_define(l, tok->value);
+                if (pp_define_idx == -1) {
                     tok->kind = TokenKind_ident;
+                } else {
+                    tok->kind = l->pp_defines[pp_define_idx].tokens->kind;
+                    tok->value = l->pp_defines[pp_define_idx].tokens->value;
                 }
             }
         } else if (isspace(c)) {
             continue;
         } else if (c == '#') {
-            pos += 6;
-            while (isspace(src[pos])) {
-                ++pos;
+            l->pos += 6;
+            while (isspace(l->src[l->pos])) {
+                ++l->pos;
             }
-            start = pos;
-            while (isalnum(src[pos]) || src[pos] == '_') {
-                ++pos;
+            start = l->pos;
+            while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
+                ++l->pos;
             }
-            def->from = calloc(pos - start + 1, sizeof(char));
-            memcpy(def->from, src + start, pos - start);
-            while (isspace(src[pos])) {
-                ++pos;
+            PpDefine* def = l->pp_defines + l->n_pp_defines;
+            ++l->n_pp_defines;
+            def->name.data = l->src + start;
+            def->name.len = l->pos - start;
+            while (isspace(l->src[l->pos])) {
+                ++l->pos;
             }
-            int start2 = pos;
-            int is_digit = isdigit(src[pos]);
+            int start2 = l->pos;
+            int is_digit = isdigit(l->src[l->pos]);
             if (is_digit) {
-                while (isdigit(src[pos])) {
-                    ++pos;
+                while (isdigit(l->src[l->pos])) {
+                    ++l->pos;
                 }
             } else {
-                while (isalnum(src[pos]) || src[pos] == '_') {
-                    ++pos;
+                while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
+                    ++l->pos;
                 }
             }
-            def->to = calloc(1, sizeof(Token));
+            def->tokens = calloc(1, sizeof(Token));
             if (is_digit) {
-                def->to->kind = TokenKind_literal_int;
+                def->tokens->kind = TokenKind_literal_int;
             } else {
-                def->to->kind = TokenKind_ident;
+                def->tokens->kind = TokenKind_ident;
             }
-            def->to->value = calloc(pos - start2 + 1, sizeof(char));
-            memcpy(def->to->value, src + start2, pos - start2);
-            ++def;
+            def->tokens->value = calloc(l->pos - start2 + 1, sizeof(char));
+            memcpy(def->tokens->value, l->src + start2, l->pos - start2);
             continue;
         } else {
             char* buf = calloc(1024, sizeof(char));
             sprintf(buf, "unknown token char(%d)", c);
             fatal_error(buf);
         }
-        ++tok;
+        ++l->n_tokens;
     }
-    return tokens;
+}
+
+Token* tokenize(char* src) {
+    Lexer* l = lexer_new(src);
+    tokenize_all(l);
+    return l->tokens;
 }
 
 enum TypeKind {
@@ -736,7 +773,7 @@ typedef struct Parser Parser;
 Parser* parser_new(Token* tokens) {
     Parser* p = calloc(1, sizeof(Parser));
     p->tokens = tokens;
-    p->funcs = calloc(128, sizeof(Func));
+    p->funcs = calloc(256, sizeof(Func));
     p->structs = calloc(64, sizeof(AstNode));
     p->enums = calloc(16, sizeof(AstNode));
     p->typedefs = calloc(64, sizeof(AstNode));
