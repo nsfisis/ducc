@@ -9,8 +9,8 @@ int isalpha(int);
 int isdigit(int);
 int isspace(int);
 void* memcpy(void*, void*, size_t);
-int printf();
-int sprintf();
+int printf(const char*, ...);
+int sprintf(char*, const char*, ...);
 int strcmp(const char*, const char*);
 char* strstr(const char*, const char*);
 
@@ -54,6 +54,7 @@ enum TokenKind {
     TokenKind_bracket_r,
     TokenKind_comma,
     TokenKind_dot,
+    TokenKind_ellipsis,
     TokenKind_eq,
     TokenKind_ge,
     TokenKind_gt,
@@ -173,7 +174,17 @@ Token* tokenize(char* src) {
         } else if (c == '%') {
             tok->kind = TokenKind_percent;
         } else if (c == '.') {
-            tok->kind = TokenKind_dot;
+            if (src[pos] == '.') {
+                ++pos;
+                if (src[pos] == '.') {
+                    ++pos;
+                    tok->kind = TokenKind_ellipsis;
+                } else {
+                    fatal_error("unknown token: ..");
+                }
+            } else {
+                tok->kind = TokenKind_dot;
+            }
         } else if (c == '!') {
             if (src[pos] == '=') {
                 ++pos;
@@ -1418,6 +1429,10 @@ AstNode* parse_param_list(Parser* p) {
     int has_void = 0;
     AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TokenKind_paren_r) {
+        if (peek_token(p)->kind == TokenKind_ellipsis) {
+            next_token(p);
+            break;
+        }
         AstNode* param = parse_param(p);
         has_void = has_void || param->ty->kind == TypeKind_void;
         ast_append(list, param);
