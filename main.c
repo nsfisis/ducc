@@ -75,6 +75,7 @@ enum TokenKind {
     TokenKind_keyword_char,
     TokenKind_keyword_const,
     TokenKind_keyword_continue,
+    TokenKind_keyword_do,
     TokenKind_keyword_else,
     TokenKind_keyword_enum,
     TokenKind_keyword_for,
@@ -301,6 +302,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_const;
             } else if (ident_len == 8 && strstr(l->src + start, "continue") == l->src + start) {
                 tok->kind = TokenKind_keyword_continue;
+            } else if (ident_len == 2 && strstr(l->src + start, "do") == l->src + start) {
+                tok->kind = TokenKind_keyword_do;
             } else if (ident_len == 4 && strstr(l->src + start, "else") == l->src + start) {
                 tok->kind = TokenKind_keyword_else;
             } else if (ident_len == 4 && strstr(l->src + start, "enum") == l->src + start) {
@@ -481,6 +484,7 @@ enum AstNodeKind {
     AstNodeKind_break_stmt,
     AstNodeKind_continue_stmt,
     AstNodeKind_deref_expr,
+    AstNodeKind_do_while_stmt,
     AstNodeKind_enum_def,
     AstNodeKind_enum_member,
     AstNodeKind_expr_stmt,
@@ -1336,6 +1340,21 @@ AstNode* parse_while_stmt(Parser* p) {
     return stmt;
 }
 
+AstNode* parse_do_while_stmt(Parser* p) {
+    expect(p, TokenKind_keyword_do);
+    AstNode* body = parse_stmt(p);
+    expect(p, TokenKind_keyword_while);
+    expect(p, TokenKind_paren_l);
+    AstNode* cond = parse_expr(p);
+    expect(p, TokenKind_paren_r);
+    expect(p, TokenKind_semicolon);
+
+    AstNode* stmt = ast_new(AstNodeKind_do_while_stmt);
+    stmt->node_cond = cond;
+    stmt->node_body = body;
+    return stmt;
+}
+
 AstNode* parse_break_stmt(Parser* p) {
     expect(p, TokenKind_keyword_break);
     expect(p, TokenKind_semicolon);
@@ -1415,6 +1434,8 @@ AstNode* parse_stmt(Parser* p) {
         return parse_for_stmt(p);
     } else if (t->kind == TokenKind_keyword_while) {
         return parse_while_stmt(p);
+    } else if (t->kind == TokenKind_keyword_do) {
+        return parse_do_while_stmt(p);
     } else if (t->kind == TokenKind_keyword_break) {
         return parse_break_stmt(p);
     } else if (t->kind == TokenKind_keyword_continue) {
@@ -1992,6 +2013,24 @@ void codegen_for_stmt(CodeGen* g, AstNode* ast) {
     --g->loop_labels;
 }
 
+void codegen_do_while_stmt(CodeGen* g, AstNode* ast) {
+    int label = codegen_new_label(g);
+    ++g->loop_labels;
+    *g->loop_labels = label;
+
+    printf(".Lbegin%d:\n", label);
+    codegen_stmt(g, ast->node_body);
+    printf(".Lcontinue%d:\n", label);
+    codegen_expr(g, ast->node_cond, GenMode_rval);
+    printf("  pop rax\n");
+    printf("  cmp rax, 0\n");
+    printf("  je .Lend%d\n", label);
+    printf("  jmp .Lbegin%d\n", label);
+    printf(".Lend%d:\n", label);
+
+    --g->loop_labels;
+}
+
 void codegen_break_stmt(CodeGen* g, AstNode* ast) {
     int label = *g->loop_labels;
     printf("  jmp .Lend%d\n", label);
@@ -2027,6 +2066,8 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
         codegen_if_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_for_stmt) {
         codegen_for_stmt(g, ast);
+    } else if (ast->kind == AstNodeKind_do_while_stmt) {
+        codegen_do_while_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_break_stmt) {
         codegen_break_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_continue_stmt) {
