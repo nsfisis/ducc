@@ -9,7 +9,7 @@ gcc -Wl,-z,noexecstack -o a.out main.s
 if [[ ! -f input ]]; then
     touch input
 fi
-./a.out < input > output
+./a.out "$@" < input > output
 exit_code=$?
 
 if [[ $exit_code -ne 0 ]]; then
