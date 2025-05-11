@@ -10,7 +10,9 @@ extern FILE* stderr;
 int atoi(const char*);
 void* calloc(size_t, size_t);
 void exit(int);
+int fclose(FILE*);
 char* fgets(char*, int, FILE*);
+FILE* fopen(const char*, const char*);
 int getchar(void);
 int isalnum(int);
 int isalpha(int);
@@ -2182,8 +2184,17 @@ void codegen(Program* prog) {
     }
 }
 
-int main() {
-    char* source = read_all(stdin);
+int main(int argc, char** argv) {
+    if (argc == 1) {
+        fatal_error("usage: ducc <FILE>");
+    }
+    FILE* in;
+    if (strcmp(argv[1], "-") == 0) {
+        in = stdin;
+    } else {
+        in = fopen(argv[1], "rb");
+    }
+    char* source = read_all(in);
     Token* tokens = tokenize(source);
     Program* prog = parse(tokens);
     analyze(prog);

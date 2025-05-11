@@ -1,15 +1,24 @@
-cat > main.c
+set -e
 
-"$ducc" main.c > main.s
+cat <<'EOF' > expected
+hello, world
+EOF
+
+cat <<'EOF' > main.c
+int printf();
+int main() {
+    printf("hello, world\n");
+    return 0;
+}
+EOF
+
+"$ducc" - < main.c > main.s
 if [[ $? -ne 0 ]]; then
     cat main.s >&2
     exit 1
 fi
 gcc -Wl,-z,noexecstack -o a.out main.s
-if [[ ! -f input ]]; then
-    touch input
-fi
-./a.out "$@" < input > output
+./a.out "$@" > output
 exit_code=$?
 
 if [[ $exit_code -ne 0 ]]; then
