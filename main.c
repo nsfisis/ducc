@@ -1,5 +1,12 @@
 typedef long size_t;
 
+struct FILE;
+typedef struct FILE FILE;
+
+extern FILE* stdin;
+extern FILE* stdout;
+extern FILE* stderr;
+
 int atoi(const char*);
 void* calloc(size_t, size_t);
 void exit(int);
@@ -12,8 +19,8 @@ void* memcpy(void*, void*, size_t);
 int printf(const char*, ...);
 int sprintf(char*, const char*, ...);
 int strcmp(const char*, const char*);
-int strncmp(const char*, const char*, size_t);
 size_t strlen(const char*);
+int strncmp(const char*, const char*, size_t);
 char* strstr(const char*, const char*);
 
 #define NULL 0
@@ -78,6 +85,7 @@ enum TokenKind {
     TokenKind_keyword_do,
     TokenKind_keyword_else,
     TokenKind_keyword_enum,
+    TokenKind_keyword_extern,
     TokenKind_keyword_for,
     TokenKind_keyword_if,
     TokenKind_keyword_int,
@@ -308,6 +316,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_else;
             } else if (ident_len == 4 && strstr(l->src + start, "enum") == l->src + start) {
                 tok->kind = TokenKind_keyword_enum;
+            } else if (ident_len == 6 && strstr(l->src + start, "extern") == l->src + start) {
+                tok->kind = TokenKind_keyword_extern;
             } else if (ident_len == 3 && strstr(l->src + start, "for") == l->src + start) {
                 tok->kind = TokenKind_keyword_for;
             } else if (ident_len == 2 && strstr(l->src + start, "if") == l->src + start) {
@@ -492,11 +502,14 @@ enum AstNodeKind {
     AstNodeKind_func_call,
     AstNodeKind_func_decl,
     AstNodeKind_func_def,
+    AstNodeKind_gvar,
+    AstNodeKind_gvar_decl,
     AstNodeKind_if_stmt,
     AstNodeKind_int_expr,
     AstNodeKind_list,
     AstNodeKind_logical_expr,
     AstNodeKind_lvar,
+    AstNodeKind_lvar_decl,
     AstNodeKind_param,
     AstNodeKind_ref_expr,
     AstNodeKind_return_stmt,
@@ -507,7 +520,6 @@ enum AstNodeKind {
     AstNodeKind_type,
     AstNodeKind_typedef_decl,
     AstNodeKind_unary_expr,
-    AstNodeKind_var_decl,
 };
 typedef enum AstNodeKind AstNodeKind;
 
@@ -750,6 +762,12 @@ struct LocalVar {
 };
 typedef struct LocalVar LocalVar;
 
+struct GlobalVar {
+    char* name;
+    Type* ty;
+};
+typedef struct GlobalVar GlobalVar;
+
 struct Func {
     char* name;
     Type* ty;
@@ -761,6 +779,8 @@ struct Parser {
     int pos;
     LocalVar* lvars;
     int n_lvars;
+    GlobalVar* gvars;
+    int n_gvars;
     Func* funcs;
     int n_funcs;
     AstNode* structs;
@@ -777,6 +797,7 @@ typedef struct Parser Parser;
 Parser* parser_new(Token* tokens) {
     Parser* p = calloc(1, sizeof(Parser));
     p->tokens = tokens;
+    p->gvars = calloc(128, sizeof(GlobalVar));
     p->funcs = calloc(256, sizeof(Func));
     p->structs = calloc(64, sizeof(AstNode));
     p->enums = calloc(16, sizeof(AstNode));
@@ -813,6 +834,16 @@ int find_lvar(Parser* p, const char* name) {
     int i;
     for (i = 0; i < p->n_lvars; ++i) {
         if (strcmp(p->lvars[i].name, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_gvar(Parser* p, const char* name) {
+    int i;
+    for (i = 0; i < p->n_gvars; ++i) {
+        if (strcmp(p->gvars[i].name, name) == 0) {
             return i;
         }
     }
@@ -915,26 +946,33 @@ AstNode* parse_primary_expr(Parser* p) {
             return e;
         }
 
-        int var_idx = find_lvar(p, name);
-        if (var_idx == -1) {
-            int enum_member_idx = find_enum_member(p, name);
-            if (enum_member_idx == -1) {
-                buf = calloc(1024, sizeof(char));
-                sprintf(buf, "undefined variable: %s", name);
-                fatal_error(buf);
+        int lvar_idx = find_lvar(p, name);
+        if (lvar_idx == -1) {
+            int gvar_idx = find_gvar(p, name);
+            if (gvar_idx == -1) {
+                int enum_member_idx = find_enum_member(p, name);
+                if (enum_member_idx == -1) {
+                    buf = calloc(1024, sizeof(char));
+                    sprintf(buf, "undefined variable: %s", name);
+                    fatal_error(buf);
+                }
+                int enum_idx = enum_member_idx / 1000;
+                int n = enum_member_idx % 1000;
+                e = ast_new_int(p->enums[enum_idx].node_members->node_items[n].node_int_value);
+                e->ty = type_new(TypeKind_enum);
+                e->ty->def = p->enums + enum_idx;
+                return e;
             }
-            int enum_idx = enum_member_idx / 1000;
-            int n = enum_member_idx % 1000;
-            e = ast_new_int(p->enums[enum_idx].node_members->node_items[n].node_int_value);
-            e->ty = type_new(TypeKind_enum);
-            e->ty->def = p->enums + enum_idx;
+            e = ast_new(AstNodeKind_gvar);
+            e->name = name;
+            e->ty = p->gvars[gvar_idx].ty;
             return e;
         }
 
         e = ast_new(AstNodeKind_lvar);
         e->name = name;
-        e->node_idx = var_idx;
-        e->ty = p->lvars[var_idx].ty;
+        e->node_idx = lvar_idx;
+        e->ty = p->lvars[lvar_idx].ty;
         return e;
     } else {
         buf = calloc(1024, sizeof(char));
@@ -1381,7 +1419,7 @@ AstNode* parse_var_decl(Parser* p) {
     }
     expect(p, TokenKind_semicolon);
 
-    if (find_lvar(p, name) != -1) {
+    if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
         char* buf = calloc(1024, sizeof(char));
         sprintf(buf, "parse_var_decl: %s redeclared", name);
         fatal_error(buf);
@@ -1400,7 +1438,7 @@ AstNode* parse_var_decl(Parser* p) {
         ret = ast_new(AstNodeKind_expr_stmt);
         ret->node_expr = assign;
     } else {
-        ret = ast_new(AstNodeKind_var_decl);
+        ret = ast_new(AstNodeKind_lvar_decl);
     }
     return ret;
 }
@@ -1651,6 +1689,27 @@ AstNode* parse_typedef_decl(Parser* p) {
     return decl;
 }
 
+AstNode* parse_extern_var_decl(Parser* p) {
+    expect(p, TokenKind_keyword_extern);
+    Type* ty = parse_type(p);
+    if (!type_is_unsized(ty)) {
+        fatal_error("parse_extern_var_decl: invalid type for variable");
+    }
+    char* name = parse_ident(p);
+    expect(p, TokenKind_semicolon);
+
+    if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
+        char* buf = calloc(1024, sizeof(char));
+        sprintf(buf, "parse_extern_var_decl: %s redeclared", name);
+        fatal_error(buf);
+    }
+    p->gvars[p->n_gvars].name = name;
+    p->gvars[p->n_gvars].ty = ty;
+    ++p->n_gvars;
+
+    return ast_new(AstNodeKind_gvar_decl);
+}
+
 AstNode* parse_toplevel(Parser* p) {
     TokenKind tk = peek_token(p)->kind;
     if (tk == TokenKind_keyword_struct) {
@@ -1659,6 +1718,8 @@ AstNode* parse_toplevel(Parser* p) {
         return parse_enum_def(p);
     } else if (tk == TokenKind_keyword_typeof) {
         return parse_typedef_decl(p);
+    } else if (tk == TokenKind_keyword_extern) {
+        return parse_extern_var_decl(p);
     } else {
         return parse_func_decl_or_def(p);
     }
@@ -1666,16 +1727,15 @@ AstNode* parse_toplevel(Parser* p) {
 
 Program* parse(Token* tokens) {
     Parser* p = parser_new(tokens);
-    AstNode* list = ast_new_list(1024);
+    AstNode* funcs = ast_new_list(1024);
     while (eof(p)) {
         AstNode* n = parse_toplevel(p);
-        if (n->kind != AstNodeKind_func_def) {
-            continue;
+        if (n->kind == AstNodeKind_func_def) {
+            ast_append(funcs, n);
         }
-        ast_append(list, n);
     }
     Program* prog = calloc(1, sizeof(Program));
-    prog->funcs = list;
+    prog->funcs = funcs;
     prog->str_literals = p->str_literals;
     return prog;
 }
@@ -1937,6 +1997,17 @@ void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     }
 }
 
+void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+    if (gen_mode == GenMode_lval) {
+        fatal_error("unimplemented");
+    }
+    if (ast->ty->kind != TypeKind_ptr) {
+        fatal_error("unimplemented");
+    }
+    printf("  mov rax, QWORD PTR %s[rip]\n", ast->name);
+    printf("  push rax\n");
+}
+
 void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     if (ast->kind == AstNodeKind_int_expr) {
         codegen_int_expr(g, ast);
@@ -1958,6 +2029,8 @@ void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
         codegen_func_call(g, ast);
     } else if (ast->kind == AstNodeKind_lvar) {
         codegen_lvar(g, ast, gen_mode);
+    } else if (ast->kind == AstNodeKind_gvar) {
+        codegen_gvar(g, ast, gen_mode);
     } else {
         unreachable();
     }
@@ -2074,7 +2147,7 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
         codegen_continue_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_expr_stmt) {
         codegen_expr_stmt(g, ast);
-    } else if (ast->kind == AstNodeKind_var_decl) {
+    } else if (ast->kind == AstNodeKind_lvar_decl) {
         codegen_var_decl(g, ast);
     } else {
         unreachable();
