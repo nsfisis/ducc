@@ -10,6 +10,7 @@ extern FILE* stderr;
 int atoi(const char*);
 void* calloc(size_t, size_t);
 void exit(int);
+char* fgets(char*, int, FILE*);
 int getchar(void);
 int isalnum(int);
 int isalpha(int);
@@ -34,16 +35,14 @@ void unreachable() {
     fatal_error("unreachable");
 }
 
-char* read_all() {
+char* read_all(FILE* in) {
     char* buf = calloc(1024 * 1024, sizeof(char));
     char* cur = buf;
-    while (1) {
-        int c = getchar();
-        if (c == -1) {
-            break;
-        }
-        *cur = c;
-        ++cur;
+    char* tmp = calloc(1024, sizeof(char));
+    while (fgets(tmp, 1024, in)) {
+        size_t len = strlen(tmp);
+        memcpy(cur, tmp, len);
+        cur += len;
     }
     return buf;
 }
@@ -2184,7 +2183,7 @@ void codegen(Program* prog) {
 }
 
 int main() {
-    char* source = read_all();
+    char* source = read_all(stdin);
     Token* tokens = tokenize(source);
     Program* prog = parse(tokens);
     analyze(prog);
