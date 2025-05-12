@@ -1015,7 +1015,6 @@ AstNode* parse_arg_list(Parser* p) {
 
 AstNode* parse_postfix_expr(Parser* p) {
     AstNode* ret = parse_primary_expr(p);
-    AstNode* e;
     String* name;
     while (1) {
         TokenKind tk = peek_token(p)->kind;
