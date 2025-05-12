@@ -11,6 +11,7 @@ int atoi(const char*);
 void* calloc(size_t, size_t);
 void exit(int);
 int fclose(FILE*);
+int fprintf(FILE*, const char*, ...);
 char* fgets(char*, int, FILE*);
 FILE* fopen(const char*, const char*);
 int getchar(void);
@@ -29,7 +30,7 @@ char* strstr(const char*, const char*);
 #define NULL 0
 
 void fatal_error(const char* msg) {
-    printf("%s\n", msg);
+    fprintf(stderr, "%s\n", msg);
     exit(1);
 }
 
