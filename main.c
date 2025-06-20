@@ -66,6 +66,362 @@ int string_equals(const String* s1, const String* s2) {
     return s1->len == s2->len && strncmp(s1->data, s2->data, s1->len) == 0;
 }
 
+int string_equals_cstr(const String* s1, const char* s2) {
+    size_t s2_len = strlen(s2);
+    return s1->len == s2_len && strncmp(s1->data, s2, s1->len) == 0;
+}
+
+enum PpTokenKind {
+    PpTokenKind_eof,
+
+    PpTokenKind_header_name,
+    PpTokenKind_identifier,
+    PpTokenKind_pp_number,
+    PpTokenKind_character_constant,
+    PpTokenKind_string_literal,
+    PpTokenKind_punctuator,
+    PpTokenKind_other,
+    PpTokenKind_whitespace,
+};
+typedef enum PpTokenKind PpTokenKind;
+
+struct PpToken {
+    PpTokenKind kind;
+    String raw;
+};
+typedef struct PpToken PpToken;
+
+struct PpDefine {
+    String name;
+    PpToken* tokens;
+};
+typedef struct PpDefine PpDefine;
+
+struct Preprocessor {
+    char* src;
+    int pos;
+    PpToken* pp_tokens;
+    int n_pp_tokens;
+    PpDefine* pp_defines;
+    int n_pp_defines;
+};
+typedef struct Preprocessor Preprocessor;
+
+Preprocessor* preprocessor_new(char* src) {
+    Preprocessor* pp = calloc(1, sizeof(Preprocessor));
+    pp->src = src;
+    pp->pp_tokens = calloc(1024 * 1024, sizeof(PpToken));
+    pp->pp_defines = calloc(1024, sizeof(PpDefine));
+    return pp;
+}
+
+int find_pp_define(Preprocessor* pp, String* name) {
+    int i;
+    for (i = 0; i < pp->n_pp_defines; ++i) {
+        if (string_equals(&pp->pp_defines[i].name, name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void pp_tokenize_all(Preprocessor* pp) {
+    char* buf;
+    int ch;
+    int start;
+    while (pp->src[pp->pos]) {
+        PpToken* tok = pp->pp_tokens + pp->n_pp_tokens;
+        char c = pp->src[pp->pos];
+        ++pp->pos;
+        if (c == '(') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == ')') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '{') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '}') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '[') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == ']') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == ',') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == ';') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '+') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else if (pp->src[pp->pos] == '+') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '|') {
+            ++pp->pos;
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 2;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '&') {
+            if (pp->src[pp->pos] == '&') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '-') {
+            if (pp->src[pp->pos] == '>') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else if (pp->src[pp->pos] == '-') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '*') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '/') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '%') {
+            tok->kind = PpTokenKind_punctuator;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else if (c == '.') {
+            if (pp->src[pp->pos] == '.') {
+                ++pp->pos;
+                if (pp->src[pp->pos] == '.') {
+                    ++pp->pos;
+                    tok->kind = PpTokenKind_punctuator;
+                    tok->raw.len = 3;
+                    tok->raw.data = pp->src + pp->pos - tok->raw.len;
+                } else {
+                    --pp->pos;
+                    tok->kind = PpTokenKind_punctuator;
+                    tok->raw.len = 1;
+                    tok->raw.data = pp->src + pp->pos - tok->raw.len;
+                }
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '!') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '=') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '<') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '>') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '#') {
+            if (pp->src[pp->pos] == '#') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
+        } else if (c == '\'') {
+            start = pp->pos - 1;
+            ch = pp->src[pp->pos];
+            if (ch == '\\') {
+                ++pp->pos;
+                ch = pp->src[pp->pos];
+                if (ch == 'n') {
+                    ch = '\n';
+                }
+            }
+            pp->pos += 2;
+            tok->kind = PpTokenKind_character_constant;
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+        } else if (c == '"') {
+            start = pp->pos - 1;
+            while (1) {
+                ch = pp->src[pp->pos];
+                if (ch == '\\') {
+                    ++pp->pos;
+                } else if (ch == '"') {
+                    break;
+                }
+                ++pp->pos;
+            }
+            ++pp->pos;
+            tok->kind = PpTokenKind_string_literal;
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+        } else if (isdigit(c)) {
+            --pp->pos;
+            start = pp->pos;
+            while (isdigit(pp->src[pp->pos])) {
+                ++pp->pos;
+            }
+            tok->kind = PpTokenKind_pp_number;
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+        } else if (isalpha(c) || c == '_') {
+            --pp->pos;
+            start = pp->pos;
+            while (isalnum(pp->src[pp->pos]) || pp->src[pp->pos] == '_') {
+                ++pp->pos;
+            }
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+            tok->kind = PpTokenKind_identifier;
+        } else if (isspace(c)) {
+            tok->raw.data = pp->src;
+            tok->raw.len = 1;
+            tok->kind = PpTokenKind_whitespace;
+        } else {
+            tok->raw.data = pp->src;
+            tok->raw.len = 1;
+            tok->kind = PpTokenKind_other;
+        }
+        ++pp->n_pp_tokens;
+    }
+}
+
+void pp_execute_pp_directive(Preprocessor* pp) {
+    PpToken* tok = pp->pp_tokens;
+    PpToken* define_dest;
+    while (tok->kind != PpTokenKind_eof) {
+        "TODO: check if the token is at the beginning of line.";
+        "TODO: check if skipped whitespaces do not contain line breaks.";
+        if (tok->kind == PpTokenKind_punctuator && string_equals_cstr(&tok->raw, "#")) {
+            PpToken* tok2 = tok + 1;
+            while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
+                ++tok2;
+            if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "define")) {
+                ++tok2;
+                while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
+                    ++tok2;
+                if (tok2->kind == PpTokenKind_identifier) {
+                    PpToken* define_name = tok2;
+                    ++tok2;
+                    while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
+                        ++tok2;
+                    if (tok2->kind == PpTokenKind_identifier || tok2->kind == PpTokenKind_pp_number) {
+                        define_dest = tok2;
+
+                        pp->pp_defines[pp->n_pp_defines].name.len = define_name->raw.len;
+                        pp->pp_defines[pp->n_pp_defines].name.data = define_name->raw.data;
+                        pp->pp_defines[pp->n_pp_defines].tokens = calloc(1, sizeof(PpToken));
+                        pp->pp_defines[pp->n_pp_defines].tokens[0].kind = define_dest->kind;
+                        pp->pp_defines[pp->n_pp_defines].tokens[0].raw.len = define_dest->raw.len;
+                        pp->pp_defines[pp->n_pp_defines].tokens[0].raw.data = define_dest->raw.data;
+                        ++pp->n_pp_defines;
+                    }
+                }
+            }
+            while (tok != tok2 + 1) {
+                tok->kind = PpTokenKind_whitespace;
+                tok->raw.len = 0;
+                tok->raw.data = NULL;
+                ++tok;
+            }
+        } else if (tok->kind == PpTokenKind_identifier) {
+            int pp_define_idx = find_pp_define(pp, &tok->raw);
+            if (pp_define_idx != -1) {
+                define_dest = pp->pp_defines[pp_define_idx].tokens;
+                tok->kind = define_dest->kind;
+                tok->raw.data = define_dest->raw.data;
+                tok->raw.len = define_dest->raw.len;
+            }
+        }
+        ++tok;
+    }
+}
+
+PpToken* preprocess(char* src) {
+    Preprocessor* pp = preprocessor_new(src);
+    pp_tokenize_all(pp);
+    pp_execute_pp_directive(pp);
+    return pp->pp_tokens;
+}
+
 enum TokenKind {
     TokenKind_eof,
 
@@ -130,286 +486,173 @@ struct Token {
 };
 typedef struct Token Token;
 
-struct PpDefine {
-    String name;
-    Token* tokens;
-};
-typedef struct PpDefine PpDefine;
-
 struct Lexer {
-    char* src;
+    PpToken* src;
     int pos;
     Token* tokens;
     int n_tokens;
-    PpDefine* pp_defines;
-    int n_pp_defines;
 };
 typedef struct Lexer Lexer;
 
-Lexer* lexer_new(char* src) {
+Lexer* lexer_new(PpToken* pp_tokens) {
     Lexer* l = calloc(1, sizeof(Lexer));
-    l->src = src;
+    l->src = pp_tokens;
     l->tokens = calloc(1024 * 1024, sizeof(Token));
-    l->pp_defines = calloc(1024, sizeof(PpDefine));
     return l;
-}
-
-int find_pp_define(Lexer* l, String* name) {
-    int i;
-    for (i = 0; i < l->n_pp_defines; ++i) {
-        if (string_equals(&l->pp_defines[i].name, name)) {
-            return i;
-        }
-    }
-    return -1;
 }
 
 void tokenize_all(Lexer* l) {
     char* buf;
     int ch;
     int start;
-    while (l->src[l->pos]) {
+    while (l->src[l->pos].kind != PpTokenKind_eof) {
+        PpToken* pp_tok = l->src + l->pos;
         Token* tok = l->tokens + l->n_tokens;
-        char c = l->src[l->pos];
+        PpTokenKind k = pp_tok->kind;
         ++l->pos;
-        if (c == '(') {
-            tok->kind = TokenKind_paren_l;
-        } else if (c == ')') {
-            tok->kind = TokenKind_paren_r;
-        } else if (c == '{') {
-            tok->kind = TokenKind_brace_l;
-        } else if (c == '}') {
-            tok->kind = TokenKind_brace_r;
-        } else if (c == '[') {
-            tok->kind = TokenKind_bracket_l;
-        } else if (c == ']') {
-            tok->kind = TokenKind_bracket_r;
-        } else if (c == ',') {
-            tok->kind = TokenKind_comma;
-        } else if (c == ';') {
-            tok->kind = TokenKind_semicolon;
-        } else if (c == '+') {
-            if (l->src[l->pos] == '=') {
-                ++l->pos;
-                tok->kind = TokenKind_assign_add;
-            } else if (l->src[l->pos] == '+') {
-                ++l->pos;
-                tok->kind = TokenKind_plusplus;
+        if (k == PpTokenKind_header_name) {
+            fatal_error("not implemented yet");
+        } else if (k == PpTokenKind_identifier) {
+            if (string_equals_cstr(&pp_tok->raw, "break")) {
+                tok->kind = TokenKind_keyword_break;
+            } else if (string_equals_cstr(&pp_tok->raw, "char")) {
+                tok->kind = TokenKind_keyword_char;
+            } else if (string_equals_cstr(&pp_tok->raw, "const")) {
+                tok->kind = TokenKind_keyword_const;
+            } else if (string_equals_cstr(&pp_tok->raw, "continue")) {
+                tok->kind = TokenKind_keyword_continue;
+            } else if (string_equals_cstr(&pp_tok->raw, "do")) {
+                tok->kind = TokenKind_keyword_do;
+            } else if (string_equals_cstr(&pp_tok->raw, "else")) {
+                tok->kind = TokenKind_keyword_else;
+            } else if (string_equals_cstr(&pp_tok->raw, "enum")) {
+                tok->kind = TokenKind_keyword_enum;
+            } else if (string_equals_cstr(&pp_tok->raw, "extern")) {
+                tok->kind = TokenKind_keyword_extern;
+            } else if (string_equals_cstr(&pp_tok->raw, "for")) {
+                tok->kind = TokenKind_keyword_for;
+            } else if (string_equals_cstr(&pp_tok->raw, "if")) {
+                tok->kind = TokenKind_keyword_if;
+            } else if (string_equals_cstr(&pp_tok->raw, "int")) {
+                tok->kind = TokenKind_keyword_int;
+            } else if (string_equals_cstr(&pp_tok->raw, "long")) {
+                tok->kind = TokenKind_keyword_long;
+            } else if (string_equals_cstr(&pp_tok->raw, "return")) {
+                tok->kind = TokenKind_keyword_return;
+            } else if (string_equals_cstr(&pp_tok->raw, "sizeof")) {
+                tok->kind = TokenKind_keyword_sizeof;
+            } else if (string_equals_cstr(&pp_tok->raw, "struct")) {
+                tok->kind = TokenKind_keyword_struct;
+            } else if (string_equals_cstr(&pp_tok->raw, "typedef")) {
+                tok->kind = TokenKind_keyword_typeof;
+            } else if (string_equals_cstr(&pp_tok->raw, "void")) {
+                tok->kind = TokenKind_keyword_void;
+            } else if (string_equals_cstr(&pp_tok->raw, "while")) {
+                tok->kind = TokenKind_keyword_while;
             } else {
-                tok->kind = TokenKind_plus;
+                tok->kind = TokenKind_ident;
             }
-        } else if (c == '|') {
-            ++l->pos;
-            tok->kind = TokenKind_oror;
-        } else if (c == '&') {
-            if (l->src[l->pos] == '&') {
-                ++l->pos;
-                tok->kind = TokenKind_andand;
-            } else {
-                tok->kind = TokenKind_and;
-            }
-        } else if (c == '-') {
-            if (l->src[l->pos] == '>') {
-                ++l->pos;
-                tok->kind = TokenKind_arrow;
-            } else if (l->src[l->pos] == '=') {
-                ++l->pos;
-                tok->kind = TokenKind_assign_sub;
-            } else if (l->src[l->pos] == '-') {
-                ++l->pos;
-                tok->kind = TokenKind_minusminus;
-            } else {
-                tok->kind = TokenKind_minus;
-            }
-        } else if (c == '*') {
-            tok->kind = TokenKind_star;
-        } else if (c == '/') {
-            tok->kind = TokenKind_slash;
-        } else if (c == '%') {
-            tok->kind = TokenKind_percent;
-        } else if (c == '.') {
-            if (l->src[l->pos] == '.') {
-                ++l->pos;
-                if (l->src[l->pos] == '.') {
-                    ++l->pos;
-                    tok->kind = TokenKind_ellipsis;
-                } else {
-                    fatal_error("unknown token: ..");
-                }
-            } else {
-                tok->kind = TokenKind_dot;
-            }
-        } else if (c == '!') {
-            if (l->src[l->pos] == '=') {
-                ++l->pos;
-                tok->kind = TokenKind_ne;
-            } else {
-                tok->kind = TokenKind_not;
-            }
-        } else if (c == '=') {
-            if (l->src[l->pos] == '=') {
-                ++l->pos;
-                tok->kind = TokenKind_eq;
-            } else {
-                tok->kind = TokenKind_assign;
-            }
-        } else if (c == '<') {
-            if (l->src[l->pos] == '=') {
-                ++l->pos;
-                tok->kind = TokenKind_le;
-            } else {
-                tok->kind = TokenKind_lt;
-            }
-        } else if (c == '>') {
-            if (l->src[l->pos] == '=') {
-                ++l->pos;
-                tok->kind = TokenKind_ge;
-            } else {
-                tok->kind = TokenKind_gt;
-            }
-        } else if (c == '\'') {
-            ch = l->src[l->pos];
+            tok->raw.data = pp_tok->raw.data;
+            tok->raw.len = pp_tok->raw.len;
+        } else if (k == PpTokenKind_pp_number) {
+            tok->kind = TokenKind_literal_int;
+            tok->raw.data = pp_tok->raw.data;
+            tok->raw.len = pp_tok->raw.len;
+        } else if (k == PpTokenKind_character_constant) {
+            tok->kind = TokenKind_literal_int;
+            ch = pp_tok->raw.data[1];
             if (ch == '\\') {
-                ++l->pos;
-                ch = l->src[l->pos];
+                ch = pp_tok->raw.data[2];
                 if (ch == 'n') {
                     ch = '\n';
                 }
             }
-            l->pos += 2;
-            tok->kind = TokenKind_literal_int;
             buf = calloc(4, sizeof(char));
             sprintf(buf, "%d", ch);
             tok->raw.data = buf;
             tok->raw.len = strlen(buf);
-        } else if (c == '"') {
-            start = l->pos;
-            while (1) {
-                ch = l->src[l->pos];
-                if (ch == '\\') {
-                    ++l->pos;
-                } else if (ch == '"') {
-                    break;
-                }
-                ++l->pos;
-            }
+        } else if (k == PpTokenKind_string_literal) {
             tok->kind = TokenKind_literal_str;
-            tok->raw.data = l->src + start;
-            tok->raw.len = l->pos - start;
-            ++l->pos;
-        } else if (isdigit(c)) {
-            --l->pos;
-            start = l->pos;
-            while (isdigit(l->src[l->pos])) {
-                ++l->pos;
-            }
-            tok->kind = TokenKind_literal_int;
-            tok->raw.data = l->src + start;
-            tok->raw.len = l->pos - start;
-        } else if (isalpha(c) || c == '_') {
-            --l->pos;
-            start = l->pos;
-            while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
-                ++l->pos;
-            }
-            int ident_len = l->pos - start;
-            if (ident_len == 5 && strstr(l->src + start, "break") == l->src + start) {
-                tok->kind = TokenKind_keyword_break;
-            } else if (ident_len == 4 && strstr(l->src + start, "char") == l->src + start) {
-                tok->kind = TokenKind_keyword_char;
-            } else if (ident_len == 5 && strstr(l->src + start, "const") == l->src + start) {
-                tok->kind = TokenKind_keyword_const;
-            } else if (ident_len == 8 && strstr(l->src + start, "continue") == l->src + start) {
-                tok->kind = TokenKind_keyword_continue;
-            } else if (ident_len == 2 && strstr(l->src + start, "do") == l->src + start) {
-                tok->kind = TokenKind_keyword_do;
-            } else if (ident_len == 4 && strstr(l->src + start, "else") == l->src + start) {
-                tok->kind = TokenKind_keyword_else;
-            } else if (ident_len == 4 && strstr(l->src + start, "enum") == l->src + start) {
-                tok->kind = TokenKind_keyword_enum;
-            } else if (ident_len == 6 && strstr(l->src + start, "extern") == l->src + start) {
-                tok->kind = TokenKind_keyword_extern;
-            } else if (ident_len == 3 && strstr(l->src + start, "for") == l->src + start) {
-                tok->kind = TokenKind_keyword_for;
-            } else if (ident_len == 2 && strstr(l->src + start, "if") == l->src + start) {
-                tok->kind = TokenKind_keyword_if;
-            } else if (ident_len == 3 && strstr(l->src + start, "int") == l->src + start) {
-                tok->kind = TokenKind_keyword_int;
-            } else if (ident_len == 4 && strstr(l->src + start, "long") == l->src + start) {
-                tok->kind = TokenKind_keyword_long;
-            } else if (ident_len == 6 && strstr(l->src + start, "return") == l->src + start) {
-                tok->kind = TokenKind_keyword_return;
-            } else if (ident_len == 6 && strstr(l->src + start, "sizeof") == l->src + start) {
-                tok->kind = TokenKind_keyword_sizeof;
-            } else if (ident_len == 6 && strstr(l->src + start, "struct") == l->src + start) {
-                tok->kind = TokenKind_keyword_struct;
-            } else if (ident_len == 7 && strstr(l->src + start, "typedef") == l->src + start) {
-                tok->kind = TokenKind_keyword_typeof;
-            } else if (ident_len == 4 && strstr(l->src + start, "void") == l->src + start) {
-                tok->kind = TokenKind_keyword_void;
-            } else if (ident_len == 5 && strstr(l->src + start, "while") == l->src + start) {
-                tok->kind = TokenKind_keyword_while;
+            tok->raw.data = pp_tok->raw.data + 1;
+            tok->raw.len = pp_tok->raw.len - 2;
+        } else if (k == PpTokenKind_punctuator || k == PpTokenKind_other) {
+            if (string_equals_cstr(&pp_tok->raw, "(")) {
+                tok->kind = TokenKind_paren_l;
+            } else if (string_equals_cstr(&pp_tok->raw, ")")) {
+                tok->kind = TokenKind_paren_r;
+            } else if (string_equals_cstr(&pp_tok->raw, "{")) {
+                tok->kind = TokenKind_brace_l;
+            } else if (string_equals_cstr(&pp_tok->raw, "}")) {
+                tok->kind = TokenKind_brace_r;
+            } else if (string_equals_cstr(&pp_tok->raw, "[")) {
+                tok->kind = TokenKind_bracket_l;
+            } else if (string_equals_cstr(&pp_tok->raw, "]")) {
+                tok->kind = TokenKind_bracket_r;
+            } else if (string_equals_cstr(&pp_tok->raw, ",")) {
+                tok->kind = TokenKind_comma;
+            } else if (string_equals_cstr(&pp_tok->raw, ";")) {
+                tok->kind = TokenKind_semicolon;
+            } else if (string_equals_cstr(&pp_tok->raw, "+=")) {
+                tok->kind = TokenKind_assign_add;
+            } else if (string_equals_cstr(&pp_tok->raw, "++")) {
+                tok->kind = TokenKind_plusplus;
+            } else if (string_equals_cstr(&pp_tok->raw, "+")) {
+                tok->kind = TokenKind_plus;
+            } else if (string_equals_cstr(&pp_tok->raw, "||")) {
+                tok->kind = TokenKind_oror;
+            } else if (string_equals_cstr(&pp_tok->raw, "&&")) {
+                tok->kind = TokenKind_andand;
+            } else if (string_equals_cstr(&pp_tok->raw, "&")) {
+                tok->kind = TokenKind_and;
+            } else if (string_equals_cstr(&pp_tok->raw, "->")) {
+                tok->kind = TokenKind_arrow;
+            } else if (string_equals_cstr(&pp_tok->raw, "-=")) {
+                tok->kind = TokenKind_assign_sub;
+            } else if (string_equals_cstr(&pp_tok->raw, "--")) {
+                tok->kind = TokenKind_minusminus;
+            } else if (string_equals_cstr(&pp_tok->raw, "-")) {
+                tok->kind = TokenKind_minus;
+            } else if (string_equals_cstr(&pp_tok->raw, "*")) {
+                tok->kind = TokenKind_star;
+            } else if (string_equals_cstr(&pp_tok->raw, "/")) {
+                tok->kind = TokenKind_slash;
+            } else if (string_equals_cstr(&pp_tok->raw, "%")) {
+                tok->kind = TokenKind_percent;
+            } else if (string_equals_cstr(&pp_tok->raw, "...")) {
+                tok->kind = TokenKind_ellipsis;
+            } else if (string_equals_cstr(&pp_tok->raw, ".")) {
+                tok->kind = TokenKind_dot;
+            } else if (string_equals_cstr(&pp_tok->raw, "!=")) {
+                tok->kind = TokenKind_ne;
+            } else if (string_equals_cstr(&pp_tok->raw, "!")) {
+                tok->kind = TokenKind_not;
+            } else if (string_equals_cstr(&pp_tok->raw, "==")) {
+                tok->kind = TokenKind_eq;
+            } else if (string_equals_cstr(&pp_tok->raw, "=")) {
+                tok->kind = TokenKind_assign;
+            } else if (string_equals_cstr(&pp_tok->raw, "<=")) {
+                tok->kind = TokenKind_le;
+            } else if (string_equals_cstr(&pp_tok->raw, "<")) {
+                tok->kind = TokenKind_lt;
+            } else if (string_equals_cstr(&pp_tok->raw, ">=")) {
+                tok->kind = TokenKind_ge;
+            } else if (string_equals_cstr(&pp_tok->raw, ">")) {
+                tok->kind = TokenKind_gt;
             } else {
-                tok->raw.data = l->src + start;
-                tok->raw.len = ident_len;
-                int pp_define_idx = find_pp_define(l, &tok->raw);
-                if (pp_define_idx == -1) {
-                    tok->kind = TokenKind_ident;
-                } else {
-                    tok->kind = l->pp_defines[pp_define_idx].tokens->kind;
-                    tok->raw.data = l->pp_defines[pp_define_idx].tokens->raw.data;
-                    tok->raw.len = l->pp_defines[pp_define_idx].tokens->raw.len;
-                }
+                sprintf(buf, "unknown token: %.*s", pp_tok->raw.len, pp_tok->raw.data);
+                fatal_error(buf);
             }
-        } else if (isspace(c)) {
+            tok->raw.data = pp_tok->raw.data;
+            tok->raw.len = pp_tok->raw.len;
+        } else if (k == PpTokenKind_whitespace) {
             continue;
-        } else if (c == '#') {
-            l->pos += 6;
-            while (isspace(l->src[l->pos])) {
-                ++l->pos;
-            }
-            start = l->pos;
-            while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
-                ++l->pos;
-            }
-            PpDefine* def = l->pp_defines + l->n_pp_defines;
-            ++l->n_pp_defines;
-            def->name.data = l->src + start;
-            def->name.len = l->pos - start;
-            while (isspace(l->src[l->pos])) {
-                ++l->pos;
-            }
-            int start2 = l->pos;
-            int is_digit = isdigit(l->src[l->pos]);
-            if (is_digit) {
-                while (isdigit(l->src[l->pos])) {
-                    ++l->pos;
-                }
-            } else {
-                while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
-                    ++l->pos;
-                }
-            }
-            def->tokens = calloc(1, sizeof(Token));
-            if (is_digit) {
-                def->tokens->kind = TokenKind_literal_int;
-            } else {
-                def->tokens->kind = TokenKind_ident;
-            }
-            def->tokens->raw.data = l->src + start2;
-            def->tokens->raw.len = l->pos - start2;
-            continue;
-        } else {
-            buf = calloc(1024, sizeof(char));
-            sprintf(buf, "unknown token char(%d)", c);
-            fatal_error(buf);
         }
         ++l->n_tokens;
     }
 }
 
-Token* tokenize(char* src) {
-    Lexer* l = lexer_new(src);
+Token* tokenize(PpToken* pp_tokens) {
+    Lexer* l = lexer_new(pp_tokens);
     tokenize_all(l);
     return l->tokens;
 }
@@ -2223,7 +2466,8 @@ int main(int argc, char** argv) {
         in = fopen(argv[1], "rb");
     }
     char* source = read_all(in);
-    Token* tokens = tokenize(source);
+    PpToken* pp_tokens = preprocess(source);
+    Token* tokens = tokenize(pp_tokens);
     Program* prog = parse(tokens);
     analyze(prog);
     codegen(prog);
