@@ -66,6 +66,259 @@ int string_equals(const String* s1, const String* s2) {
     return s1->len == s2->len && strncmp(s1->data, s2->data, s1->len) == 0;
 }
 
+int string_equals_cstr(const String* s1, const char* s2) {
+    size_t s2_len = strlen(s2);
+    return s1->len == s2_len && strncmp(s1->data, s2, s1->len) == 0;
+}
+
+struct SourceLocation {
+    String file;
+    size_t line;
+    size_t col;
+};
+typedef struct SourceLocation SourceLocation;
+
+enum PpTokenKind {
+    PpTokenKind_eof,
+
+    PpTokenKind_header_name,
+    PpTokenKind_identifier,
+    PpTokenKind_pp_number,
+    PpTokenKind_character_constant,
+    PpTokenKind_string_literal,
+    PpTokenKind_punctuator,
+    PpTokenKind_other,
+    PpTokenKind_whitespace,
+};
+typedef enum PpTokenKind PpTokenKind;
+
+struct PpToken {
+    PpTokenKind kind;
+    String raw;
+    SourceLocation loc;
+};
+typedef struct PpToken PpToken;
+
+struct PpDefine {
+    String name;
+    PpToken* tokens;
+};
+typedef struct PpDefine PpDefine;
+
+struct Preprocessor {
+    char* src;
+    int pos;
+    SourceLocation loc;
+    PpToken* pp_tokens;
+    int n_pp_tokens;
+    PpDefine* pp_defines;
+    int n_pp_defines;
+};
+typedef struct Preprocessor Preprocessor;
+
+Preprocessor* preprocessor_new(char* src) {
+    Preprocessor* pp = calloc(1, sizeof(Preprocessor));
+    pp->src = src;
+    pp->pp_tokens = calloc(1024 * 1024, sizeof(PpToken));
+    pp->pp_defines = calloc(1024, sizeof(PpDefine));
+    return pp;
+}
+
+int find_pp_define(Preprocessor* pp, String* name) {
+    int i;
+    for (i = 0; i < pp->n_pp_defines; ++i) {
+        if (string_equals(&pp->pp_defines[i].name, name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void pp_tokenize_all(Preprocessor* pp) {
+    char* buf;
+    int ch;
+    int start;
+    while (pp->src[pp->pos]) {
+        PpToken* tok = pp->pp_tokens + pp->n_pp_tokens;
+        char c = pp->src[pp->pos];
+        ++pp->pos;
+        if (c == '(') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == ')') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '{') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '}') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '[') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == ']') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == ',') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == ';') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '+') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else if (pp->src[pp->pos] == '+') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '|') {
+            ++pp->pos;
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '&') {
+            if (pp->src[pp->pos] == '&') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '-') {
+            if (pp->src[pp->pos] == '>') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else if (pp->src[pp->pos] == '-') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '*') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '/') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '%') {
+            tok->kind = PpTokenKind_punctuator;
+        } else if (c == '.') {
+            if (pp->src[pp->pos] == '.') {
+                ++pp->pos;
+                if (pp->src[pp->pos] == '.') {
+                    ++pp->pos;
+                    tok->kind = PpTokenKind_punctuator;
+                } else {
+                    fatal_error("unknown token: ..");
+                }
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '!') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '=') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '<') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '>') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '#') {
+            if (pp->src[pp->pos] == '#') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+            }
+        } else if (c == '\'') {
+            start = pp->pos - 1;
+            ch = pp->src[pp->pos];
+            if (ch == '\\') {
+                ++pp->pos;
+                ch = pp->src[pp->pos];
+                if (ch == 'n') {
+                    ch = '\n';
+                }
+            }
+            pp->pos += 2;
+            tok->kind = PpTokenKind_character_constant;
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+        } else if (c == '"') {
+            start = pp->pos - 1;
+            while (1) {
+                ch = pp->src[pp->pos];
+                if (ch == '\\') {
+                    ++pp->pos;
+                } else if (ch == '"') {
+                    break;
+                }
+                ++pp->pos;
+            }
+            ++pp->pos;
+            tok->kind = PpTokenKind_string_literal;
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+        } else if (isdigit(c)) {
+            --pp->pos;
+            start = pp->pos;
+            while (isdigit(pp->src[pp->pos])) {
+                ++pp->pos;
+            }
+            tok->kind = PpTokenKind_pp_number;
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+        } else if (isalpha(c) || c == '_') {
+            --pp->pos;
+            start = pp->pos;
+            while (isalnum(pp->src[pp->pos]) || pp->src[pp->pos] == '_') {
+                ++pp->pos;
+            }
+            tok->raw.data = pp->src + start;
+            tok->raw.len = pp->pos - start;
+            tok->kind = PpTokenKind_identifier;
+        } else if (isspace(c)) {
+            tok->raw.data = pp->src;
+            tok->raw.len = 1;
+            tok->kind = PpTokenKind_whitespace;
+        } else {
+            tok->raw.data = pp->src;
+            tok->raw.len = 1;
+            tok->kind = PpTokenKind_other;
+        }
+        ++pp->n_pp_tokens;
+    }
+}
+
+void pp_execute_pp_directive(Preprocessor* pp) {
+    PpToken* tok = pp->tokens;
+    while (tok->kind != PpTokenKind_eof) {
+        if (tok->kind == PpTokenKind_punctuator && string_equals_cstr(tok->raw, "#")) {
+        }
+        tok++;
+    }
+}
+
+PpToken* preprocess(char* src) {
+    Preprocessor* pp = preprocessor_new(src);
+    pp_tokenize_all(pp);
+    return pp->pp_tokens;
+}
+
 enum TokenKind {
     TokenKind_eof,
 
@@ -130,19 +383,11 @@ struct Token {
 };
 typedef struct Token Token;
 
-struct PpDefine {
-    String name;
-    Token* tokens;
-};
-typedef struct PpDefine PpDefine;
-
 struct Lexer {
     char* src;
     int pos;
     Token* tokens;
     int n_tokens;
-    PpDefine* pp_defines;
-    int n_pp_defines;
 };
 typedef struct Lexer Lexer;
 
@@ -150,18 +395,7 @@ Lexer* lexer_new(char* src) {
     Lexer* l = calloc(1, sizeof(Lexer));
     l->src = src;
     l->tokens = calloc(1024 * 1024, sizeof(Token));
-    l->pp_defines = calloc(1024, sizeof(PpDefine));
     return l;
-}
-
-int find_pp_define(Lexer* l, String* name) {
-    int i;
-    for (i = 0; i < l->n_pp_defines; ++i) {
-        if (string_equals(&l->pp_defines[i].name, name)) {
-            return i;
-        }
-    }
-    return -1;
 }
 
 void tokenize_all(Lexer* l) {
