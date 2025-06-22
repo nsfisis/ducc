@@ -71,13 +71,6 @@ int string_equals_cstr(const String* s1, const char* s2) {
     return s1->len == s2_len && strncmp(s1->data, s2, s1->len) == 0;
 }
 
-struct SourceLocation {
-    String file;
-    size_t line;
-    size_t col;
-};
-typedef struct SourceLocation SourceLocation;
-
 enum PpTokenKind {
     PpTokenKind_eof,
 
@@ -95,7 +88,6 @@ typedef enum PpTokenKind PpTokenKind;
 struct PpToken {
     PpTokenKind kind;
     String raw;
-    SourceLocation loc;
 };
 typedef struct PpToken PpToken;
 
@@ -108,7 +100,6 @@ typedef struct PpDefine PpDefine;
 struct Preprocessor {
     char* src;
     int pos;
-    SourceLocation loc;
     PpToken* pp_tokens;
     int n_pp_tokens;
     PpDefine* pp_defines;
@@ -2457,7 +2448,8 @@ int main(int argc, char** argv) {
         in = fopen(argv[1], "rb");
     }
     char* source = read_all(in);
-    Token* tokens = tokenize(source);
+    PpToken* pp_tokens = preprocess(source);
+    Token* tokens = tokenize(pp_tokens);
     Program* prog = parse(tokens);
     analyze(prog);
     codegen(prog);
