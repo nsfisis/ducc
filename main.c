@@ -296,9 +296,45 @@ void pp_tokenize_all(Preprocessor* pp) {
 }
 
 void pp_execute_pp_directive(Preprocessor* pp) {
-    PpToken* tok = pp->tokens;
+    PpToken* tok = pp->pp_tokens;
     while (tok->kind != PpTokenKind_eof) {
-        if (tok->kind == PpTokenKind_punctuator && string_equals_cstr(tok->raw, "#")) {
+        // TODO: check if the token is at the beginning of line.
+        // TODO: check if skipped whitespaces do not contain line breaks.
+        if (tok->kind == PpTokenKind_punctuator && string_equals_cstr(&tok->raw, "#")) {
+            PpToken* tok2 = tok + 1;
+            while (tok2->kind != PpTokenKind_eof && tok2->kind != PpTokenKind_whitespace)
+                ;
+            if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "define")) {
+                ++tok2;
+                while (tok2->kind != PpTokenKind_eof && tok2->kind != PpTokenKind_whitespace)
+                    ;
+                if (tok2->kind == PpTokenKind_identifier) {
+                    PpToken* define_name = tok2;
+                    ++tok2;
+                    while (tok2->kind != PpTokenKind_eof && tok2->kind != PpTokenKind_whitespace)
+                        ;
+                    if (tok2->kind == PpTokenKind_identifier || tok2->kind == PpTokenKind_pp_number) {
+                        PpToken* define_dest = tok2;
+
+                        pp->pp_defines[pp->n_pp_defines].name.len = define_name->raw.len;
+                        pp->pp_defines[pp->n_pp_defines].name.data = define_name->raw.data;
+                        pp->pp_defines[pp->n_pp_defines].tokens = calloc(1, sizeof(PpToken));
+                        pp->pp_defines[pp->n_pp_defines].tokens[0].kind = define_dest->kind;
+                        pp->pp_defines[pp->n_pp_defines].tokens[0].raw.len = define_dest->raw.len;
+                        pp->pp_defines[pp->n_pp_defines].tokens[0].raw.data = define_dest->raw.data;
+                        ++pp->n_pp_defines;
+                    }
+                }
+            }
+            tok = tok2;
+        } else if (tok->kind == PpTokenKind_identifier) {
+            int pp_define_idx = find_pp_define(pp, &tok->raw);
+            if (pp_define_idx != -1) {
+                PpToken* define_dest = pp->pp_defines[pp_define_idx].tokens;
+                tok->kind = define_dest->kind;
+                tok->raw.data = define_dest->raw.data;
+                tok->raw.len = define_dest->raw.len;
+            }
         }
         tok++;
     }
@@ -375,16 +411,16 @@ struct Token {
 typedef struct Token Token;
 
 struct Lexer {
-    char* src;
+    PpToken* src;
     int pos;
     Token* tokens;
     int n_tokens;
 };
 typedef struct Lexer Lexer;
 
-Lexer* lexer_new(char* src) {
+Lexer* lexer_new(PpToken* pp_tokens) {
     Lexer* l = calloc(1, sizeof(Lexer));
-    l->src = src;
+    l->src = pp_tokens;
     l->tokens = calloc(1024 * 1024, sizeof(Token));
     return l;
 }
@@ -575,54 +611,11 @@ void tokenize_all(Lexer* l) {
             } else if (ident_len == 5 && strstr(l->src + start, "while") == l->src + start) {
                 tok->kind = TokenKind_keyword_while;
             } else {
+                tok->kind = TokenKind_ident;
                 tok->raw.data = l->src + start;
                 tok->raw.len = ident_len;
-                int pp_define_idx = find_pp_define(l, &tok->raw);
-                if (pp_define_idx == -1) {
-                    tok->kind = TokenKind_ident;
-                } else {
-                    tok->kind = l->pp_defines[pp_define_idx].tokens->kind;
-                    tok->raw.data = l->pp_defines[pp_define_idx].tokens->raw.data;
-                    tok->raw.len = l->pp_defines[pp_define_idx].tokens->raw.len;
-                }
             }
         } else if (isspace(c)) {
-            continue;
-        } else if (c == '#') {
-            l->pos += 6;
-            while (isspace(l->src[l->pos])) {
-                ++l->pos;
-            }
-            start = l->pos;
-            while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
-                ++l->pos;
-            }
-            PpDefine* def = l->pp_defines + l->n_pp_defines;
-            ++l->n_pp_defines;
-            def->name.data = l->src + start;
-            def->name.len = l->pos - start;
-            while (isspace(l->src[l->pos])) {
-                ++l->pos;
-            }
-            int start2 = l->pos;
-            int is_digit = isdigit(l->src[l->pos]);
-            if (is_digit) {
-                while (isdigit(l->src[l->pos])) {
-                    ++l->pos;
-                }
-            } else {
-                while (isalnum(l->src[l->pos]) || l->src[l->pos] == '_') {
-                    ++l->pos;
-                }
-            }
-            def->tokens = calloc(1, sizeof(Token));
-            if (is_digit) {
-                def->tokens->kind = TokenKind_literal_int;
-            } else {
-                def->tokens->kind = TokenKind_ident;
-            }
-            def->tokens->raw.data = l->src + start2;
-            def->tokens->raw.len = l->pos - start2;
             continue;
         } else {
             buf = calloc(1024, sizeof(char));
@@ -633,8 +626,8 @@ void tokenize_all(Lexer* l) {
     }
 }
 
-Token* tokenize(char* src) {
-    Lexer* l = lexer_new(src);
+Token* tokenize(PpToken* pp_tokens) {
+    Lexer* l = lexer_new(pp_tokens);
     tokenize_all(l);
     return l->tokens;
 }
