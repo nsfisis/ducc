@@ -223,9 +223,22 @@ void pp_tokenize_all(Preprocessor* pp) {
             tok->raw.len = 1;
             tok->raw.data = pp->src + pp->pos - tok->raw.len;
         } else if (c == '/') {
-            tok->kind = PpTokenKind_punctuator;
-            tok->raw.len = 1;
-            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            if (pp->src[pp->pos] == '/') {
+                start = pp->pos - 1;
+                ++pp->pos;
+                while (pp->src[pp->pos] && pp->src[pp->pos] != '\n' && pp->src[pp->pos] != '\r') {
+                    ++pp->pos;
+                }
+                tok->kind = PpTokenKind_whitespace;
+                tok->raw.len = pp->pos - start;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else if (pp->src[pp->pos] == '*') {
+                fatal_error("unimplemented");
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
         } else if (c == '%') {
             tok->kind = PpTokenKind_punctuator;
             tok->raw.len = 1;
@@ -368,8 +381,8 @@ void pp_execute_pp_directive(Preprocessor* pp) {
     PpToken* tok = pp->pp_tokens;
     PpToken* define_dest;
     while (tok->kind != PpTokenKind_eof) {
-        "TODO: check if the token is at the beginning of line.";
-        "TODO: check if skipped whitespaces do not contain line breaks.";
+        // TODO: check if the token is at the beginning of line.
+        // TODO: check if skipped whitespaces do not contain line breaks.
         if (tok->kind == PpTokenKind_punctuator && string_equals_cstr(&tok->raw, "#")) {
             PpToken* tok2 = tok + 1;
             while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
