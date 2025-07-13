@@ -319,13 +319,8 @@ void pp_tokenize_all(Preprocessor* pp) {
             }
         } else if (c == '\'') {
             start = pp->pos - 1;
-            ch = pp->src[pp->pos];
-            if (ch == '\\') {
+            if (pp->src[pp->pos] == '\\') {
                 ++pp->pos;
-                ch = pp->src[pp->pos];
-                if (ch == 'n') {
-                    ch = '\n';
-                }
             }
             pp->pos += 2;
             tok->kind = PpTokenKind_character_constant;
@@ -576,8 +571,20 @@ void tokenize_all(Lexer* l) {
             ch = pp_tok->raw.data[1];
             if (ch == '\\') {
                 ch = pp_tok->raw.data[2];
-                if (ch == 'n') {
+                if (ch == 'a') {
+                    ch = '\a';
+                } else if (ch == 'b') {
+                    ch = '\b';
+                } else if (ch == 'f') {
+                    ch = '\f';
+                } else if (ch == 'n') {
                     ch = '\n';
+                } else if (ch == 'r') {
+                    ch = '\r';
+                } else if (ch == 't') {
+                    ch = '\t';
+                } else if (ch == 'v') {
+                    ch = '\v';
                 }
             }
             buf = calloc(4, sizeof(char));
