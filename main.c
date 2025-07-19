@@ -20,6 +20,7 @@ int isalpha(int);
 int isdigit(int);
 int isspace(int);
 void* memcpy(void*, void*, size_t);
+void* memmove(void*, void*, size_t);
 int printf(const char*, ...);
 int sprintf(char*, const char*, ...);
 int strcmp(const char*, const char*);
@@ -104,14 +105,23 @@ struct Preprocessor {
     int n_pp_tokens;
     PpDefine* pp_defines;
     int n_pp_defines;
+    int include_depth;
 };
 typedef struct Preprocessor Preprocessor;
 
-Preprocessor* preprocessor_new(char* src) {
+PpToken* do_preprocess(char* src, int depth);
+
+Preprocessor* preprocessor_new(char* src, int include_depth) {
+    if (include_depth >= 32) {
+        fatal_error("include depth limit exceeded");
+    }
+
     Preprocessor* pp = calloc(1, sizeof(Preprocessor));
     pp->src = src;
     pp->pp_tokens = calloc(1024 * 1024, sizeof(PpToken));
     pp->pp_defines = calloc(1024, sizeof(PpDefine));
+    pp->include_depth = include_depth;
+
     return pp;
 }
 
@@ -403,12 +413,60 @@ void process_pp_directives(Preprocessor* pp) {
                         ++pp->n_pp_defines;
                     }
                 }
-            }
-            while (tok != tok2 + 1) {
-                tok->kind = PpTokenKind_whitespace;
-                tok->raw.len = 0;
-                tok->raw.data = NULL;
-                ++tok;
+                // Remove #define directive.
+                while (tok != tok2 + 1) {
+                    tok->kind = PpTokenKind_whitespace;
+                    tok->raw.len = 0;
+                    tok->raw.data = NULL;
+                    ++tok;
+                }
+            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "include")) {
+                ++tok2;
+                while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
+                    ++tok2;
+                if (tok2->kind == PpTokenKind_string_literal) {
+                    // Process #include directive.
+                    PpToken* include_name = tok2;
+                    ++tok2;
+                    char* include_name_buf = calloc(include_name->raw.len - 2 + 1, sizeof(char));
+                    sprintf(include_name_buf, "%.*s", include_name->raw.len - 2, include_name->raw.data + 1);
+
+                    // Remove #include directive itself.
+                    while (tok != tok2 + 1) {
+                        tok->kind = PpTokenKind_whitespace;
+                        tok->raw.len = 0;
+                        tok->raw.data = NULL;
+                        ++tok;
+                    }
+
+                    // Read and preprocess included file.
+                    FILE* include_file = fopen(include_name_buf, "rb");
+                    if (include_file == NULL) {
+                        char* buf = calloc(1024, sizeof(char));
+                        sprintf(buf, "cannot open include file: %s", include_name_buf);
+                        fatal_error(buf);
+                    }
+                    char* include_source = read_all(include_file);
+                    fclose(include_file);
+
+                    PpToken* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1);
+
+                    // Insert preprocessed tokens into the current token stream.
+                    int n_include_pp_tokens = 0;
+                    while (include_pp_tokens[n_include_pp_tokens].kind != PpTokenKind_eof) {
+                        ++n_include_pp_tokens;
+                    }
+
+                    // Shift existing tokens to make room for include tokens
+                    int n_pp_tokens_after_include = pp->n_pp_tokens - (tok - pp->pp_tokens);
+
+                    memmove(tok + n_include_pp_tokens, tok, n_pp_tokens_after_include * sizeof(PpToken));
+
+                    // Copy include tokens into the current position
+                    memcpy(tok, include_pp_tokens, n_include_pp_tokens * sizeof(PpToken));
+
+                    pp->n_pp_tokens += n_include_pp_tokens;
+                }
             }
         } else if (tok->kind == PpTokenKind_identifier) {
             int pp_define_idx = find_pp_define(pp, &tok->raw);
@@ -423,11 +481,15 @@ void process_pp_directives(Preprocessor* pp) {
     }
 }
 
-PpToken* preprocess(char* src) {
-    Preprocessor* pp = preprocessor_new(src);
+PpToken* do_preprocess(char* src, int depth) {
+    Preprocessor* pp = preprocessor_new(src, depth);
     pp_tokenize_all(pp);
     process_pp_directives(pp);
     return pp->pp_tokens;
+}
+
+PpToken* preprocess(char* src) {
+    return do_preprocess(src, 0);
 }
 
 enum TokenKind {
