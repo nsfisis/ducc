@@ -372,7 +372,7 @@ void pp_tokenize_all(Preprocessor* pp) {
     }
 }
 
-void pp_execute_pp_directive(Preprocessor* pp) {
+void process_pp_directives(Preprocessor* pp) {
     PpToken* tok = pp->pp_tokens;
     PpToken* define_dest;
     while (tok->kind != PpTokenKind_eof) {
@@ -426,7 +426,7 @@ void pp_execute_pp_directive(Preprocessor* pp) {
 PpToken* preprocess(char* src) {
     Preprocessor* pp = preprocessor_new(src);
     pp_tokenize_all(pp);
-    pp_execute_pp_directive(pp);
+    process_pp_directives(pp);
     return pp->pp_tokens;
 }
 
