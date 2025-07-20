@@ -556,6 +556,128 @@ struct Token {
 };
 typedef struct Token Token;
 
+const char* token_kind_stringify(TokenKind k) {
+    if (k == TokenKind_eof)
+        return "<eof>";
+    else if (k == TokenKind_and)
+        return "&";
+    else if (k == TokenKind_andand)
+        return "&&";
+    else if (k == TokenKind_arrow)
+        return "->";
+    else if (k == TokenKind_assign)
+        return "=";
+    else if (k == TokenKind_assign_add)
+        return "+=";
+    else if (k == TokenKind_assign_sub)
+        return "-=";
+    else if (k == TokenKind_brace_l)
+        return "{";
+    else if (k == TokenKind_brace_r)
+        return "}";
+    else if (k == TokenKind_bracket_l)
+        return "[";
+    else if (k == TokenKind_bracket_r)
+        return "]";
+    else if (k == TokenKind_comma)
+        return ",";
+    else if (k == TokenKind_dot)
+        return ".";
+    else if (k == TokenKind_ellipsis)
+        return "...";
+    else if (k == TokenKind_eq)
+        return "==";
+    else if (k == TokenKind_ge)
+        return ">=";
+    else if (k == TokenKind_gt)
+        return ">";
+    else if (k == TokenKind_ident)
+        return "<identifier>";
+    else if (k == TokenKind_keyword_break)
+        return "break";
+    else if (k == TokenKind_keyword_char)
+        return "char";
+    else if (k == TokenKind_keyword_const)
+        return "const";
+    else if (k == TokenKind_keyword_continue)
+        return "continue";
+    else if (k == TokenKind_keyword_do)
+        return "do";
+    else if (k == TokenKind_keyword_else)
+        return "else";
+    else if (k == TokenKind_keyword_enum)
+        return "enum";
+    else if (k == TokenKind_keyword_extern)
+        return "extern";
+    else if (k == TokenKind_keyword_for)
+        return "for";
+    else if (k == TokenKind_keyword_if)
+        return "if";
+    else if (k == TokenKind_keyword_int)
+        return "int";
+    else if (k == TokenKind_keyword_long)
+        return "long";
+    else if (k == TokenKind_keyword_return)
+        return "return";
+    else if (k == TokenKind_keyword_sizeof)
+        return "sizeof";
+    else if (k == TokenKind_keyword_struct)
+        return "struct";
+    else if (k == TokenKind_keyword_typeof)
+        return "typeof";
+    else if (k == TokenKind_keyword_void)
+        return "void";
+    else if (k == TokenKind_keyword_while)
+        return "while";
+    else if (k == TokenKind_le)
+        return "le";
+    else if (k == TokenKind_lt)
+        return "lt";
+    else if (k == TokenKind_literal_int)
+        return "<integer>";
+    else if (k == TokenKind_literal_str)
+        return "<string>";
+    else if (k == TokenKind_minus)
+        return "-";
+    else if (k == TokenKind_minusminus)
+        return "--";
+    else if (k == TokenKind_ne)
+        return "!=";
+    else if (k == TokenKind_not)
+        return "!";
+    else if (k == TokenKind_oror)
+        return "||";
+    else if (k == TokenKind_paren_l)
+        return "(";
+    else if (k == TokenKind_paren_r)
+        return ")";
+    else if (k == TokenKind_percent)
+        return "%";
+    else if (k == TokenKind_plus)
+        return "+";
+    else if (k == TokenKind_plusplus)
+        return "++";
+    else if (k == TokenKind_semicolon)
+        return ";";
+    else if (k == TokenKind_slash)
+        return "/";
+    else if (k == TokenKind_star)
+        return "*";
+    else
+        unreachable();
+}
+
+const char* token_stringify(Token* t) {
+    TokenKind k = t->kind;
+    if (k == TokenKind_ident || k == TokenKind_literal_int || k == TokenKind_literal_str) {
+        char* buf = calloc(t->raw.len + 1, sizeof(char));
+        sprintf(buf, "%.*s (%s)", t->raw.len, t->raw.data, token_kind_stringify(k));
+        return buf;
+    } else {
+        return token_kind_stringify(k);
+    }
+}
+
 struct Lexer {
     PpToken* src;
     int pos;
@@ -1164,7 +1286,7 @@ Token* expect(Parser* p, int expected) {
     }
 
     char* buf = calloc(1024, sizeof(char));
-    sprintf(buf, "expected %d, but got %d", expected, t->kind);
+    sprintf(buf, "expected '%s', but got '%s'", token_kind_stringify(expected), token_stringify(t));
     fatal_error(buf);
 }
 
@@ -1317,7 +1439,7 @@ AstNode* parse_primary_expr(Parser* p) {
         return e;
     } else {
         buf = calloc(1024, sizeof(char));
-        sprintf(buf, "expected primary expression, but got %d", t->kind);
+        sprintf(buf, "expected primary expression, but got '%s'", token_stringify(t));
         fatal_error(buf);
     }
 }
@@ -1392,7 +1514,7 @@ Type* parse_type(Parser* p) {
     }
     if (!is_type_token(p, t)) {
         buf = calloc(1024, sizeof(char));
-        sprintf(buf, "parse_type: unknown type, %d", t->kind);
+        sprintf(buf, "parse_type: expected type, but got '%s'", token_stringify(t));
         fatal_error(buf);
     }
     Type* ty;
