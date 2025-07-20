@@ -1459,8 +1459,15 @@ AstNode* parse_additive_expr(Parser* p) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
             if (lhs->ty->kind == TypeKind_ptr) {
-                lhs = ast_new_binary_expr(
-                    op, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
+                if (rhs->ty->kind == TypeKind_ptr) {
+                    // (a - b) / sizeof(a)
+                    lhs = ast_new_binary_expr(TokenKind_slash, ast_new_binary_expr(op, lhs, rhs),
+                                              ast_new_int(type_sizeof(lhs->ty->to)));
+                } else {
+                    // a - b*sizeof(a)
+                    lhs = ast_new_binary_expr(
+                        op, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
+                }
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
             }
