@@ -942,6 +942,7 @@ AstNode* ast_new_member_access_expr(AstNode* obj, const String* name) {
     AstNode* e = ast_new(AstNodeKind_deref_expr);
     e->node_operand = ast_new_binary_expr(TokenKind_plus, obj, ast_new_int(type_offsetof(obj->ty->to, name)));
     e->ty = type_member_typeof(obj->ty->to, name);
+    e->node_operand->ty = type_new_ptr(e->ty);
     return e;
 }
 
