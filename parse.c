@@ -47,6 +47,13 @@ Parser* parser_new(Token* tokens) {
     p->enums = calloc(16, sizeof(AstNode));
     p->typedefs = calloc(64, sizeof(AstNode));
     p->str_literals = calloc(1024, sizeof(char*));
+
+    p->funcs[p->n_funcs].name.data = "va_start";
+    p->funcs[p->n_funcs].name.len = strlen("va_start");
+    p->funcs[p->n_funcs].ty = calloc(1, sizeof(Type));
+    p->funcs[p->n_funcs].ty->kind = TypeKind_void;
+    ++p->n_funcs;
+
     return p;
 }
 
@@ -174,7 +181,7 @@ AstNode* parse_primary_expr(Parser* p) {
         e = parse_expr(p);
         expect(p, TokenKind_paren_r);
         return e;
-    } else if (t->kind == TokenKind_ident) {
+    } else if (t->kind == TokenKind_ident || t->kind == TokenKind_va_start) {
         String* name = &t->raw;
 
         if (peek_token(p)->kind == TokenKind_paren_l) {
