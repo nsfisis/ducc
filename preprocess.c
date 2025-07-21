@@ -37,6 +37,7 @@ struct Preprocessor {
     int n_pp_tokens;
     PpDefines* pp_defines;
     int include_depth;
+    int skip_pp_tokens;
 };
 typedef struct Preprocessor Preprocessor;
 
@@ -81,6 +82,11 @@ int find_pp_define(Preprocessor* pp, String* name) {
         }
     }
     return -1;
+}
+
+int skip_pp_tokens(Preprocessor* pp) {
+    // TODO: support nested #if
+    return pp->skip_pp_tokens;
 }
 
 void pp_tokenize_all(Preprocessor* pp) {
@@ -416,7 +422,49 @@ void process_pp_directives(Preprocessor* pp) {
 
                     pp->n_pp_tokens += n_include_pp_tokens;
                 }
+            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "ifdef")) {
+                ++tok2;
+                while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
+                    ++tok2;
+                if (tok2->kind == PpTokenKind_identifier) {
+                    // Process #ifdef directive.
+                    PpToken* name = tok2;
+                    ++tok2;
+
+                    pp->skip_pp_tokens = find_pp_define(pp, &name->raw) == -1;
+                }
+                // Remove #ifdef directive.
+                while (tok != tok2 + 1) {
+                    tok->kind = PpTokenKind_whitespace;
+                    tok->raw.len = 0;
+                    tok->raw.data = NULL;
+                    ++tok;
+                }
+            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "endif")) {
+                ++tok2;
+                pp->skip_pp_tokens = 0;
+                // Remove #endif directive.
+                while (tok != tok2 + 1) {
+                    tok->kind = PpTokenKind_whitespace;
+                    tok->raw.len = 0;
+                    tok->raw.data = NULL;
+                    ++tok;
+                }
+            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "else")) {
+                ++tok2;
+                pp->skip_pp_tokens = 1 - pp->skip_pp_tokens;
+                // Remove #else directive.
+                while (tok != tok2 + 1) {
+                    tok->kind = PpTokenKind_whitespace;
+                    tok->raw.len = 0;
+                    tok->raw.data = NULL;
+                    ++tok;
+                }
             }
+        } else if (skip_pp_tokens(pp)) {
+            tok->kind = PpTokenKind_whitespace;
+            tok->raw.len = 0;
+            tok->raw.data = NULL;
         } else if (tok->kind == PpTokenKind_identifier) {
             int pp_define_idx = find_pp_define(pp, &tok->raw);
             if (pp_define_idx != -1) {
