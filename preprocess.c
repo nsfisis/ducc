@@ -48,6 +48,17 @@ PpDefines* pp_defines_new() {
     return pp_defines;
 }
 
+void add_predefined_macros(PpDefines* pp_defines) {
+    PpDefine* pp_define = pp_defines->data + pp_defines->len;
+    pp_define->name.len = strlen("__ducc__");
+    pp_define->name.data = "__ducc__";
+    pp_define->tokens = calloc(1, sizeof(PpToken));
+    pp_define->tokens[0].kind = PpTokenKind_pp_number;
+    pp_define->tokens[0].raw.len = strlen("1");
+    pp_define->tokens[0].raw.data = "1";
+    pp_defines->len += 1;
+}
+
 Preprocessor* preprocessor_new(char* src, int include_depth, PpDefines* pp_defines) {
     if (include_depth >= 32) {
         fatal_error("include depth limit exceeded");
@@ -427,5 +438,7 @@ PpToken* do_preprocess(char* src, int depth, PpDefines* pp_defines) {
 }
 
 PpToken* preprocess(char* src) {
-    return do_preprocess(src, 0, pp_defines_new());
+    PpDefines* pp_defines = pp_defines_new();
+    add_predefined_macros(pp_defines);
+    return do_preprocess(src, 0, pp_defines);
 }
