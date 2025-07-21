@@ -346,35 +346,48 @@ void process_pp_directives(Preprocessor* pp) {
             PpToken* tok2 = tok + 1;
             while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
                 ++tok2;
-            if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "define")) {
+            if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "endif")) {
                 ++tok2;
-                while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
-                    ++tok2;
-                if (tok2->kind == PpTokenKind_identifier) {
-                    PpToken* define_name = tok2;
-                    ++tok2;
-                    while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
-                        ++tok2;
-                    if (tok2->kind == PpTokenKind_identifier || tok2->kind == PpTokenKind_pp_number) {
-                        define_dest = tok2;
-
-                        PpDefine* pp_define = pp->pp_defines->data + pp->pp_defines->len;
-                        pp_define->name.len = define_name->raw.len;
-                        pp_define->name.data = define_name->raw.data;
-                        pp_define->tokens = calloc(1, sizeof(PpToken));
-                        pp_define->tokens[0].kind = define_dest->kind;
-                        pp_define->tokens[0].raw.len = define_dest->raw.len;
-                        pp_define->tokens[0].raw.data = define_dest->raw.data;
-                        ++pp->pp_defines->len;
-                    }
-                }
-                // Remove #define directive.
-                while (tok != tok2 + 1) {
+                pp->skip_pp_tokens = 0;
+                // Remove #endif directive.
+                while (tok != tok2) {
                     tok->kind = PpTokenKind_whitespace;
                     tok->raw.len = 0;
                     tok->raw.data = NULL;
                     ++tok;
                 }
+            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "else")) {
+                ++tok2;
+                pp->skip_pp_tokens = 1 - pp->skip_pp_tokens;
+                // Remove #else directive.
+                while (tok != tok2) {
+                    tok->kind = PpTokenKind_whitespace;
+                    tok->raw.len = 0;
+                    tok->raw.data = NULL;
+                    ++tok;
+                }
+            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "ifdef")) {
+                ++tok2;
+                while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
+                    ++tok2;
+                if (tok2->kind == PpTokenKind_identifier) {
+                    // Process #ifdef directive.
+                    PpToken* name = tok2;
+                    ++tok2;
+
+                    pp->skip_pp_tokens = find_pp_define(pp, &name->raw) == -1;
+                }
+                // Remove #ifdef directive.
+                while (tok != tok2) {
+                    tok->kind = PpTokenKind_whitespace;
+                    tok->raw.len = 0;
+                    tok->raw.data = NULL;
+                    ++tok;
+                }
+            } else if (skip_pp_tokens(pp)) {
+                tok->kind = PpTokenKind_whitespace;
+                tok->raw.len = 0;
+                tok->raw.data = NULL;
             } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "include")) {
                 ++tok2;
                 while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
@@ -422,38 +435,29 @@ void process_pp_directives(Preprocessor* pp) {
 
                     pp->n_pp_tokens += n_include_pp_tokens;
                 }
-            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "ifdef")) {
+            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "define")) {
                 ++tok2;
                 while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
                     ++tok2;
                 if (tok2->kind == PpTokenKind_identifier) {
-                    // Process #ifdef directive.
-                    PpToken* name = tok2;
+                    PpToken* define_name = tok2;
                     ++tok2;
+                    while (tok2->kind != PpTokenKind_eof && tok2->kind == PpTokenKind_whitespace)
+                        ++tok2;
+                    if (tok2->kind == PpTokenKind_identifier || tok2->kind == PpTokenKind_pp_number) {
+                        define_dest = tok2;
 
-                    pp->skip_pp_tokens = find_pp_define(pp, &name->raw) == -1;
+                        PpDefine* pp_define = pp->pp_defines->data + pp->pp_defines->len;
+                        pp_define->name.len = define_name->raw.len;
+                        pp_define->name.data = define_name->raw.data;
+                        pp_define->tokens = calloc(1, sizeof(PpToken));
+                        pp_define->tokens[0].kind = define_dest->kind;
+                        pp_define->tokens[0].raw.len = define_dest->raw.len;
+                        pp_define->tokens[0].raw.data = define_dest->raw.data;
+                        ++pp->pp_defines->len;
+                    }
                 }
-                // Remove #ifdef directive.
-                while (tok != tok2 + 1) {
-                    tok->kind = PpTokenKind_whitespace;
-                    tok->raw.len = 0;
-                    tok->raw.data = NULL;
-                    ++tok;
-                }
-            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "endif")) {
-                ++tok2;
-                pp->skip_pp_tokens = 0;
-                // Remove #endif directive.
-                while (tok != tok2 + 1) {
-                    tok->kind = PpTokenKind_whitespace;
-                    tok->raw.len = 0;
-                    tok->raw.data = NULL;
-                    ++tok;
-                }
-            } else if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "else")) {
-                ++tok2;
-                pp->skip_pp_tokens = 1 - pp->skip_pp_tokens;
-                // Remove #else directive.
+                // Remove #define directive.
                 while (tok != tok2 + 1) {
                     tok->kind = PpTokenKind_whitespace;
                     tok->raw.len = 0;

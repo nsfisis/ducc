@@ -53,6 +53,9 @@ enum TokenKind {
     TokenKind_semicolon,
     TokenKind_slash,
     TokenKind_star,
+
+    // va_start() is currently implemented as a special form due to the current limitation of #define macro.
+    TokenKind_va_start,
 };
 typedef enum TokenKind TokenKind;
 
@@ -169,6 +172,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "/";
     else if (k == TokenKind_star)
         return "*";
+    else if (k == TokenKind_va_start)
+        return "va_start";
     else
         unreachable();
 }
@@ -247,6 +252,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_void;
             } else if (string_equals_cstr(&pp_tok->raw, "while")) {
                 tok->kind = TokenKind_keyword_while;
+            } else if (string_equals_cstr(&pp_tok->raw, "va_start")) {
+                tok->kind = TokenKind_va_start;
             } else {
                 tok->kind = TokenKind_ident;
             }

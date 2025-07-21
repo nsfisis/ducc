@@ -209,8 +209,31 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
 
 void codegen_func_call(CodeGen* g, AstNode* ast) {
     String* func_name = &ast->name;
-    AstNode* args = ast->node_args;
     int i;
+
+    if (string_equals_cstr(func_name, "va_start")) {
+        printf("  # va_start BEGIN\n");
+        for (i = 0; i < 6; ++i) {
+            printf("  mov rax, %s\n", param_reg(i));
+            printf("  mov [rbp-%d], rax\n", 8 + (LVAR_MAX - 4 - i) * 8);
+        }
+        AstNode* va_list_args = ast->node_args->node_items;
+        codegen_expr(g, va_list_args, GenMode_lval);
+        printf("  pop rdi\n");
+        printf("  mov rax, rbp\n");
+        printf("  sub rax, %d\n", 8 + (LVAR_MAX - 1) * 8);
+        printf("  mov [rdi], rax\n");
+        printf("  mov DWORD PTR [rax], 8\n");
+        printf("  mov DWORD PTR [rax+4], 0\n");
+        printf("  mov QWORD PTR [rax+8], 0\n");
+        printf("  mov rdi, rbp\n");
+        printf("  sub rdi, %d\n", 8 + (LVAR_MAX - 4) * 8);
+        printf("  mov QWORD PTR [rax+16], rdi\n");
+        printf("  # va_start END\n");
+        return;
+    }
+
+    AstNode* args = ast->node_args;
     for (i = 0; i < args->node_len; ++i) {
         AstNode* arg = args->node_items + i;
         codegen_expr(g, arg, GenMode_rval);
