@@ -197,7 +197,7 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->raw.len = pp->pos - start;
                 tok->raw.data = pp->src + pp->pos - tok->raw.len;
             } else if (pp->src[pp->pos] == '*') {
-                fatal_error("unimplemented");
+                unimplemented();
             } else {
                 tok->kind = PpTokenKind_punctuator;
                 tok->raw.len = 1;
@@ -410,9 +410,7 @@ void process_pp_directives(Preprocessor* pp) {
                     // Read and preprocess included file.
                     FILE* include_file = fopen(include_name_buf, "rb");
                     if (include_file == NULL) {
-                        char* buf = calloc(1024, sizeof(char));
-                        sprintf(buf, "cannot open include file: %s", include_name_buf);
-                        fatal_error(buf);
+                        fatal_error("cannot open include file: %s", include_name_buf);
                     }
                     char* include_source = read_all(include_file);
                     fclose(include_file);

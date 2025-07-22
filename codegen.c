@@ -277,10 +277,10 @@ void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 
 void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     if (gen_mode == GenMode_lval) {
-        fatal_error("unimplemented");
+        unimplemented();
     }
     if (ast->ty->kind != TypeKind_ptr) {
-        fatal_error("unimplemented");
+        unimplemented();
     }
     printf("  mov rax, QWORD PTR %.*s[rip]\n", ast->name.len, ast->name.data);
     printf("  push rax\n");

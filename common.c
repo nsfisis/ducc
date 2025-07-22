@@ -11,6 +11,10 @@ void unreachable() {
     fatal_error("unreachable");
 }
 
+void unimplemented() {
+    fatal_error("unimplemented");
+}
+
 char* read_all(FILE* in) {
     char* buf = calloc(1024 * 1024, sizeof(char));
     char* cur = buf;
