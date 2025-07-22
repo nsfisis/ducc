@@ -205,7 +205,6 @@ Lexer* lexer_new(PpToken* pp_tokens) {
 }
 
 void tokenize_all(Lexer* l) {
-    char* buf;
     int ch;
     int start;
     while (l->src[l->pos].kind != PpTokenKind_eof) {
@@ -214,7 +213,7 @@ void tokenize_all(Lexer* l) {
         PpTokenKind k = pp_tok->kind;
         ++l->pos;
         if (k == PpTokenKind_header_name) {
-            fatal_error("not implemented yet");
+            unimplemented();
         } else if (k == PpTokenKind_identifier) {
             if (string_equals_cstr(&pp_tok->raw, "break")) {
                 tok->kind = TokenKind_keyword_break;
@@ -284,7 +283,7 @@ void tokenize_all(Lexer* l) {
                     ch = '\v';
                 }
             }
-            buf = calloc(4, sizeof(char));
+            char* buf = calloc(4, sizeof(char));
             sprintf(buf, "%d", ch);
             tok->raw.data = buf;
             tok->raw.len = strlen(buf);
@@ -356,8 +355,7 @@ void tokenize_all(Lexer* l) {
             } else if (string_equals_cstr(&pp_tok->raw, ">")) {
                 tok->kind = TokenKind_gt;
             } else {
-                sprintf(buf, "unknown token: %.*s", pp_tok->raw.len, pp_tok->raw.data);
-                fatal_error(buf);
+                fatal_error("unknown token: %.*s", pp_tok->raw.len, pp_tok->raw.data);
             }
             tok->raw.data = pp_tok->raw.data;
             tok->raw.len = pp_tok->raw.len;

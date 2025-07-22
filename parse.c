@@ -75,10 +75,7 @@ Token* expect(Parser* p, int expected) {
     if (t->kind == expected) {
         return t;
     }
-
-    char* buf = calloc(1024, sizeof(char));
-    sprintf(buf, "expected '%s', but got '%s'", token_kind_stringify(expected), token_stringify(t));
-    fatal_error(buf);
+    fatal_error("expected '%s', but got '%s'", token_kind_stringify(expected), token_stringify(t));
 }
 
 int find_lvar(Parser* p, const String* name) {
@@ -170,7 +167,6 @@ int register_str_literal(Parser* p, char* s) {
 AstNode* parse_primary_expr(Parser* p) {
     Token* t = next_token(p);
     AstNode* e;
-    char* buf;
     if (t->kind == TokenKind_literal_int) {
         return ast_new_int(atoi(string_to_cstr(&t->raw)));
     } else if (t->kind == TokenKind_literal_str) {
@@ -188,9 +184,7 @@ AstNode* parse_primary_expr(Parser* p) {
             e = ast_new(AstNodeKind_func_call);
             int func_idx = find_func(p, name);
             if (func_idx == -1) {
-                buf = calloc(1024, sizeof(char));
-                sprintf(buf, "undefined function: %.*s", name->len, name->data);
-                fatal_error(buf);
+                fatal_error("undefined function: %.*s", name->len, name->data);
             }
             e->name.data = name->data;
             e->name.len = name->len;
@@ -204,9 +198,7 @@ AstNode* parse_primary_expr(Parser* p) {
             if (gvar_idx == -1) {
                 int enum_member_idx = find_enum_member(p, name);
                 if (enum_member_idx == -1) {
-                    buf = calloc(1024, sizeof(char));
-                    sprintf(buf, "undefined variable: %.*s", name->len, name->data);
-                    fatal_error(buf);
+                    fatal_error("undefined variable: %.*s", name->len, name->data);
                 }
                 int enum_idx = enum_member_idx / 1000;
                 int n = enum_member_idx % 1000;
@@ -229,9 +221,7 @@ AstNode* parse_primary_expr(Parser* p) {
         e->ty = p->lvars[lvar_idx].ty;
         return e;
     } else {
-        buf = calloc(1024, sizeof(char));
-        sprintf(buf, "expected primary expression, but got '%s'", token_stringify(t));
-        fatal_error(buf);
+        fatal_error("expected primary expression, but got '%s'", token_stringify(t));
     }
 }
 
@@ -298,23 +288,18 @@ int is_type_token(Parser* p, Token* token) {
 
 Type* parse_type(Parser* p) {
     Token* t = next_token(p);
-    char* buf;
     String* name;
     if (t->kind == TokenKind_keyword_const) {
         t = next_token(p);
     }
     if (!is_type_token(p, t)) {
-        buf = calloc(1024, sizeof(char));
-        sprintf(buf, "parse_type: expected type, but got '%s'", token_stringify(t));
-        fatal_error(buf);
+        fatal_error("parse_type: expected type, but got '%s'", token_stringify(t));
     }
     Type* ty;
     if (t->kind == TokenKind_ident) {
         int typedef_idx = find_typedef(p, &t->raw);
         if (typedef_idx == -1) {
-            buf = calloc(1024, sizeof(char));
-            sprintf(buf, "parse_type: unknown typedef, %.*s", t->raw.len, t->raw.data);
-            fatal_error(buf);
+            fatal_error("parse_type: unknown typedef, %.*s", t->raw.len, t->raw.data);
         }
         ty = p->typedefs[typedef_idx].ty;
     } else {
@@ -332,9 +317,7 @@ Type* parse_type(Parser* p) {
             name = parse_ident(p);
             int enum_idx = find_enum(p, name);
             if (enum_idx == -1) {
-                buf = calloc(1024, sizeof(char));
-                sprintf(buf, "parse_type: unknown enum, %.*s", name->len, name->data);
-                fatal_error(buf);
+                fatal_error("parse_type: unknown enum, %.*s", name->len, name->data);
             }
             ty->def = p->enums + enum_idx;
         } else if (t->kind == TokenKind_keyword_struct) {
@@ -342,9 +325,7 @@ Type* parse_type(Parser* p) {
             name = parse_ident(p);
             int struct_idx = find_struct(p, name);
             if (struct_idx == -1) {
-                buf = calloc(1024, sizeof(char));
-                sprintf(buf, "parse_type: unknown struct, %.*s", name->len, name->data);
-                fatal_error(buf);
+                fatal_error("parse_type: unknown struct, %.*s", name->len, name->data);
             }
             ty->def = p->structs + struct_idx;
         } else {
@@ -680,9 +661,7 @@ AstNode* parse_var_decl(Parser* p) {
     expect(p, TokenKind_semicolon);
 
     if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
-        char* buf = calloc(1024, sizeof(char));
-        sprintf(buf, "parse_var_decl: %.*s redeclared", name->len, name->data);
-        fatal_error(buf);
+        fatal_error("parse_var_decl: %.*s redeclared", name->len, name->data);
     }
     p->lvars[p->n_lvars].name.data = name->data;
     p->lvars[p->n_lvars].name.len = name->len;
@@ -882,9 +861,7 @@ AstNode* parse_struct_decl_or_def(Parser* p) {
         return ast_new(AstNodeKind_struct_decl);
     }
     if (p->structs[struct_idx].node_members) {
-        char* buf = calloc(1024, sizeof(char));
-        sprintf(buf, "parse_struct_decl_or_def: struct %.*s redefined", name->len, name->data);
-        fatal_error(buf);
+        fatal_error("parse_struct_decl_or_def: struct %.*s redefined", name->len, name->data);
     }
     expect(p, TokenKind_brace_l);
     AstNode* members = parse_struct_members(p);
@@ -935,9 +912,7 @@ AstNode* parse_enum_def(Parser* p) {
         p->enums[enum_idx].name.len = name->len;
         ++p->n_enums;
     } else {
-        char* buf = calloc(1024, sizeof(char));
-        sprintf(buf, "parse_enum_def: enum %.*s redefined", name->len, name->data);
-        fatal_error(buf);
+        fatal_error("parse_enum_def: enum %.*s redefined", name->len, name->data);
     }
     expect(p, TokenKind_brace_l);
     AstNode* members = parse_enum_members(p);
@@ -973,9 +948,7 @@ AstNode* parse_extern_var_decl(Parser* p) {
     expect(p, TokenKind_semicolon);
 
     if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
-        char* buf = calloc(1024, sizeof(char));
-        sprintf(buf, "parse_extern_var_decl: %.*s redeclared", name->len, name->data);
-        fatal_error(buf);
+        fatal_error("parse_extern_var_decl: %.*s redeclared", name->len, name->data);
     }
     p->gvars[p->n_gvars].name.data = name->data;
     p->gvars[p->n_gvars].name.len = name->len;
