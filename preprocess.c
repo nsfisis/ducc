@@ -146,10 +146,16 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->raw.data = pp->src + pp->pos - tok->raw.len;
             }
         } else if (c == '|') {
-            ++pp->pos;
-            tok->kind = PpTokenKind_punctuator;
-            tok->raw.len = 2;
-            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            if (pp->src[pp->pos] == '|') {
+                ++pp->pos;
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 2;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            } else {
+                tok->kind = PpTokenKind_punctuator;
+                tok->raw.len = 1;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            }
         } else if (c == '&') {
             if (pp->src[pp->pos] == '&') {
                 ++pp->pos;
