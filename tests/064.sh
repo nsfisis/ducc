@@ -14,9 +14,7 @@ EOF
 
 bash ../../test_exit_code.sh 0 <<'EOF'
 int main() {
-    if (1) {
-    } else {
-        return 1;
-    }
+    if (1);
+    else return 1;
 }
 EOF

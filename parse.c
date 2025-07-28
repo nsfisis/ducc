@@ -703,6 +703,11 @@ AstNode* parse_block_stmt(Parser* p) {
     return list;
 }
 
+AstNode* parse_empty_stmt(Parser* p) {
+    next_token(p);
+    return ast_new(AstNodeKind_nop);
+}
+
 AstNode* parse_stmt(Parser* p) {
     Token* t = peek_token(p);
     if (t->kind == TokenKind_keyword_return) {
@@ -721,6 +726,8 @@ AstNode* parse_stmt(Parser* p) {
         return parse_continue_stmt(p);
     } else if (t->kind == TokenKind_brace_l) {
         return parse_block_stmt(p);
+    } else if (t->kind == TokenKind_semicolon) {
+        return parse_empty_stmt(p);
     } else if (is_type_token(p, t)) {
         return parse_var_decl(p);
     } else {
