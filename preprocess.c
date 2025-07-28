@@ -38,6 +38,8 @@ struct Preprocessor {
     PpDefines* pp_defines;
     int include_depth;
     int skip_pp_tokens;
+    String* include_paths;
+    int n_include_paths;
 };
 typedef struct Preprocessor Preprocessor;
 
@@ -70,6 +72,7 @@ Preprocessor* preprocessor_new(char* src, int include_depth, PpDefines* pp_defin
     pp->pp_tokens = calloc(1024 * 1024, sizeof(PpToken));
     pp->pp_defines = pp_defines;
     pp->include_depth = include_depth;
+    pp->include_paths = calloc(16, sizeof(String));
 
     return pp;
 }
@@ -82,6 +85,12 @@ int find_pp_define(Preprocessor* pp, String* name) {
         }
     }
     return -1;
+}
+
+void add_include_path(Preprocessor* pp, char* include_path) {
+    pp->include_paths[pp->n_include_paths].data = include_path;
+    pp->include_paths[pp->n_include_paths].len = strlen(include_path);
+    ++pp->n_include_paths;
 }
 
 int skip_pp_tokens(Preprocessor* pp) {
@@ -433,11 +442,18 @@ const char* resolve_include_name(Preprocessor* pp, String* include_name) {
     if (include_name->data[0] == '"') {
         buf = calloc(include_name->len - 2 + 1, sizeof(char));
         sprintf(buf, "%.*s", include_name->len - 2, include_name->data + 1);
+        return buf;
     } else {
-        buf = calloc(include_name->len - 2 + 1 + strlen("/home/ken/src/ducc/include/"), sizeof(char));
-        sprintf(buf, "/home/ken/src/ducc/include/%.*s", include_name->len - 2, include_name->data + 1);
+        int i;
+        for (i = 0; i < pp->n_include_paths; ++i) {
+            buf = calloc(include_name->len - 2 + 1 + pp->include_paths[i].len, sizeof(char));
+            sprintf(buf, "%s/%.*s", pp->include_paths[i].data, include_name->len - 2, include_name->data + 1);
+            if (access(buf, F_OK | R_OK) == 0) {
+                return buf;
+            }
+        }
+        return NULL;
     }
-    return buf;
 }
 
 PpToken* replace_include_directive(Preprocessor* pp, PpToken* tok, PpToken* tok2, const char* include_name_buf) {
@@ -474,6 +490,9 @@ PpToken* process_include_directive(Preprocessor* pp, PpToken* tok) {
         String* include_name = calloc(1, sizeof(String));
         tok2 = read_include_header_name(tok2, include_name);
         const char* include_name_buf = resolve_include_name(pp, include_name);
+        if (include_name_buf == NULL) {
+            fatal_error("cannot resolve include file name: %s", include_name_buf);
+        }
         return replace_include_directive(pp, tok, tok2, include_name_buf);
     }
     return NULL;
@@ -556,6 +575,8 @@ void process_pp_directives(Preprocessor* pp) {
 
 PpToken* do_preprocess(char* src, int depth, PpDefines* pp_defines) {
     Preprocessor* pp = preprocessor_new(src, depth, pp_defines);
+    add_include_path(pp, "/home/ken/src/ducc/include");
+    add_include_path(pp, "/usr/include");
     pp_tokenize_all(pp);
     process_pp_directives(pp);
     return pp->pp_tokens;
