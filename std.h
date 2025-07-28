@@ -33,3 +33,7 @@ char* strstr(const char*, const char*);
 #include <stdarg.h>
 
 int vfprintf(FILE*, const char*, va_list);
+
+#define F_OK 0
+#define R_OK 4
+int access(const char*, int);
