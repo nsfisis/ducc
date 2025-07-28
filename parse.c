@@ -474,13 +474,29 @@ AstNode* parse_equality_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_logical_and_expr(Parser* p) {
+AstNode* parse_bitwise_or_expr(Parser* p) {
     AstNode* lhs = parse_equality_expr(p);
+    while (1) {
+        TokenKind op = peek_token(p)->kind;
+        if (op == TokenKind_or) {
+            next_token(p);
+            AstNode* rhs = parse_equality_expr(p);
+            lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs->ty = type_new(TypeKind_int);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
+AstNode* parse_logical_and_expr(Parser* p) {
+    AstNode* lhs = parse_bitwise_or_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
         if (op == TokenKind_andand) {
             next_token(p);
-            AstNode* rhs = parse_equality_expr(p);
+            AstNode* rhs = parse_bitwise_or_expr(p);
             AstNode* e = ast_new(AstNodeKind_logical_expr);
             e->node_op = op;
             e->node_lhs = lhs;

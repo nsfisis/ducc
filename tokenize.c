@@ -44,6 +44,7 @@ enum TokenKind {
     TokenKind_minusminus,
     TokenKind_ne,
     TokenKind_not,
+    TokenKind_or,
     TokenKind_oror,
     TokenKind_paren_l,
     TokenKind_paren_r,
@@ -154,6 +155,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "!=";
     else if (k == TokenKind_not)
         return "!";
+    else if (k == TokenKind_or)
+        return "|";
     else if (k == TokenKind_oror)
         return "||";
     else if (k == TokenKind_paren_l)
@@ -316,6 +319,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_plus;
             } else if (string_equals_cstr(&pp_tok->raw, "||")) {
                 tok->kind = TokenKind_oror;
+            } else if (string_equals_cstr(&pp_tok->raw, "|")) {
+                tok->kind = TokenKind_or;
             } else if (string_equals_cstr(&pp_tok->raw, "&&")) {
                 tok->kind = TokenKind_andand;
             } else if (string_equals_cstr(&pp_tok->raw, "&")) {

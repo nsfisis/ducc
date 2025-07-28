@@ -152,6 +152,8 @@ void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
         printf("  cqo\n");
         printf("  idiv rdi\n");
         printf("  mov rax, rdx\n");
+    } else if (ast->node_op == TokenKind_or) {
+        printf("  or rax, rdi\n");
     } else if (ast->node_op == TokenKind_eq) {
         printf("  cmp rax, rdi\n");
         printf("  sete al\n");
