@@ -26,5 +26,4 @@ int main(int argc, char** argv) {
     Program* prog = parse(tokens);
     analyze(prog);
     codegen(prog);
-    return 0;
 }
