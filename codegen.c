@@ -400,6 +400,9 @@ void codegen_expr_stmt(CodeGen* g, AstNode* ast) {
 void codegen_var_decl(CodeGen* g, AstNode* ast) {
 }
 
+void codegen_nop(CodeGen* g, AstNode* ast) {
+}
+
 void codegen_block_stmt(CodeGen* g, AstNode* ast) {
     int i;
     for (i = 0; i < ast->node_len; ++i) {
@@ -427,6 +430,8 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
         codegen_expr_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_lvar_decl) {
         codegen_var_decl(g, ast);
+    } else if (ast->kind == AstNodeKind_nop) {
+        codegen_nop(g, ast);
     } else {
         unreachable();
     }

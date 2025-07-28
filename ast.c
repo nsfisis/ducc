@@ -84,6 +84,7 @@ int type_alignof(Type* ty) {
 
 enum AstNodeKind {
     AstNodeKind_unknown,
+    AstNodeKind_nop,
 
     AstNodeKind_assign_expr,
     AstNodeKind_binary_expr,
