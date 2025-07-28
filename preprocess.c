@@ -395,41 +395,80 @@ PpToken* process_ifdef_directive(Preprocessor* pp, PpToken* tok) {
     return NULL;
 }
 
+PpToken* read_include_header_name(PpToken* tok2, String* include_name) {
+    if (tok2->kind == PpTokenKind_string_literal) {
+        include_name->data = tok2->raw.data;
+        include_name->len = tok2->raw.len;
+        ++tok2;
+        return tok2;
+    } else if (tok2->kind == PpTokenKind_punctuator && string_equals_cstr(&tok2->raw, "<")) {
+        char* include_name_start = tok2->raw.data;
+        ++tok2;
+        int include_name_len = 0;
+        while (tok2->kind != PpTokenKind_eof) {
+            if (tok2->kind == PpTokenKind_punctuator && string_equals_cstr(&tok2->raw, ">")) {
+                break;
+            }
+            include_name_len += tok2->raw.len;
+            ++tok2;
+        }
+        if (tok2->kind == PpTokenKind_eof) {
+            fatal_error("invalid #include: <> not balanced");
+        }
+        ++tok2;
+        include_name->data = include_name_start;
+        include_name->len = include_name_len + 2;
+        return tok2;
+    }
+}
+
+const char* resolve_include_name(Preprocessor* pp, String* include_name) {
+    char* buf;
+    if (include_name->data[0] == '"') {
+        buf = calloc(include_name->len - 2 + 1, sizeof(char));
+        sprintf(buf, "%.*s", include_name->len - 2, include_name->data + 1);
+    } else {
+        buf = calloc(include_name->len - 2 + 1 + strlen("/home/ken/src/ducc/include/"), sizeof(char));
+        sprintf(buf, "/home/ken/src/ducc/include/%.*s", include_name->len - 2, include_name->data + 1);
+    }
+    return buf;
+}
+
+PpToken* replace_include_directive(Preprocessor* pp, PpToken* tok, PpToken* tok2, const char* include_name_buf) {
+    remove_directive_tokens(tok, tok2 + 1);
+
+    FILE* include_file = fopen(include_name_buf, "rb");
+    if (include_file == NULL) {
+        fatal_error("cannot open include file: %s", include_name_buf);
+    }
+    char* include_source = read_all(include_file);
+    fclose(include_file);
+
+    PpToken* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->pp_defines);
+
+    int n_include_pp_tokens = 0;
+    while (include_pp_tokens[n_include_pp_tokens].kind != PpTokenKind_eof) {
+        ++n_include_pp_tokens;
+    }
+
+    int n_pp_tokens_after_include = pp->n_pp_tokens - (tok - pp->pp_tokens);
+    memmove(tok + n_include_pp_tokens, tok, n_pp_tokens_after_include * sizeof(PpToken));
+    memcpy(tok, include_pp_tokens, n_include_pp_tokens * sizeof(PpToken));
+    pp->n_pp_tokens += n_include_pp_tokens;
+
+    return tok + n_include_pp_tokens;
+}
+
 PpToken* process_include_directive(Preprocessor* pp, PpToken* tok) {
     PpToken* tok2 = skip_whitespace(tok + 1);
+
     if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "include")) {
         ++tok2;
         tok2 = skip_whitespace(tok2);
-        if (tok2->kind == PpTokenKind_string_literal) {
-            PpToken* include_name = tok2;
-            ++tok2;
-
-            char* include_name_buf = calloc(include_name->raw.len - 2 + 1, sizeof(char));
-            sprintf(include_name_buf, "%.*s", include_name->raw.len - 2, include_name->raw.data + 1);
-
-            remove_directive_tokens(tok, tok2 + 1);
-
-            FILE* include_file = fopen(include_name_buf, "rb");
-            if (include_file == NULL) {
-                fatal_error("cannot open include file: %s", include_name_buf);
-            }
-            char* include_source = read_all(include_file);
-            fclose(include_file);
-
-            PpToken* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->pp_defines);
-
-            int n_include_pp_tokens = 0;
-            while (include_pp_tokens[n_include_pp_tokens].kind != PpTokenKind_eof) {
-                ++n_include_pp_tokens;
-            }
-
-            int n_pp_tokens_after_include = pp->n_pp_tokens - (tok - pp->pp_tokens);
-            memmove(tok + n_include_pp_tokens, tok, n_pp_tokens_after_include * sizeof(PpToken));
-            memcpy(tok, include_pp_tokens, n_include_pp_tokens * sizeof(PpToken));
-            pp->n_pp_tokens += n_include_pp_tokens;
-
-            return tok + n_include_pp_tokens;
-        }
+        String* include_name = calloc(1, sizeof(String));
+        tok2 = read_include_header_name(tok2, include_name);
+        const char* include_name_buf = resolve_include_name(pp, include_name);
+        return replace_include_directive(pp, tok, tok2, include_name_buf);
     }
     return NULL;
 }
