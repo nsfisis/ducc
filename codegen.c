@@ -437,6 +437,10 @@ void codegen_func(CodeGen* g, AstNode* ast) {
 
     codegen_func_prologue(g, ast);
     codegen_stmt(g, ast->node_body);
+    if (string_equals_cstr(&ast->name, "main")) {
+        // C99: 5.1.2.2.3
+        printf("  mov rax, 0\n");
+    }
     codegen_func_epilogue(g, ast);
 
     printf("\n");
