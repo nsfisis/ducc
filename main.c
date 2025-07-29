@@ -7,7 +7,6 @@
 #include "ast.c"
 #include "parse.c"
 #include "codegen.c"
-#include "analyze.c"
 // clang-format on
 
 int main(int argc, char** argv) {
@@ -24,6 +23,5 @@ int main(int argc, char** argv) {
     PpToken* pp_tokens = preprocess(source);
     Token* tokens = tokenize(pp_tokens);
     Program* prog = parse(tokens);
-    analyze(prog);
     codegen(prog);
 }

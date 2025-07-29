@@ -1,2 +1,0 @@
-void analyze(Program* prog) {
-}
