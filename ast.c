@@ -82,6 +82,10 @@ int type_alignof(Type* ty) {
     }
 }
 
+int to_aligned(int n, int a) {
+    return (n + a - 1) / a * a;
+}
+
 enum AstNodeKind {
     AstNodeKind_unknown,
     AstNodeKind_nop,
@@ -279,20 +283,13 @@ int type_sizeof_struct(Type* ty) {
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
-        if (next_offset % align != 0) {
-            padding = align - next_offset % align;
-            next_offset += padding;
-        }
+        next_offset = to_aligned(next_offset, align);
         next_offset += size;
         if (struct_align < align) {
             struct_align = align;
         }
     }
-    if (next_offset % struct_align != 0) {
-        padding = struct_align - next_offset % struct_align;
-        next_offset += padding;
-    }
-    return next_offset;
+    return to_aligned(next_offset, struct_align);
 }
 
 int type_alignof_struct(Type* ty) {
@@ -323,10 +320,7 @@ int type_offsetof(Type* ty, const String* name) {
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
-        if (next_offset % align != 0) {
-            int padding = align - next_offset % align;
-            next_offset += padding;
-        }
+        next_offset = to_aligned(next_offset, align);
         if (string_equals(&member->name, name)) {
             return next_offset;
         }
