@@ -205,6 +205,7 @@ AstNode* parse_primary_expr(Parser* p) {
     } else if (t->kind == TokenKind_literal_str) {
         e = ast_new(AstNodeKind_str_expr);
         e->node_idx = register_str_literal(p, string_to_cstr(&t->raw));
+        e->ty = type_new_static_string(t->raw.len);
         return e;
     } else if (t->kind == TokenKind_paren_l) {
         e = parse_expr(p);
