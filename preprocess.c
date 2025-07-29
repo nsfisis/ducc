@@ -18,24 +18,24 @@ struct PpToken {
 };
 typedef struct PpToken PpToken;
 
-struct PpDefine {
+struct PpMacro {
     String name;
     PpToken* tokens;
 };
-typedef struct PpDefine PpDefine;
+typedef struct PpMacro PpMacro;
 
-struct PpDefines {
-    PpDefine* data;
+struct PpMacros {
+    PpMacro* data;
     size_t len;
 };
-typedef struct PpDefines PpDefines;
+typedef struct PpMacros PpMacros;
 
 struct Preprocessor {
     char* src;
     int pos;
     PpToken* pp_tokens;
     int n_pp_tokens;
-    PpDefines* pp_defines;
+    PpMacros* pp_macros;
     int include_depth;
     int skip_pp_tokens;
     String* include_paths;
@@ -43,26 +43,26 @@ struct Preprocessor {
 };
 typedef struct Preprocessor Preprocessor;
 
-PpToken* do_preprocess(char* src, int depth, PpDefines* pp_defines);
+PpToken* do_preprocess(char* src, int depth, PpMacros* pp_macros);
 
-PpDefines* pp_defines_new() {
-    PpDefines* pp_defines = calloc(1, sizeof(PpDefines));
-    pp_defines->data = calloc(1024, sizeof(PpDefine));
-    return pp_defines;
+PpMacros* pp_macros_new() {
+    PpMacros* pp_macros = calloc(1, sizeof(PpMacros));
+    pp_macros->data = calloc(1024, sizeof(PpMacro));
+    return pp_macros;
 }
 
-void add_predefined_macros(PpDefines* pp_defines) {
-    PpDefine* pp_define = pp_defines->data + pp_defines->len;
-    pp_define->name.len = strlen("__ducc__");
-    pp_define->name.data = "__ducc__";
-    pp_define->tokens = calloc(1, sizeof(PpToken));
-    pp_define->tokens[0].kind = PpTokenKind_pp_number;
-    pp_define->tokens[0].raw.len = strlen("1");
-    pp_define->tokens[0].raw.data = "1";
-    pp_defines->len += 1;
+void add_predefined_macros(PpMacros* pp_macros) {
+    PpMacro* pp_macro = pp_macros->data + pp_macros->len;
+    pp_macro->name.len = strlen("__ducc__");
+    pp_macro->name.data = "__ducc__";
+    pp_macro->tokens = calloc(1, sizeof(PpToken));
+    pp_macro->tokens[0].kind = PpTokenKind_pp_number;
+    pp_macro->tokens[0].raw.len = strlen("1");
+    pp_macro->tokens[0].raw.data = "1";
+    pp_macros->len += 1;
 }
 
-Preprocessor* preprocessor_new(char* src, int include_depth, PpDefines* pp_defines) {
+Preprocessor* preprocessor_new(char* src, int include_depth, PpMacros* pp_macros) {
     if (include_depth >= 32) {
         fatal_error("include depth limit exceeded");
     }
@@ -70,17 +70,17 @@ Preprocessor* preprocessor_new(char* src, int include_depth, PpDefines* pp_defin
     Preprocessor* pp = calloc(1, sizeof(Preprocessor));
     pp->src = src;
     pp->pp_tokens = calloc(1024 * 1024, sizeof(PpToken));
-    pp->pp_defines = pp_defines;
+    pp->pp_macros = pp_macros;
     pp->include_depth = include_depth;
     pp->include_paths = calloc(16, sizeof(String));
 
     return pp;
 }
 
-int find_pp_define(Preprocessor* pp, String* name) {
+int find_pp_macro(Preprocessor* pp, String* name) {
     int i;
-    for (i = 0; i < pp->pp_defines->len; ++i) {
-        if (string_equals(&pp->pp_defines->data[i].name, name)) {
+    for (i = 0; i < pp->pp_macros->len; ++i) {
+        if (string_equals(&pp->pp_macros->data[i].name, name)) {
             return i;
         }
     }
@@ -402,7 +402,7 @@ PpToken* process_ifdef_directive(Preprocessor* pp, PpToken* tok) {
         if (tok2->kind == PpTokenKind_identifier) {
             PpToken* name = tok2;
             ++tok2;
-            pp->skip_pp_tokens = find_pp_define(pp, &name->raw) == -1;
+            pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) == -1;
         }
         remove_directive_tokens(tok, tok2);
         return tok2;
@@ -466,7 +466,7 @@ PpToken* replace_include_directive(Preprocessor* pp, PpToken* tok, PpToken* tok2
     char* include_source = read_all(include_file);
     fclose(include_file);
 
-    PpToken* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->pp_defines);
+    PpToken* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->pp_macros);
 
     int n_include_pp_tokens = 0;
     while (include_pp_tokens[n_include_pp_tokens].kind != PpTokenKind_eof) {
@@ -504,20 +504,20 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
         ++tok2;
         tok2 = skip_whitespace(tok2);
         if (tok2->kind == PpTokenKind_identifier) {
-            PpToken* define_name = tok2;
+            PpToken* macro_name = tok2;
             ++tok2;
             tok2 = skip_whitespace(tok2);
             if (tok2->kind == PpTokenKind_identifier || tok2->kind == PpTokenKind_pp_number) {
-                PpToken* define_dest = tok2;
+                PpToken* macro_replacements = tok2;
 
-                PpDefine* pp_define = pp->pp_defines->data + pp->pp_defines->len;
-                pp_define->name.len = define_name->raw.len;
-                pp_define->name.data = define_name->raw.data;
-                pp_define->tokens = calloc(1, sizeof(PpToken));
-                pp_define->tokens[0].kind = define_dest->kind;
-                pp_define->tokens[0].raw.len = define_dest->raw.len;
-                pp_define->tokens[0].raw.data = define_dest->raw.data;
-                ++pp->pp_defines->len;
+                PpMacro* pp_macro = pp->pp_macros->data + pp->pp_macros->len;
+                pp_macro->name.len = macro_name->raw.len;
+                pp_macro->name.data = macro_name->raw.data;
+                pp_macro->tokens = calloc(1, sizeof(PpToken));
+                pp_macro->tokens[0].kind = macro_replacements->kind;
+                pp_macro->tokens[0].raw.len = macro_replacements->raw.len;
+                pp_macro->tokens[0].raw.data = macro_replacements->raw.data;
+                ++pp->pp_macros->len;
             }
         }
         remove_directive_tokens(tok, tok2 + 1);
@@ -527,12 +527,12 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
 }
 
 void expand_macro(Preprocessor* pp, PpToken* tok) {
-    int pp_define_idx = find_pp_define(pp, &tok->raw);
-    if (pp_define_idx != -1) {
-        PpToken* define_dest = pp->pp_defines->data[pp_define_idx].tokens;
-        tok->kind = define_dest->kind;
-        tok->raw.data = define_dest->raw.data;
-        tok->raw.len = define_dest->raw.len;
+    int pp_macro_idx = find_pp_macro(pp, &tok->raw);
+    if (pp_macro_idx != -1) {
+        PpToken* macro_replacements = pp->pp_macros->data[pp_macro_idx].tokens;
+        tok->kind = macro_replacements->kind;
+        tok->raw.data = macro_replacements->raw.data;
+        tok->raw.len = macro_replacements->raw.len;
     }
 }
 
@@ -573,8 +573,8 @@ void process_pp_directives(Preprocessor* pp) {
     }
 }
 
-PpToken* do_preprocess(char* src, int depth, PpDefines* pp_defines) {
-    Preprocessor* pp = preprocessor_new(src, depth, pp_defines);
+PpToken* do_preprocess(char* src, int depth, PpMacros* pp_macros) {
+    Preprocessor* pp = preprocessor_new(src, depth, pp_macros);
     add_include_path(pp, "/home/ken/src/ducc/include");
     add_include_path(pp, "/usr/include");
     pp_tokenize_all(pp);
@@ -583,7 +583,7 @@ PpToken* do_preprocess(char* src, int depth, PpDefines* pp_defines) {
 }
 
 PpToken* preprocess(char* src) {
-    PpDefines* pp_defines = pp_defines_new();
-    add_predefined_macros(pp_defines);
-    return do_preprocess(src, 0, pp_defines);
+    PpMacros* pp_macros = pp_macros_new();
+    add_predefined_macros(pp_macros);
+    return do_preprocess(src, 0, pp_macros);
 }
