@@ -43,6 +43,10 @@ Type* type_new_array(Type* elem, int size) {
     return ty;
 }
 
+Type* type_new_static_string(int len) {
+    return type_new_array(type_new(TypeKind_char), len + 1);
+}
+
 Type* type_array_to_ptr(Type* ty) {
     return type_new_ptr(ty->to);
 }
