@@ -268,9 +268,8 @@ void codegen_func_call(CodeGen* g, AstNode* ast) {
 }
 
 void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
-    int offset = 8 + ast->node_idx * 8;
     printf("  mov rax, rbp\n");
-    printf("  sub rax, %d\n", offset);
+    printf("  sub rax, %d\n", ast->node_stack_offset);
     printf("  push rax\n");
     if (gen_mode == GenMode_rval) {
         codegen_lval2rval(ast->ty);

@@ -3,6 +3,7 @@
 struct LocalVar {
     String name;
     Type* ty;
+    int stack_offset;
 };
 typedef struct LocalVar LocalVar;
 
@@ -86,6 +87,38 @@ int find_lvar(Parser* p, const String* name) {
         }
     }
     return -1;
+}
+
+int calc_stack_offset(Parser* p, Type* ty, int is_param) {
+    int align;
+    if (is_param) {
+        if (8 < type_sizeof(ty) || 8 < type_alignof(ty)) {
+            fatal_error("too large");
+        }
+        align = 8;
+    } else {
+        align = type_alignof(ty);
+    }
+
+    int offset;
+    if (p->n_lvars == 0) {
+        offset = 0;
+    } else {
+        offset = p->lvars[p->n_lvars - 1].stack_offset;
+    }
+
+    offset += type_sizeof(ty);
+    return to_aligned(offset, align);
+}
+
+int add_lvar(Parser* p, String* name, Type* ty, int is_param) {
+    int stack_offset = calc_stack_offset(p, ty, is_param);
+    p->lvars[p->n_lvars].name.data = name->data;
+    p->lvars[p->n_lvars].name.len = name->len;
+    p->lvars[p->n_lvars].ty = ty;
+    p->lvars[p->n_lvars].stack_offset = stack_offset;
+    ++p->n_lvars;
+    return stack_offset;
 }
 
 int find_gvar(Parser* p, const String* name) {
@@ -217,7 +250,7 @@ AstNode* parse_primary_expr(Parser* p) {
         e = ast_new(AstNodeKind_lvar);
         e->name.data = name->data;
         e->name.len = name->len;
-        e->node_idx = lvar_idx;
+        e->node_stack_offset = p->lvars[lvar_idx].stack_offset;
         e->ty = p->lvars[lvar_idx].ty;
         return e;
     } else {
@@ -679,17 +712,14 @@ AstNode* parse_var_decl(Parser* p) {
     if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
         fatal_error("parse_var_decl: %.*s redeclared", name->len, name->data);
     }
-    p->lvars[p->n_lvars].name.data = name->data;
-    p->lvars[p->n_lvars].name.len = name->len;
-    p->lvars[p->n_lvars].ty = ty;
-    ++p->n_lvars;
+    int stack_offset = add_lvar(p, name, ty, 0);
 
     AstNode* ret;
     if (init) {
         AstNode* lhs = ast_new(AstNodeKind_lvar);
         lhs->name.data = name->data;
         lhs->name.len = name->len;
-        lhs->node_idx = p->n_lvars - 1;
+        lhs->node_stack_offset = stack_offset;
         lhs->ty = ty;
         AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, init);
         ret = ast_new(AstNodeKind_expr_stmt);
@@ -760,10 +790,7 @@ void register_params(Parser* p, AstNode* params) {
     int i;
     for (i = 0; i < params->node_len; ++i) {
         AstNode* param = params->node_items + i;
-        p->lvars[p->n_lvars].name.data = param->name.data;
-        p->lvars[p->n_lvars].name.len = param->name.len;
-        p->lvars[p->n_lvars].ty = param->ty;
-        ++p->n_lvars;
+        add_lvar(p, &param->name, param->ty, 1);
     }
 }
 
