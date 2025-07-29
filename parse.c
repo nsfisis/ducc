@@ -702,6 +702,17 @@ AstNode* parse_var_decl(Parser* p) {
     }
     String* name = parse_ident(p);
 
+    if (peek_token(p)->kind == TokenKind_bracket_l) {
+        next_token(p);
+        AstNode* size_expr = parse_expr(p);
+        if (size_expr->kind != AstNodeKind_int_expr) {
+            fatal_error("parse_var_decl: invalid array size");
+        }
+        int size = size_expr->node_int_value;
+        expect(p, TokenKind_bracket_r);
+        ty = type_new_array(ty, size);
+    }
+
     AstNode* init = NULL;
     if (peek_token(p)->kind == TokenKind_assign) {
         next_token(p);

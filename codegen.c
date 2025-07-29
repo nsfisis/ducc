@@ -88,6 +88,10 @@ void codegen_ref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 }
 
 void codegen_lval2rval(Type* ty) {
+    if (ty->kind == TypeKind_array) {
+        return;
+    }
+
     int size = type_sizeof(ty);
 
     printf("  pop rax\n");
