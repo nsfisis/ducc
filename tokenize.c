@@ -184,8 +184,9 @@ const char* token_kind_stringify(TokenKind k) {
 const char* token_stringify(Token* t) {
     TokenKind k = t->kind;
     if (k == TokenKind_ident || k == TokenKind_literal_int || k == TokenKind_literal_str) {
-        char* buf = calloc(t->raw.len + 1, sizeof(char));
-        sprintf(buf, "%.*s (%s)", t->raw.len, t->raw.data, token_kind_stringify(k));
+        const char* kind_str = token_kind_stringify(k);
+        char* buf = calloc(t->raw.len + strlen(kind_str) + 3 + 1, sizeof(char));
+        sprintf(buf, "%.*s (%s)", t->raw.len, t->raw.data, kind_str);
         return buf;
     } else {
         return token_kind_stringify(k);

@@ -12,11 +12,41 @@ enum PpTokenKind {
 };
 typedef enum PpTokenKind PpTokenKind;
 
+const char* pp_token_kind_stringify(PpTokenKind kind) {
+    if (kind == PpTokenKind_eof)
+        return "<eof>";
+    else if (kind == PpTokenKind_header_name)
+        return "<header-name>";
+    else if (kind == PpTokenKind_identifier)
+        return "<identifier>";
+    else if (kind == PpTokenKind_pp_number)
+        return "<pp-number>";
+    else if (kind == PpTokenKind_character_constant)
+        return "<character-constant>";
+    else if (kind == PpTokenKind_string_literal)
+        return "<string-literal>";
+    else if (kind == PpTokenKind_punctuator)
+        return "<punctuator>";
+    else if (kind == PpTokenKind_other)
+        return "<other>";
+    else if (kind == PpTokenKind_whitespace)
+        return "<whitespace>";
+    else
+        unreachable();
+}
+
 struct PpToken {
     PpTokenKind kind;
     String raw;
 };
 typedef struct PpToken PpToken;
+
+const char* pp_token_stringify(PpToken* tok) {
+    const char* kind_str = pp_token_kind_stringify(tok->kind);
+    char* buf = calloc(tok->raw.len + strlen(kind_str) + 3 + 1, sizeof(char));
+    sprintf(buf, "%.*s (%s)", tok->raw.len, tok->raw.data, kind_str);
+    return buf;
+}
 
 enum PpMacroKind {
     PpMacroKind_obj,
@@ -24,17 +54,27 @@ enum PpMacroKind {
 };
 typedef enum PpMacroKind PpMacroKind;
 
+const char* pp_macro_kind_stringify(PpMacroKind kind) {
+    if (kind == PpMacroKind_obj) {
+        return "object-like";
+    } else if (kind == PpMacroKind_func) {
+        return "function-like";
+    } else {
+        unreachable();
+    }
+}
+
 struct PpMacro {
     PpMacroKind kind;
     String name;
-    int n_replacements;
+    size_t n_replacements;
     PpToken* replacements;
 };
 typedef struct PpMacro PpMacro;
 
 struct PpMacros {
-    PpMacro* data;
     size_t len;
+    PpMacro* data;
 };
 typedef struct PpMacros PpMacros;
 
@@ -57,6 +97,24 @@ PpMacros* pp_macros_new() {
     PpMacros* pp_macros = calloc(1, sizeof(PpMacros));
     pp_macros->data = calloc(1024, sizeof(PpMacro));
     return pp_macros;
+}
+
+void pp_macros_dump(PpMacros* pp_macros) {
+    int i;
+    fprintf(stderr, "PpMacros {\n");
+    fprintf(stderr, "  len = %zu\n", pp_macros->len);
+    fprintf(stderr, "  data = [\n");
+    for (i = 0; i < pp_macros->len; ++i) {
+        PpMacro* m = &pp_macros->data[i];
+        fprintf(stderr, "    PpMacro {\n");
+        fprintf(stderr, "      kind = %s\n", pp_macro_kind_stringify(m->kind));
+        fprintf(stderr, "      name = %.*s\n", m->name.len, m->name.data);
+        fprintf(stderr, "      n_replacements = %zu\n", m->n_replacements);
+        fprintf(stderr, "      replacements = TODO\n");
+        fprintf(stderr, "    }\n");
+    }
+    fprintf(stderr, "  ]\n");
+    fprintf(stderr, "}\n");
 }
 
 void add_predefined_macros(PpMacros* pp_macros) {
@@ -357,13 +415,13 @@ void pp_tokenize_all(Preprocessor* pp) {
             tok->raw.len = pp->pos - start;
             tok->kind = PpTokenKind_identifier;
         } else if (isspace(c)) {
-            tok->raw.data = pp->src;
-            tok->raw.len = 1;
             tok->kind = PpTokenKind_whitespace;
-        } else {
-            tok->raw.data = pp->src;
             tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+        } else {
             tok->kind = PpTokenKind_other;
+            tok->raw.len = 1;
+            tok->raw.data = pp->src + pp->pos - tok->raw.len;
         }
         ++pp->n_pp_tokens;
     }
@@ -374,6 +432,26 @@ PpToken* skip_whitespace(PpToken* tok) {
         ++tok;
     }
     return tok;
+}
+
+int string_contains_newline(String* s) {
+    int i;
+    for (i = 0; i < s->len; ++i) {
+        if (s->data[i] == '\n') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+PpToken* find_next_newline(PpToken* tok) {
+    while (tok->kind != PpTokenKind_eof) {
+        if (tok->kind == PpTokenKind_whitespace && string_contains_newline(&tok->raw)) {
+            return tok;
+        }
+        ++tok;
+    }
+    return NULL;
 }
 
 void make_token_whitespace(PpToken* tok) {
@@ -478,18 +556,19 @@ PpToken* replace_pp_tokens(Preprocessor* pp, PpToken* dest_start, PpToken* dest_
                            PpToken* source_tokens) {
     int n_tokens_to_remove = dest_end - dest_start;
     int n_tokens_after_dest = (pp->pp_tokens + pp->n_pp_tokens) - dest_end;
-    int n_moved;
+    int shift_amount;
 
     if (n_tokens_to_remove < n_source_tokens) {
         // Move existing tokens backward to make room.
-        n_moved = n_source_tokens - n_tokens_to_remove;
-        memmove(dest_end + n_moved, dest_end, n_tokens_after_dest * sizeof(PpToken));
-        pp->n_pp_tokens += n_moved;
+        shift_amount = n_source_tokens - n_tokens_to_remove;
+        memmove(dest_end + shift_amount, dest_end, n_tokens_after_dest * sizeof(PpToken));
+        pp->n_pp_tokens += shift_amount;
     } else if (n_source_tokens < n_tokens_to_remove) {
         // Move existing tokens forward to reduce room.
-        n_moved = n_tokens_to_remove - n_source_tokens;
+        shift_amount = n_tokens_to_remove - n_source_tokens;
         memmove(dest_start + n_source_tokens, dest_end, n_tokens_after_dest * sizeof(PpToken));
-        pp->n_pp_tokens -= n_moved;
+        pp->n_pp_tokens -= shift_amount;
+        memset(pp->pp_tokens + pp->n_pp_tokens, 0, shift_amount * sizeof(PpToken));
     }
 
     memcpy(dest_start, source_tokens, n_source_tokens * sizeof(PpToken));
@@ -528,8 +607,9 @@ PpToken* process_include_directive(Preprocessor* pp, PpToken* tok) {
 
 PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
     PpToken* tok2 = skip_whitespace(tok + 1);
-    PpToken* macro_replacements;
+    PpToken* tok3 = NULL;
     PpMacro* pp_macro;
+    int i;
     if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "define")) {
         ++tok2;
         tok2 = skip_whitespace(tok2);
@@ -544,40 +624,44 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
                     fatal_error("#define: invalid function-like macro syntax");
                 }
                 tok2 = skip_whitespace(tok2);
-                if (tok2->kind == PpTokenKind_identifier || tok2->kind == PpTokenKind_pp_number) {
-                    macro_replacements = tok2;
-
+                tok3 = find_next_newline(tok2);
+                if (tok3) {
                     pp_macro = pp->pp_macros->data + pp->pp_macros->len;
                     pp_macro->kind = PpMacroKind_func;
                     pp_macro->name.len = macro_name->raw.len;
                     pp_macro->name.data = macro_name->raw.data;
-                    pp_macro->n_replacements = 1;
-                    pp_macro->replacements = calloc(1, sizeof(PpToken));
-                    pp_macro->replacements[0].kind = macro_replacements->kind;
-                    pp_macro->replacements[0].raw.len = macro_replacements->raw.len;
-                    pp_macro->replacements[0].raw.data = macro_replacements->raw.data;
+                    pp_macro->n_replacements = tok3 - tok2;
+                    pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(PpToken));
+                    for (i = 0; i < pp_macro->n_replacements; ++i) {
+                        pp_macro->replacements[i].kind = tok2[i].kind;
+                        pp_macro->replacements[i].raw.len = tok2[i].raw.len;
+                        pp_macro->replacements[i].raw.data = tok2[i].raw.data;
+                    }
                     ++pp->pp_macros->len;
                 }
             } else {
                 tok2 = skip_whitespace(tok2);
-                if (tok2->kind == PpTokenKind_identifier || tok2->kind == PpTokenKind_pp_number) {
-                    macro_replacements = tok2;
-
+                tok3 = find_next_newline(tok2);
+                if (tok3) {
                     pp_macro = pp->pp_macros->data + pp->pp_macros->len;
                     pp_macro->kind = PpMacroKind_obj;
                     pp_macro->name.len = macro_name->raw.len;
                     pp_macro->name.data = macro_name->raw.data;
-                    pp_macro->n_replacements = 1;
-                    pp_macro->replacements = calloc(1, sizeof(PpToken));
-                    pp_macro->replacements[0].kind = macro_replacements->kind;
-                    pp_macro->replacements[0].raw.len = macro_replacements->raw.len;
-                    pp_macro->replacements[0].raw.data = macro_replacements->raw.data;
+                    pp_macro->n_replacements = tok3 - tok2;
+                    pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(PpToken));
+                    for (i = 0; i < pp_macro->n_replacements; ++i) {
+                        pp_macro->replacements[i].kind = tok2[i].kind;
+                        pp_macro->replacements[i].raw.len = tok2[i].raw.len;
+                        pp_macro->replacements[i].raw.data = tok2[i].raw.data;
+                    }
                     ++pp->pp_macros->len;
                 }
             }
         }
-        remove_directive_tokens(tok, tok2 + 1);
-        return tok2 + 1;
+        if (tok3) {
+            remove_directive_tokens(tok, tok3);
+            return tok3;
+        }
     }
     return NULL;
 }
@@ -589,7 +673,12 @@ void expand_macro(Preprocessor* pp, PpToken* tok) {
     }
 
     PpMacro* pp_macro = pp->pp_macros->data + pp_macro_idx;
-    replace_pp_tokens(pp, tok, tok + 1, pp_macro->n_replacements, pp_macro->replacements);
+    if (pp_macro->kind == PpMacroKind_func) {
+        // also consume '(' and ')'
+        replace_pp_tokens(pp, tok, tok + 3, pp_macro->n_replacements, pp_macro->replacements);
+    } else {
+        replace_pp_tokens(pp, tok, tok + 1, pp_macro->n_replacements, pp_macro->replacements);
+    }
 }
 
 void process_pp_directives(Preprocessor* pp) {
@@ -626,6 +715,15 @@ void process_pp_directives(Preprocessor* pp) {
             expand_macro(pp, tok);
         }
         ++tok;
+    }
+}
+
+void pp_dump(PpToken* t, int include_whitespace) {
+    for (; t->kind != PpTokenKind_eof; ++t) {
+        if (t->kind == PpTokenKind_whitespace && !include_whitespace) {
+            continue;
+        }
+        fprintf(stderr, "%s\n", pp_token_stringify(t));
     }
 }
 

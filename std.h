@@ -21,6 +21,7 @@ int isdigit(int);
 int isspace(int);
 void* memcpy(void*, void*, size_t);
 void* memmove(void*, void*, size_t);
+void* memset(void*, int, size_t);
 int printf(const char*, ...);
 int sprintf(char*, const char*, ...);
 int strcmp(const char*, const char*);
