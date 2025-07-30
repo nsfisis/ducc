@@ -2,6 +2,7 @@
 // clang-format off
 #include "std.h"
 #include "common.c"
+#include "io.c"
 #include "preprocess.c"
 #include "tokenize.c"
 #include "ast.c"
@@ -13,13 +14,7 @@ int main(int argc, char** argv) {
     if (argc == 1) {
         fatal_error("usage: ducc <FILE>");
     }
-    FILE* in;
-    if (strcmp(argv[1], "-") == 0) {
-        in = stdin;
-    } else {
-        in = fopen(argv[1], "rb");
-    }
-    char* source = read_all(in);
+    InFile* source = read_all(argv[1]);
     PpToken* pp_tokens = preprocess(source);
     Token* tokens = tokenize(pp_tokens);
     Program* prog = parse(tokens);
