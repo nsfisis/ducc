@@ -7,13 +7,9 @@ void fatal_error(const char* msg, ...) {
     exit(1);
 }
 
-void unreachable() {
-    fatal_error("unreachable");
-}
+#define unreachable() fatal_error("%s:%d: unreachable", __FILE__, __LINE__)
 
-void unimplemented() {
-    fatal_error("unimplemented");
-}
+#define unimplemented() fatal_error("%s:%d: unimplemented", __FILE__, __LINE__)
 
 struct String {
     char* data;
