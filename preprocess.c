@@ -508,8 +508,7 @@ PpToken* process_ifdef_directive(Preprocessor* pp, PpToken* tok) {
 
 PpToken* read_include_header_name(PpToken* tok2, String* include_name) {
     if (tok2->kind == PpTokenKind_string_literal) {
-        include_name->data = tok2->raw.data;
-        include_name->len = tok2->raw.len;
+        *include_name = tok2->raw;
         ++tok2;
         return tok2;
     } else if (tok2->kind == PpTokenKind_punctuator && string_equals_cstr(&tok2->raw, "<")) {
@@ -628,14 +627,11 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
                 if (tok3) {
                     pp_macro = pp->pp_macros->data + pp->pp_macros->len;
                     pp_macro->kind = PpMacroKind_func;
-                    pp_macro->name.len = macro_name->raw.len;
-                    pp_macro->name.data = macro_name->raw.data;
+                    pp_macro->name = macro_name->raw;
                     pp_macro->n_replacements = tok3 - tok2;
                     pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(PpToken));
                     for (i = 0; i < pp_macro->n_replacements; ++i) {
-                        pp_macro->replacements[i].kind = tok2[i].kind;
-                        pp_macro->replacements[i].raw.len = tok2[i].raw.len;
-                        pp_macro->replacements[i].raw.data = tok2[i].raw.data;
+                        pp_macro->replacements[i] = tok2[i];
                     }
                     ++pp->pp_macros->len;
                 }
@@ -645,14 +641,11 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
                 if (tok3) {
                     pp_macro = pp->pp_macros->data + pp->pp_macros->len;
                     pp_macro->kind = PpMacroKind_obj;
-                    pp_macro->name.len = macro_name->raw.len;
-                    pp_macro->name.data = macro_name->raw.data;
+                    pp_macro->name = macro_name->raw;
                     pp_macro->n_replacements = tok3 - tok2;
                     pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(PpToken));
                     for (i = 0; i < pp_macro->n_replacements; ++i) {
-                        pp_macro->replacements[i].kind = tok2[i].kind;
-                        pp_macro->replacements[i].raw.len = tok2[i].raw.len;
-                        pp_macro->replacements[i].raw.data = tok2[i].raw.data;
+                        pp_macro->replacements[i] = tok2[i];
                     }
                     ++pp->pp_macros->len;
                 }

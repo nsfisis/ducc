@@ -113,8 +113,7 @@ int calc_stack_offset(Parser* p, Type* ty, int is_param) {
 
 int add_lvar(Parser* p, String* name, Type* ty, int is_param) {
     int stack_offset = calc_stack_offset(p, ty, is_param);
-    p->lvars[p->n_lvars].name.data = name->data;
-    p->lvars[p->n_lvars].name.len = name->len;
+    p->lvars[p->n_lvars].name = *name;
     p->lvars[p->n_lvars].ty = ty;
     p->lvars[p->n_lvars].stack_offset = stack_offset;
     ++p->n_lvars;
@@ -220,8 +219,7 @@ AstNode* parse_primary_expr(Parser* p) {
             if (func_idx == -1) {
                 fatal_error("undefined function: %.*s", name->len, name->data);
             }
-            e->name.data = name->data;
-            e->name.len = name->len;
+            e->name = *name;
             e->ty = p->funcs[func_idx].ty;
             return e;
         }
@@ -242,15 +240,13 @@ AstNode* parse_primary_expr(Parser* p) {
                 return e;
             }
             e = ast_new(AstNodeKind_gvar);
-            e->name.data = name->data;
-            e->name.len = name->len;
+            e->name = *name;
             e->ty = p->gvars[gvar_idx].ty;
             return e;
         }
 
         e = ast_new(AstNodeKind_lvar);
-        e->name.data = name->data;
-        e->name.len = name->len;
+        e->name = *name;
         e->node_stack_offset = p->lvars[lvar_idx].stack_offset;
         e->ty = p->lvars[lvar_idx].ty;
         return e;
@@ -729,8 +725,7 @@ AstNode* parse_var_decl(Parser* p) {
     AstNode* ret;
     if (init) {
         AstNode* lhs = ast_new(AstNodeKind_lvar);
-        lhs->name.data = name->data;
-        lhs->name.len = name->len;
+        lhs->name = *name;
         lhs->node_stack_offset = stack_offset;
         lhs->ty = ty;
         AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, init);
@@ -807,8 +802,7 @@ void register_params(Parser* p, AstNode* params) {
 }
 
 void register_func(Parser* p, const String* name, Type* ty) {
-    p->funcs[p->n_funcs].name.data = name->data;
-    p->funcs[p->n_funcs].name.len = name->len;
+    p->funcs[p->n_funcs].name = *name;
     p->funcs[p->n_funcs].ty = ty;
     ++p->n_funcs;
 }
@@ -823,8 +817,7 @@ AstNode* parse_param(Parser* p) {
     AstNode* param = ast_new(AstNodeKind_param);
     param->ty = ty;
     if (name) {
-        param->name.data = name->data;
-        param->name.len = name->len;
+        param->name = *name;
     }
     return param;
 }
@@ -874,8 +867,7 @@ AstNode* parse_func_decl_or_def(Parser* p) {
     AstNode* body = parse_block_stmt(p);
     AstNode* func = ast_new(AstNodeKind_func_def);
     func->ty = ty;
-    func->name.data = name->data;
-    func->name.len = name->len;
+    func->name = *name;
     func->node_params = params;
     func->node_body = body;
     return func;
@@ -886,8 +878,7 @@ AstNode* parse_struct_member(Parser* p) {
     String* name = parse_ident(p);
     expect(p, TokenKind_semicolon);
     AstNode* member = ast_new(AstNodeKind_struct_member);
-    member->name.data = name->data;
-    member->name.len = name->len;
+    member->name = *name;
     member->ty = ty;
     return member;
 }
@@ -914,8 +905,7 @@ AstNode* parse_struct_decl_or_def(Parser* p) {
     if (struct_idx == -1) {
         struct_idx = p->n_structs;
         p->structs[struct_idx].kind = AstNodeKind_struct_def;
-        p->structs[struct_idx].name.data = name->data;
-        p->structs[struct_idx].name.len = name->len;
+        p->structs[struct_idx].name = *name;
         ++p->n_structs;
     }
     if (peek_token(p)->kind == TokenKind_semicolon) {
@@ -936,8 +926,7 @@ AstNode* parse_struct_decl_or_def(Parser* p) {
 AstNode* parse_enum_member(Parser* p) {
     String* name = parse_ident(p);
     AstNode* member = ast_new(AstNodeKind_enum_member);
-    member->name.data = name->data;
-    member->name.len = name->len;
+    member->name = *name;
     return member;
 }
 
@@ -970,8 +959,7 @@ AstNode* parse_enum_def(Parser* p) {
     if (enum_idx == -1) {
         enum_idx = p->n_enums;
         p->enums[enum_idx].kind = AstNodeKind_enum_def;
-        p->enums[enum_idx].name.data = name->data;
-        p->enums[enum_idx].name.len = name->len;
+        p->enums[enum_idx].name = *name;
         ++p->n_enums;
     } else {
         fatal_error("parse_enum_def: enum %.*s redefined", name->len, name->data);
@@ -990,11 +978,9 @@ AstNode* parse_typedef_decl(Parser* p) {
     String* name = parse_ident(p);
     expect(p, TokenKind_semicolon);
     AstNode* decl = ast_new(AstNodeKind_typedef_decl);
-    decl->name.data = name->data;
-    decl->name.len = name->len;
+    decl->name = *name;
     decl->ty = ty;
-    p->typedefs[p->n_typedefs].name.data = name->data;
-    p->typedefs[p->n_typedefs].name.len = name->len;
+    p->typedefs[p->n_typedefs].name = *name;
     p->typedefs[p->n_typedefs].ty = ty;
     ++p->n_typedefs;
     return decl;
@@ -1012,8 +998,7 @@ AstNode* parse_extern_var_decl(Parser* p) {
     if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
         fatal_error("parse_extern_var_decl: %.*s redeclared", name->len, name->data);
     }
-    p->gvars[p->n_gvars].name.data = name->data;
-    p->gvars[p->n_gvars].name.len = name->len;
+    p->gvars[p->n_gvars].name = *name;
     p->gvars[p->n_gvars].ty = ty;
     ++p->n_gvars;
 
