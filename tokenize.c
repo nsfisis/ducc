@@ -260,12 +260,10 @@ void tokenize_all(Lexer* l) {
             } else {
                 tok->kind = TokenKind_ident;
             }
-            tok->raw.data = pp_tok->raw.data;
-            tok->raw.len = pp_tok->raw.len;
+            tok->raw = pp_tok->raw;
         } else if (k == PpTokenKind_pp_number) {
             tok->kind = TokenKind_literal_int;
-            tok->raw.data = pp_tok->raw.data;
-            tok->raw.len = pp_tok->raw.len;
+            tok->raw = pp_tok->raw;
         } else if (k == PpTokenKind_character_constant) {
             tok->kind = TokenKind_literal_int;
             ch = pp_tok->raw.data[1];
@@ -363,8 +361,7 @@ void tokenize_all(Lexer* l) {
             } else {
                 fatal_error("unknown token: %.*s", pp_tok->raw.len, pp_tok->raw.data);
             }
-            tok->raw.data = pp_tok->raw.data;
-            tok->raw.len = pp_tok->raw.len;
+            tok->raw = pp_tok->raw;
         } else if (k == PpTokenKind_whitespace) {
             continue;
         }
