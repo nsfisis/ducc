@@ -37,6 +37,7 @@ const char* pp_token_kind_stringify(PpTokenKind kind) {
 
 struct SourceLocation {
     const char* filename;
+    int line;
 };
 typedef struct SourceLocation SourceLocation;
 
@@ -58,6 +59,7 @@ enum PpMacroKind {
     PpMacroKind_obj,
     PpMacroKind_func,
     PpMacroKind_builtin_file,
+    PpMacroKind_builtin_line,
 };
 typedef enum PpMacroKind PpMacroKind;
 
@@ -68,6 +70,8 @@ const char* pp_macro_kind_stringify(PpMacroKind kind) {
         return "function-like";
     else if (kind == PpMacroKind_builtin_file)
         return "__FILE__";
+    else if (kind == PpMacroKind_builtin_line)
+        return "__LINE__";
     else
         unreachable();
 }
@@ -88,6 +92,7 @@ typedef struct PpMacros PpMacros;
 
 struct Preprocessor {
     const char* filename;
+    int line;
     char* src;
     int pos;
     PpToken* pp_tokens;
@@ -145,6 +150,12 @@ void add_predefined_macros(PpMacros* pp_macros) {
     m->name.len = strlen("__FILE__");
     m->name.data = "__FILE__";
     pp_macros->len += 1;
+
+    m = pp_macros->data + pp_macros->len;
+    m->kind = PpMacroKind_builtin_line;
+    m->name.len = strlen("__LINE__");
+    m->name.data = "__LINE__";
+    pp_macros->len += 1;
 }
 
 int count_pp_tokens(PpToken* pp_tokens) {
@@ -162,6 +173,7 @@ Preprocessor* preprocessor_new(InFile* src, int include_depth, PpMacros* pp_macr
 
     Preprocessor* pp = calloc(1, sizeof(Preprocessor));
     pp->filename = src->filename;
+    pp->line = 1;
     pp->src = src->buf;
     pp->pp_tokens = calloc(1024 * 1024, sizeof(PpToken));
     pp->pp_macros = pp_macros;
@@ -199,6 +211,7 @@ void pp_tokenize_all(Preprocessor* pp) {
     while (pp->src[pp->pos]) {
         PpToken* tok = pp->pp_tokens + pp->n_pp_tokens;
         tok->loc.filename = pp->filename;
+        tok->loc.line = pp->line;
         char c = pp->src[pp->pos];
         ++pp->pos;
         if (c == '(') {
@@ -434,6 +447,9 @@ void pp_tokenize_all(Preprocessor* pp) {
             tok->raw.len = pp->pos - start;
             tok->kind = PpTokenKind_identifier;
         } else if (isspace(c)) {
+            if (c == '\n' || c == '\r') {
+                ++pp->line;
+            }
             tok->kind = PpTokenKind_whitespace;
             tok->raw.len = 1;
             tok->raw.data = pp->src + pp->pos - tok->raw.len;
@@ -695,6 +711,13 @@ void expand_macro(Preprocessor* pp, PpToken* tok) {
         file_tok->raw.data = calloc(file_tok->raw.len, sizeof(char));
         sprintf(file_tok->raw.data, "\"%s\"", tok->loc.filename);
         replace_pp_tokens(pp, tok, tok + 1, 1, file_tok);
+    } else if (pp_macro->kind == PpMacroKind_builtin_line) {
+        PpToken* line_tok = calloc(1, sizeof(PpToken));
+        line_tok->kind = PpTokenKind_pp_number;
+        line_tok->raw.data = calloc(10, sizeof(char));
+        sprintf(line_tok->raw.data, "%d", tok->loc.line);
+        line_tok->raw.len = strlen(line_tok->raw.data);
+        replace_pp_tokens(pp, tok, tok + 1, 1, line_tok);
     } else {
         unreachable();
     }
