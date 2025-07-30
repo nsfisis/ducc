@@ -87,22 +87,39 @@ void codegen_ref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     codegen_expr(g, ast->node_operand, GenMode_lval);
 }
 
+// "reg" stores the address of the expression to be pushed.
+void codegen_push_expr(const char* reg, int size) {
+    if (size == 1) {
+        printf("  movsx %s, BYTE PTR [%s]\n", reg, reg);
+        printf("  push %s\n", reg);
+    } else if (size == 2) {
+        unimplemented();
+    } else if (size == 4) {
+        printf("  movsxd %s, DWORD PTR [%s]\n", reg, reg);
+        printf("  push %s\n", reg);
+    } else if (size == 8) {
+        printf("  mov %s, [%s]\n", reg, reg);
+        printf("  push %s\n", reg);
+    } else {
+        // Perform bitwise copy. Use r10 register as temporary space.
+        // Note: rsp must be aligned to 8.
+        printf("  sub rsp, %d\n", to_aligned(size, 8));
+        int i;
+        for (i = 0; i < size; ++i) {
+            // Copy a sinle byte from the address that "reg" points to to the stack via r10 register.
+            printf("  mov r10b, [%s+%d]\n", reg, i);
+            printf("  mov [rsp+%d], r10b\n", i);
+        }
+    }
+}
+
 void codegen_lval2rval(Type* ty) {
     if (ty->kind == TypeKind_array) {
         return;
     }
 
-    int size = type_sizeof(ty);
-
     printf("  pop rax\n");
-    if (size == 1) {
-        printf("  movsx rax, BYTE PTR [rax]\n");
-    } else if (size == 4) {
-        printf("  movsxd rax, DWORD PTR [rax]\n");
-    } else {
-        printf("  mov rax, [rax]\n");
-    }
-    printf("  push rax\n");
+    codegen_push_expr("rax", type_sizeof(ty));
 }
 
 void codegen_deref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
@@ -181,6 +198,9 @@ void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 }
 
 void codegen_assign_expr(CodeGen* g, AstNode* ast) {
+    int sizeof_lhs = type_sizeof(ast->node_lhs->ty);
+    int sizeof_rhs = type_sizeof(ast->node_rhs->ty);
+
     codegen_expr(g, ast->node_lhs, GenMode_lval);
     codegen_expr(g, ast->node_rhs, GenMode_rval);
     if (ast->node_op == TokenKind_assign) {
@@ -201,16 +221,40 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
     } else {
         unreachable();
     }
-    printf("  pop rdi\n");
-    printf("  pop rax\n");
-    if (type_sizeof(ast->node_lhs->ty) == 1) {
+    if (sizeof_lhs == 1) {
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
         printf("  mov BYTE PTR [rax], dil\n");
-    } else if (type_sizeof(ast->node_lhs->ty) == 4) {
+        printf("  push rdi\n");
+    } else if (sizeof_lhs == 4) {
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
         printf("  mov DWORD PTR [rax], edi\n");
-    } else {
+        printf("  push rdi\n");
+    } else if (sizeof_lhs == 8) {
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
         printf("  mov [rax], rdi\n");
+        printf("  push rdi\n");
+    } else {
+        if (ast->node_op != TokenKind_assign) {
+            unimplemented();
+        }
+        // Note: rsp must be aligned to 8.
+        int aligned_size = to_aligned(sizeof_lhs, 8);
+        printf("  mov rax, [rsp+%d]\n", aligned_size);
+        // Perform bitwise copy. Use r10 register as temporary space.
+        int i;
+        for (i = 0; i < aligned_size; ++i) {
+            // Copy a sinle byte from the stack to the address that rax points to via r10 register.
+            printf("  mov r10b, [rsp+%d]\n", i);
+            printf("  mov [rax+%d], r10b\n", i);
+        }
+        // Pop the RHS value and the LHS address.
+        printf("  add rsp, %d\n", aligned_size + 8);
+        // TODO: dummy
+        printf("  push 0\n");
     }
-    printf("  push rdi\n");
 }
 
 void codegen_func_call(CodeGen* g, AstNode* ast) {
@@ -399,6 +443,7 @@ void codegen_continue_stmt(CodeGen* g, AstNode* ast) {
 
 void codegen_expr_stmt(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_expr, GenMode_rval);
+    // TODO: the expression on the stack can be more than 8 bytes.
     printf("  pop rax\n");
 }
 
