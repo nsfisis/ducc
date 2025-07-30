@@ -2,6 +2,8 @@ set -e
 
 cat <<'EOF' > expected
 main.c
+main.c
+main.c
 EOF
 
 cat <<'EOF' > header.h
@@ -14,7 +16,7 @@ bash ../../test_diff.sh <<'EOF'
 int printf();
 int main() {
     printf("%s\n", __FILE__);
-    // printf("%s\n", B);
-    // printf("%s\n", A);
+    printf("%s\n", B);
+    printf("%s\n", A);
 }
 EOF
