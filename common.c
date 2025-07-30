@@ -15,18 +15,6 @@ void unimplemented() {
     fatal_error("unimplemented");
 }
 
-char* read_all(FILE* in) {
-    char* buf = calloc(1024 * 1024, sizeof(char));
-    char* cur = buf;
-    char* tmp = calloc(1024, sizeof(char));
-    while (fgets(tmp, 1024, in)) {
-        size_t len = strlen(tmp);
-        memcpy(cur, tmp, len);
-        cur += len;
-    }
-    return buf;
-}
-
 struct String {
     char* data;
     size_t len;
