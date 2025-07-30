@@ -692,18 +692,28 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
     return NULL;
 }
 
-void expand_macro(Preprocessor* pp, PpToken* tok) {
+int expand_macro(Preprocessor* pp, PpToken* tok) {
     int pp_macro_idx = find_pp_macro(pp, &tok->raw);
     if (pp_macro_idx == -1) {
-        return;
+        return 0;
     }
 
+    int i;
+    SourceLocation original_loc = tok->loc;
     PpMacro* pp_macro = pp->pp_macros->data + pp_macro_idx;
     if (pp_macro->kind == PpMacroKind_func) {
         // also consume '(' and ')'
         replace_pp_tokens(pp, tok, tok + 3, pp_macro->n_replacements, pp_macro->replacements);
+        // Inherit a source location from the original macro token.
+        for (i = 0; i < pp_macro->n_replacements; ++i) {
+            tok[i].loc = original_loc;
+        }
     } else if (pp_macro->kind == PpMacroKind_obj) {
         replace_pp_tokens(pp, tok, tok + 1, pp_macro->n_replacements, pp_macro->replacements);
+        // Inherit a source location from the original macro token.
+        for (i = 0; i < pp_macro->n_replacements; ++i) {
+            tok[i].loc = original_loc;
+        }
     } else if (pp_macro->kind == PpMacroKind_builtin_file) {
         PpToken* file_tok = calloc(1, sizeof(PpToken));
         file_tok->kind = PpTokenKind_string_literal;
@@ -721,6 +731,7 @@ void expand_macro(Preprocessor* pp, PpToken* tok) {
     } else {
         unreachable();
     }
+    return 1;
 }
 
 void process_pp_directives(Preprocessor* pp) {
@@ -754,7 +765,12 @@ void process_pp_directives(Preprocessor* pp) {
         } else if (skip_pp_tokens(pp)) {
             make_token_whitespace(tok);
         } else if (tok->kind == PpTokenKind_identifier) {
-            expand_macro(pp, tok);
+            int expanded = expand_macro(pp, tok);
+            if (expanded) {
+                // A macro may expand to another macro. Re-scan the expanded tokens.
+                // TODO: if the macro is defined recursively, it causes infinite loop.
+                --tok;
+            }
         }
         ++tok;
     }
