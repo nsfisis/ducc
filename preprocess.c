@@ -796,9 +796,16 @@ void pp_dump(PpToken* t, int include_whitespace) {
     }
 }
 
+char* get_ducc_include_path() {
+    const char* self_dir = get_self_dir();
+    char* buf = calloc(strlen(self_dir) + strlen("/include") + 1, sizeof(char));
+    sprintf(buf, "%s/include", self_dir);
+    return buf;
+}
+
 PpToken* do_preprocess(InFile* src, int depth, PpMacros* pp_macros) {
     Preprocessor* pp = preprocessor_new(src, depth, pp_macros);
-    add_include_path(pp, "/home/ken/src/ducc/include");
+    add_include_path(pp, get_ducc_include_path());
     add_include_path(pp, "/usr/include");
     pp_tokenize_all(pp);
     process_pp_directives(pp);

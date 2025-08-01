@@ -3,6 +3,7 @@
 #include "std.h"
 #include "common.c"
 #include "io.c"
+#include "sys.c"
 #include "preprocess.c"
 #include "tokenize.c"
 #include "ast.c"
