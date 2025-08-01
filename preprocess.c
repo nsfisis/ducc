@@ -552,6 +552,22 @@ PpToken* process_ifdef_directive(Preprocessor* pp, PpToken* tok) {
     return NULL;
 }
 
+PpToken* process_ifndef_directive(Preprocessor* pp, PpToken* tok) {
+    PpToken* tok2 = skip_whitespace(tok + 1);
+    if (tok2->kind == PpTokenKind_identifier && string_equals_cstr(&tok2->raw, "ifndef")) {
+        ++tok2;
+        tok2 = skip_whitespace(tok2);
+        if (tok2->kind == PpTokenKind_identifier) {
+            PpToken* name = tok2;
+            ++tok2;
+            pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) != -1;
+        }
+        remove_directive_tokens(tok, tok2);
+        return tok2;
+    }
+    return NULL;
+}
+
 PpToken* read_include_header_name(PpToken* tok2, String* include_name) {
     if (tok2->kind == PpTokenKind_string_literal) {
         *include_name = tok2->raw;
@@ -761,6 +777,10 @@ void process_pp_directives(Preprocessor* pp) {
                 continue;
             }
             if ((next_tok = process_ifdef_directive(pp, tok)) != NULL) {
+                tok = next_tok;
+                continue;
+            }
+            if ((next_tok = process_ifndef_directive(pp, tok)) != NULL) {
                 tok = next_tok;
                 continue;
             }
