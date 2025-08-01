@@ -283,6 +283,8 @@ void tokenize_all(Lexer* l) {
                     ch = '\t';
                 } else if (ch == 'v') {
                     ch = '\v';
+                } else if (ch == '0') {
+                    ch = '\0';
                 }
             }
             char* buf = calloc(4, sizeof(char));
