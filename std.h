@@ -38,3 +38,9 @@ int vfprintf(FILE*, const char*, va_list);
 #define F_OK 0
 #define R_OK 4
 int access(const char*, int);
+
+#define PATH_MAX 4096
+
+typedef long ssize_t;
+ssize_t readlink(const char*, char*, size_t);
+char* dirname(char*);
