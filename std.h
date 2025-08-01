@@ -1,4 +1,4 @@
-typedef long size_t;
+#include <stddef.h>
 
 struct FILE;
 typedef struct FILE FILE;
@@ -28,8 +28,6 @@ int strcmp(const char*, const char*);
 size_t strlen(const char*);
 int strncmp(const char*, const char*, size_t);
 char* strstr(const char*, const char*);
-
-#define NULL 0
 
 #include <stdarg.h>
 
