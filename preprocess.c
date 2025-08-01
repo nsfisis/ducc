@@ -320,7 +320,18 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->raw.len = pp->pos - start;
                 tok->raw.data = pp->src + pp->pos - tok->raw.len;
             } else if (pp->src[pp->pos] == '*') {
-                unimplemented();
+                start = pp->pos - 1;
+                ++pp->pos;
+                while (pp->src[pp->pos]) {
+                    if (pp->src[pp->pos] == '*' && pp->src[pp->pos + 1] == '/') {
+                        pp->pos += 2;
+                        break;
+                    }
+                    ++pp->pos;
+                }
+                tok->kind = PpTokenKind_whitespace;
+                tok->raw.len = pp->pos - start;
+                tok->raw.data = pp->src + pp->pos - tok->raw.len;
             } else {
                 tok->kind = PpTokenKind_punctuator;
                 tok->raw.len = 1;
