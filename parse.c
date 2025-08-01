@@ -403,7 +403,18 @@ AstNode* parse_prefix_expr(Parser* p) {
     } else if (op == TokenKind_keyword_sizeof) {
         next_token(p);
         expect(p, TokenKind_paren_l);
-        Type* ty = parse_type(p);
+        Token* next_tok = peek_token(p);
+        Type* ty = NULL;
+        if (next_tok->kind == TokenKind_ident) {
+            int lvar_idx = find_lvar(p, &next_tok->raw);
+            if (lvar_idx != -1) {
+                next_token(p);
+                ty = p->lvars[lvar_idx].ty;
+            }
+        }
+        if (!ty) {
+            ty = parse_type(p);
+        }
         expect(p, TokenKind_paren_r);
         return ast_new_int(type_sizeof(ty));
     }
