@@ -680,7 +680,8 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
                 if (tok2->kind == PpTokenKind_punctuator && string_equals_cstr(&tok2->raw, ")")) {
                     ++tok2;
                 } else {
-                    fatal_error("#define: invalid function-like macro syntax");
+                    fatal_error("%s:%d: invalid function-like macro syntax (#define %.*s)", macro_name->loc.filename,
+                                macro_name->loc.line, macro_name->raw.len, macro_name->raw.data);
                 }
                 tok3 = find_next_newline(tok2);
                 if (tok3) {
