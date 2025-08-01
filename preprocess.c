@@ -824,6 +824,7 @@ char* get_ducc_include_path() {
 PpToken* do_preprocess(InFile* src, int depth, PpMacros* pp_macros) {
     Preprocessor* pp = preprocessor_new(src, depth, pp_macros);
     add_include_path(pp, get_ducc_include_path());
+    add_include_path(pp, "/usr/include/x86_64-linux-gnu");
     add_include_path(pp, "/usr/include");
     pp_tokenize_all(pp);
     process_pp_directives(pp);
