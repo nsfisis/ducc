@@ -641,7 +641,7 @@ PpToken* process_include_directive(Preprocessor* pp, PpToken* tok) {
         tok2 = read_include_header_name(tok2, include_name);
         const char* include_name_buf = resolve_include_name(pp, include_name);
         if (include_name_buf == NULL) {
-            fatal_error("cannot resolve include file name: %s", include_name_buf);
+            fatal_error("cannot resolve include file name: %.*s", include_name->len, include_name->data);
         }
         return expand_include_directive(pp, tok, tok2, include_name_buf);
     }
