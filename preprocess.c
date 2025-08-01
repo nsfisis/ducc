@@ -682,7 +682,6 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
                 } else {
                     fatal_error("#define: invalid function-like macro syntax");
                 }
-                tok2 = skip_whitespace(tok2);
                 tok3 = find_next_newline(tok2);
                 if (tok3) {
                     pp_macro = pp->pp_macros->data + pp->pp_macros->len;
@@ -696,7 +695,6 @@ PpToken* process_define_directive(Preprocessor* pp, PpToken* tok) {
                     ++pp->pp_macros->len;
                 }
             } else {
-                tok2 = skip_whitespace(tok2);
                 tok3 = find_next_newline(tok2);
                 if (tok3) {
                     pp_macro = pp->pp_macros->data + pp->pp_macros->len;
