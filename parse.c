@@ -120,6 +120,28 @@ int add_lvar(Parser* p, String* name, Type* ty, int is_param) {
     return stack_offset;
 }
 
+String* generate_temporary_lvar_name(Parser* p) {
+    String* ret = calloc(1, sizeof(String));
+    ret->data = calloc(256, sizeof(char));
+    int i;
+    for (i = 1;; ++i) {
+        ret->len = sprintf(ret->data, "__%d", i);
+        if (find_lvar(p, ret) == -1) {
+            return ret;
+        }
+    }
+}
+
+AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
+    String* name = generate_temporary_lvar_name(p);
+    int stack_offset = add_lvar(p, name, ty, 0);
+    AstNode* lvar = ast_new(AstNodeKind_lvar);
+    lvar->name = *name;
+    lvar->node_stack_offset = stack_offset;
+    lvar->ty = ty;
+    return lvar;
+}
+
 int find_gvar(Parser* p, const String* name) {
     int i;
     for (i = 0; i < p->n_gvars; ++i) {
@@ -272,6 +294,32 @@ AstNode* parse_arg_list(Parser* p) {
     return list;
 }
 
+// e++
+// tmp1 = &e; tmp2 = *tmp1; *tmp1 += 1; tmp2
+// e--
+// tmp1 = &e; tmp2 = *tmp1; *tmp1 -= 1; tmp2
+AstNode* create_new_postfix_inc_or_dec(Parser* p, AstNode* e, TokenKind op) {
+    AstNode* tmp1_lvar = generate_temporary_lvar(p, type_new_ptr(e->ty));
+    AstNode* tmp2_lvar = generate_temporary_lvar(p, e->ty);
+
+    AstNode* expr1 = ast_new_assign_expr(TokenKind_assign, tmp1_lvar, ast_new_ref_expr(e));
+    AstNode* expr2 = ast_new_assign_expr(TokenKind_assign, tmp2_lvar, ast_new_deref_expr(tmp1_lvar));
+    AstNode* expr3;
+    if (op == TokenKind_plusplus) {
+        expr3 = ast_new_assign_add_expr(ast_new_deref_expr(tmp1_lvar), ast_new_int(1));
+    } else {
+        expr3 = ast_new_assign_sub_expr(ast_new_deref_expr(tmp1_lvar), ast_new_int(1));
+    }
+    AstNode* expr4 = tmp2_lvar;
+
+    AstNode* ret = ast_new_list(4);
+    ast_append(ret, expr1);
+    ast_append(ret, expr2);
+    ast_append(ret, expr3);
+    ast_append(ret, expr4);
+    return ret;
+}
+
 AstNode* parse_postfix_expr(Parser* p) {
     AstNode* ret = parse_primary_expr(p);
     String* name;
@@ -296,6 +344,12 @@ AstNode* parse_postfix_expr(Parser* p) {
             next_token(p);
             name = parse_ident(p);
             ret = ast_new_member_access_expr(ret, name);
+        } else if (tk == TokenKind_plusplus) {
+            next_token(p);
+            ret = create_new_postfix_inc_or_dec(p, ret, tk);
+        } else if (tk == TokenKind_minusminus) {
+            next_token(p);
+            ret = create_new_postfix_inc_or_dec(p, ret, tk);
         } else {
             break;
         }

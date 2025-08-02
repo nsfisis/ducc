@@ -335,6 +335,19 @@ void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     printf("  push rax\n");
 }
 
+void codegen_composite_expr(CodeGen* g, AstNode* ast) {
+    // Standard C does not have composite expression, but ducc internally has.
+    int i;
+    for (i = 0; i < ast->node_len; ++i) {
+        AstNode* expr = ast->node_items + i;
+        codegen_expr(g, expr, GenMode_rval);
+        if (i != ast->node_len - 1) {
+            // TODO: the expression on the stack can be more than 8 bytes.
+            printf("  pop rax\n");
+        }
+    }
+}
+
 void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     if (ast->kind == AstNodeKind_int_expr) {
         codegen_int_expr(g, ast);
@@ -358,6 +371,8 @@ void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
         codegen_lvar(g, ast, gen_mode);
     } else if (ast->kind == AstNodeKind_gvar) {
         codegen_gvar(g, ast, gen_mode);
+    } else if (ast->kind == AstNodeKind_list) {
+        codegen_composite_expr(g, ast);
     } else {
         unreachable();
     }
