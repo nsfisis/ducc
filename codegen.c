@@ -125,7 +125,7 @@ void codegen_lval2rval(Type* ty) {
 void codegen_deref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     codegen_expr(g, ast->node_operand, GenMode_rval);
     if (gen_mode == GenMode_rval) {
-        codegen_lval2rval(ast->node_operand->ty->to);
+        codegen_lval2rval(ast->node_operand->ty->base);
     }
 }
 
