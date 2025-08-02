@@ -327,6 +327,9 @@ void pp_tokenize_all(Preprocessor* pp) {
                         pp->pos += 2;
                         break;
                     }
+                    if (pp->src[pp->pos] == '\n') {
+                        ++pp->line;
+                    }
                     ++pp->pos;
                 }
                 tok->kind = PpTokenKind_whitespace;
