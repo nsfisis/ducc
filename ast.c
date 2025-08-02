@@ -16,7 +16,8 @@ struct AstNode;
 
 struct Type {
     TypeKind kind;
-    struct Type* to;
+    // Check `base` instead of `kind` to test if the type is an array or a pointer.
+    struct Type* base;
     int array_size;
     struct AstNode* def;
 };
@@ -28,17 +29,17 @@ Type* type_new(TypeKind kind) {
     return ty;
 }
 
-Type* type_new_ptr(Type* to) {
+Type* type_new_ptr(Type* base) {
     Type* ty = calloc(1, sizeof(Type));
     ty->kind = TypeKind_ptr;
-    ty->to = to;
+    ty->base = base;
     return ty;
 }
 
 Type* type_new_array(Type* elem, int size) {
     Type* ty = calloc(1, sizeof(Type));
     ty->kind = TypeKind_array;
-    ty->to = elem;
+    ty->base = elem;
     ty->array_size = size;
     return ty;
 }
@@ -48,7 +49,7 @@ Type* type_new_static_string(int len) {
 }
 
 Type* type_array_to_ptr(Type* ty) {
-    return type_new_ptr(ty->to);
+    return type_new_ptr(ty->base);
 }
 
 int type_is_unsized(Type* ty) {
@@ -76,7 +77,7 @@ int type_sizeof(Type* ty) {
     } else if (ty->kind == TypeKind_enum) {
         return 4;
     } else if (ty->kind == TypeKind_array) {
-        return type_sizeof(ty->to) * ty->array_size;
+        return type_sizeof(ty->base) * ty->array_size;
     } else {
         return type_sizeof_struct(ty);
     }
@@ -98,7 +99,7 @@ int type_alignof(Type* ty) {
     } else if (ty->kind == TypeKind_enum) {
         return 4;
     } else if (ty->kind == TypeKind_array) {
-        return type_alignof(ty->to);
+        return type_alignof(ty->base);
     } else {
         return type_alignof_struct(ty);
     }
@@ -264,17 +265,17 @@ AstNode* ast_new_assign_expr(int op, AstNode* lhs, AstNode* rhs) {
 }
 
 AstNode* ast_new_assign_add_expr(AstNode* lhs, AstNode* rhs) {
-    if (lhs->ty->kind == TypeKind_ptr || lhs->ty->kind == TypeKind_array) {
-        rhs = ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->to)));
-    } else if (rhs->ty->kind == TypeKind_ptr || rhs->ty->kind == TypeKind_array) {
-        lhs = ast_new_binary_expr(TokenKind_star, lhs, ast_new_int(type_sizeof(rhs->ty->to)));
+    if (lhs->ty->base) {
+        rhs = ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base)));
+    } else if (rhs->ty->base) {
+        lhs = ast_new_binary_expr(TokenKind_star, lhs, ast_new_int(type_sizeof(rhs->ty->base)));
     }
     return ast_new_assign_expr(TokenKind_assign_add, lhs, rhs);
 }
 
 AstNode* ast_new_assign_sub_expr(AstNode* lhs, AstNode* rhs) {
-    if (lhs->ty->kind == TypeKind_ptr || lhs->ty->kind == TypeKind_array) {
-        rhs = ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->to)));
+    if (lhs->ty->base) {
+        rhs = ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base)));
     }
     return ast_new_assign_expr(TokenKind_assign_sub, lhs, rhs);
 }
@@ -289,14 +290,14 @@ AstNode* ast_new_ref_expr(AstNode* operand) {
 AstNode* ast_new_deref_expr(AstNode* operand) {
     AstNode* e = ast_new(AstNodeKind_deref_expr);
     e->node_operand = operand;
-    e->ty = operand->ty->to;
+    e->ty = operand->ty->base;
     return e;
 }
 
 AstNode* ast_new_member_access_expr(AstNode* obj, const String* name) {
     AstNode* e = ast_new(AstNodeKind_deref_expr);
-    e->node_operand = ast_new_binary_expr(TokenKind_plus, obj, ast_new_int(type_offsetof(obj->ty->to, name)));
-    e->ty = type_member_typeof(obj->ty->to, name);
+    e->node_operand = ast_new_binary_expr(TokenKind_plus, obj, ast_new_int(type_offsetof(obj->ty->base, name)));
+    e->ty = type_member_typeof(obj->ty->base, name);
     e->node_operand->ty = type_new_ptr(e->ty);
     return e;
 }

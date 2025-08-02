@@ -334,7 +334,7 @@ AstNode* parse_postfix_expr(Parser* p) {
             next_token(p);
             AstNode* idx = parse_expr(p);
             expect(p, TokenKind_bracket_r);
-            idx = ast_new_binary_expr(TokenKind_star, idx, ast_new_int(type_sizeof(ret->ty->to)));
+            idx = ast_new_binary_expr(TokenKind_star, idx, ast_new_int(type_sizeof(ret->ty->base)));
             ret = ast_new_deref_expr(ast_new_binary_expr(TokenKind_plus, ret, idx));
         } else if (tk == TokenKind_dot) {
             next_token(p);
@@ -498,27 +498,27 @@ AstNode* parse_additive_expr(Parser* p) {
         if (op == TokenKind_plus) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
-            if (lhs->ty->kind == TypeKind_ptr) {
+            if (lhs->ty->base) {
                 lhs = ast_new_binary_expr(
-                    op, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
-            } else if (rhs->ty->kind == TypeKind_ptr) {
+                    op, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base))));
+            } else if (rhs->ty->base) {
                 lhs = ast_new_binary_expr(
-                    op, ast_new_binary_expr(TokenKind_star, lhs, ast_new_int(type_sizeof(rhs->ty->to))), rhs);
+                    op, ast_new_binary_expr(TokenKind_star, lhs, ast_new_int(type_sizeof(rhs->ty->base))), rhs);
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
             }
         } else if (op == TokenKind_minus) {
             next_token(p);
             rhs = parse_multiplicative_expr(p);
-            if (lhs->ty->kind == TypeKind_ptr) {
-                if (rhs->ty->kind == TypeKind_ptr) {
+            if (lhs->ty->base) {
+                if (rhs->ty->base) {
                     // (a - b) / sizeof(a)
                     lhs = ast_new_binary_expr(TokenKind_slash, ast_new_binary_expr(op, lhs, rhs),
-                                              ast_new_int(type_sizeof(lhs->ty->to)));
+                                              ast_new_int(type_sizeof(lhs->ty->base)));
                 } else {
                     // a - b*sizeof(a)
                     lhs = ast_new_binary_expr(
-                        op, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->to))));
+                        op, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base))));
                 }
             } else {
                 lhs = ast_new_binary_expr(op, lhs, rhs);
