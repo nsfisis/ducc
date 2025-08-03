@@ -93,7 +93,8 @@ void codegen_push_expr(const char* reg, int size) {
         printf("  movsx %s, BYTE PTR [%s]\n", reg, reg);
         printf("  push %s\n", reg);
     } else if (size == 2) {
-        unimplemented();
+        printf("  movsx %s, WORD PTR [%s]\n", reg, reg);
+        printf("  push %s\n", reg);
     } else if (size == 4) {
         printf("  movsxd %s, DWORD PTR [%s]\n", reg, reg);
         printf("  push %s\n", reg);
@@ -225,6 +226,11 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
         printf("  pop rdi\n");
         printf("  pop rax\n");
         printf("  mov BYTE PTR [rax], dil\n");
+        printf("  push rdi\n");
+    } else if (sizeof_lhs == 2) {
+        printf("  pop rdi\n");
+        printf("  pop rax\n");
+        printf("  mov WORD PTR [rax], di\n");
         printf("  push rdi\n");
     } else if (sizeof_lhs == 4) {
         printf("  pop rdi\n");

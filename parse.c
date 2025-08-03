@@ -358,10 +358,10 @@ AstNode* parse_postfix_expr(Parser* p) {
 }
 
 int is_type_token(Parser* p, Token* token) {
-    if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_long ||
-        token->kind == TokenKind_keyword_char || token->kind == TokenKind_keyword_void ||
-        token->kind == TokenKind_keyword_enum || token->kind == TokenKind_keyword_struct ||
-        token->kind == TokenKind_keyword_const) {
+    if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_short ||
+        token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
+        token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_enum ||
+        token->kind == TokenKind_keyword_struct || token->kind == TokenKind_keyword_const) {
         return 1;
     }
     if (token->kind != TokenKind_ident) {
@@ -388,12 +388,14 @@ Type* parse_type(Parser* p) {
         ty = p->typedefs[typedef_idx].ty;
     } else {
         ty = type_new(TypeKind_unknown);
-        if (t->kind == TokenKind_keyword_int) {
+        if (t->kind == TokenKind_keyword_char) {
+            ty->kind = TypeKind_char;
+        } else if (t->kind == TokenKind_keyword_short) {
+            ty->kind = TypeKind_short;
+        } else if (t->kind == TokenKind_keyword_int) {
             ty->kind = TypeKind_int;
         } else if (t->kind == TokenKind_keyword_long) {
             ty->kind = TypeKind_long;
-        } else if (t->kind == TokenKind_keyword_char) {
-            ty->kind = TypeKind_char;
         } else if (t->kind == TokenKind_keyword_void) {
             ty->kind = TypeKind_void;
         } else if (t->kind == TokenKind_keyword_enum) {

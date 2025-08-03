@@ -3,6 +3,7 @@ enum TypeKind {
 
     TypeKind_char,
     TypeKind_int,
+    TypeKind_short,
     TypeKind_long,
     TypeKind_void,
     TypeKind_ptr,
@@ -70,6 +71,8 @@ int type_sizeof(Type* ty) {
         return 8;
     } else if (ty->kind == TypeKind_char) {
         return 1;
+    } else if (ty->kind == TypeKind_short) {
+        return 2;
     } else if (ty->kind == TypeKind_int) {
         return 4;
     } else if (ty->kind == TypeKind_long) {
@@ -92,6 +95,8 @@ int type_alignof(Type* ty) {
         return 8;
     } else if (ty->kind == TypeKind_char) {
         return 1;
+    } else if (ty->kind == TypeKind_short) {
+        return 2;
     } else if (ty->kind == TypeKind_int) {
         return 4;
     } else if (ty->kind == TypeKind_long) {
