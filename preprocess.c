@@ -668,58 +668,42 @@ void remove_directive_tokens(Token* start, Token* end) {
     }
 }
 
-Token* process_endif_directive(Preprocessor* pp, Token* tok) {
-    Token* tok2 = skip_whitespace(tok + 1);
-    if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "endif")) {
-        ++tok2;
-        pp->skip_pp_tokens = FALSE;
-        remove_directive_tokens(tok, tok2);
-        return tok2;
-    }
-    return NULL;
+Token* process_endif_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    ++tok2;
+    pp->skip_pp_tokens = FALSE;
+    remove_directive_tokens(tok, tok2);
+    return tok2;
 }
 
-Token* process_else_directive(Preprocessor* pp, Token* tok) {
-    Token* tok2 = skip_whitespace(tok + 1);
-    if (tok2->kind == TokenKind_keyword_else) {
-        ++tok2;
-        pp->skip_pp_tokens = !pp->skip_pp_tokens;
-        remove_directive_tokens(tok, tok2);
-        return tok2;
-    }
-    return NULL;
+Token* process_else_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    ++tok2;
+    pp->skip_pp_tokens = !pp->skip_pp_tokens;
+    remove_directive_tokens(tok, tok2);
+    return tok2;
 }
 
-Token* process_ifdef_directive(Preprocessor* pp, Token* tok) {
-    Token* tok2 = skip_whitespace(tok + 1);
-    if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifdef")) {
+Token* process_ifdef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    ++tok2;
+    tok2 = skip_whitespace(tok2);
+    if (tok2->kind == TokenKind_ident) {
+        Token* name = tok2;
         ++tok2;
-        tok2 = skip_whitespace(tok2);
-        if (tok2->kind == TokenKind_ident) {
-            Token* name = tok2;
-            ++tok2;
-            pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) == -1;
-        }
-        remove_directive_tokens(tok, tok2);
-        return tok2;
+        pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) == -1;
     }
-    return NULL;
+    remove_directive_tokens(tok, tok2);
+    return tok2;
 }
 
-Token* process_ifndef_directive(Preprocessor* pp, Token* tok) {
-    Token* tok2 = skip_whitespace(tok + 1);
-    if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifndef")) {
+Token* process_ifndef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    ++tok2;
+    tok2 = skip_whitespace(tok2);
+    if (tok2->kind == TokenKind_ident) {
+        Token* name = tok2;
         ++tok2;
-        tok2 = skip_whitespace(tok2);
-        if (tok2->kind == TokenKind_ident) {
-            Token* name = tok2;
-            ++tok2;
-            pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) != -1;
-        }
-        remove_directive_tokens(tok, tok2);
-        return tok2;
+        pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) != -1;
     }
-    return NULL;
+    remove_directive_tokens(tok, tok2);
+    return tok2;
 }
 
 Token* read_include_header_name(Token* tok2, String* include_name) {
@@ -801,93 +785,82 @@ Token* expand_include_directive(Preprocessor* pp, Token* tok, Token* tok2, const
     return replace_pp_tokens(pp, tok, tok2 + 1, count_pp_tokens(include_pp_tokens), include_pp_tokens);
 }
 
-Token* process_include_directive(Preprocessor* pp, Token* tok) {
-    Token* tok2 = skip_whitespace(tok + 1);
-
-    if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "include")) {
-        ++tok2;
-        tok2 = skip_whitespace(tok2);
-        String* include_name = calloc(1, sizeof(String));
-        tok2 = read_include_header_name(tok2, include_name);
-        const char* include_name_buf = resolve_include_name(pp, include_name);
-        if (include_name_buf == NULL) {
-            fatal_error("cannot resolve include file name: %.*s", include_name->len, include_name->data);
-        }
-        return expand_include_directive(pp, tok, tok2, include_name_buf);
+Token* process_include_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    ++tok2;
+    tok2 = skip_whitespace(tok2);
+    String* include_name = calloc(1, sizeof(String));
+    tok2 = read_include_header_name(tok2, include_name);
+    const char* include_name_buf = resolve_include_name(pp, include_name);
+    if (include_name_buf == NULL) {
+        fatal_error("cannot resolve include file name: %.*s", include_name->len, include_name->data);
     }
-    return NULL;
+    return expand_include_directive(pp, tok, tok2, include_name_buf);
 }
 
-Token* process_define_directive(Preprocessor* pp, Token* tok) {
-    Token* tok2 = skip_whitespace(tok + 1);
+Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     Token* tok3 = NULL;
     PpMacro* pp_macro;
     int i;
-    if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "define")) {
-        ++tok2;
-        tok2 = skip_whitespace(tok2);
-        if (tok2->kind == TokenKind_ident) {
-            Token* macro_name = tok2;
-            ++tok2;
-            if (tok2->kind == TokenKind_paren_l) {
-                ++tok2;
-                if (tok2->kind == TokenKind_paren_r) {
-                    ++tok2;
-                } else {
-                    fatal_error("%s:%d: invalid function-like macro syntax (#define %.*s)", macro_name->loc.filename,
-                                macro_name->loc.line, macro_name->raw.len, macro_name->raw.data);
-                }
-                tok3 = find_next_newline(tok2);
-                if (tok3) {
-                    pp_macro = pp->pp_macros->data + pp->pp_macros->len;
-                    pp_macro->kind = PpMacroKind_func;
-                    pp_macro->name = macro_name->raw;
-                    pp_macro->n_replacements = tok3 - tok2;
-                    pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
-                    for (i = 0; i < pp_macro->n_replacements; ++i) {
-                        pp_macro->replacements[i] = tok2[i];
-                    }
-                    ++pp->pp_macros->len;
-                }
-            } else {
-                tok3 = find_next_newline(tok2);
-                if (tok3) {
-                    pp_macro = pp->pp_macros->data + pp->pp_macros->len;
-                    pp_macro->kind = PpMacroKind_obj;
-                    pp_macro->name = macro_name->raw;
-                    pp_macro->n_replacements = tok3 - tok2;
-                    pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
-                    for (i = 0; i < pp_macro->n_replacements; ++i) {
-                        pp_macro->replacements[i] = tok2[i];
-                    }
-                    ++pp->pp_macros->len;
-                }
-            }
-        }
-        if (tok3) {
-            remove_directive_tokens(tok, tok3);
-            return tok3;
-        }
+    ++tok2;
+    tok2 = skip_whitespace(tok2);
+    if (tok2->kind != TokenKind_ident) {
+        fatal_error("%s:%s: invalid #define syntax", tok2->loc.filename, tok2->loc.line);
     }
-    return NULL;
+
+    Token* macro_name = tok2;
+    ++tok2;
+    if (tok2->kind == TokenKind_paren_l) {
+        ++tok2;
+        if (tok2->kind == TokenKind_paren_r) {
+            ++tok2;
+        } else {
+            fatal_error("%s:%d: invalid function-like macro syntax (#define %.*s)", macro_name->loc.filename,
+                        macro_name->loc.line, macro_name->raw.len, macro_name->raw.data);
+        }
+        tok3 = find_next_newline(tok2);
+        if (!tok3) {
+            fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
+        }
+        pp_macro = pp->pp_macros->data + pp->pp_macros->len;
+        pp_macro->kind = PpMacroKind_func;
+        pp_macro->name = macro_name->raw;
+        pp_macro->n_replacements = tok3 - tok2;
+        pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
+        for (i = 0; i < pp_macro->n_replacements; ++i) {
+            pp_macro->replacements[i] = tok2[i];
+        }
+        ++pp->pp_macros->len;
+    } else {
+        tok3 = find_next_newline(tok2);
+        if (!tok3) {
+            fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
+        }
+        pp_macro = pp->pp_macros->data + pp->pp_macros->len;
+        pp_macro->kind = PpMacroKind_obj;
+        pp_macro->name = macro_name->raw;
+        pp_macro->n_replacements = tok3 - tok2;
+        pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
+        for (i = 0; i < pp_macro->n_replacements; ++i) {
+            pp_macro->replacements[i] = tok2[i];
+        }
+        ++pp->pp_macros->len;
+    }
+    remove_directive_tokens(tok, tok3);
+    return tok3;
 }
 
-Token* process_undef_directive(Preprocessor* pp, Token* tok) {
-    Token* tok2 = skip_whitespace(tok + 1);
-    if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "undef")) {
-        tok2 = skip_whitespace(tok2 + 1);
-        if (tok2->kind == TokenKind_ident) {
-            Token* macro_name = tok2;
-            ++tok2;
-            int pp_macro_idx = find_pp_macro(pp, &macro_name->raw);
-            if (pp_macro_idx != -1) {
-                undef_pp_macro(pp, pp_macro_idx);
-            }
+Token* process_undef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    tok2 = skip_whitespace(tok2 + 1);
+    if (tok2->kind == TokenKind_ident) {
+        Token* macro_name = tok2;
+        ++tok2;
+        int pp_macro_idx = find_pp_macro(pp, &macro_name->raw);
+        if (pp_macro_idx != -1) {
+            undef_pp_macro(pp, pp_macro_idx);
         }
-        remove_directive_tokens(tok, tok2);
-        return tok2;
     }
-    return NULL;
+    remove_directive_tokens(tok, tok2);
+    return tok2;
 }
 
 BOOL expand_macro(Preprocessor* pp, Token* tok) {
@@ -942,38 +915,38 @@ void process_pp_directives(Preprocessor* pp) {
 
     while (tok->kind != TokenKind_eof) {
         if (is_pp_hash(tok)) {
-            Token* next_tok;
-
-            if ((next_tok = process_endif_directive(pp, tok)) != NULL) {
-                tok = next_tok;
+            // TODO: don't skip newline after '#'.
+            Token* tok2 = skip_whitespace(tok + 1);
+            if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "endif")) {
+                tok = process_endif_directive(pp, tok, tok2);
                 continue;
             }
-            if ((next_tok = process_else_directive(pp, tok)) != NULL) {
-                tok = next_tok;
+            if (tok2->kind == TokenKind_keyword_else) {
+                tok = process_else_directive(pp, tok, tok2);
                 continue;
             }
-            if ((next_tok = process_ifdef_directive(pp, tok)) != NULL) {
-                tok = next_tok;
+            if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifdef")) {
+                tok = process_ifdef_directive(pp, tok, tok2);
                 continue;
             }
-            if ((next_tok = process_ifndef_directive(pp, tok)) != NULL) {
-                tok = next_tok;
+            if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifndef")) {
+                tok = process_ifndef_directive(pp, tok, tok2);
                 continue;
             }
             if (skip_pp_tokens(pp)) {
                 make_token_whitespace(tok);
-            } else if ((next_tok = process_include_directive(pp, tok)) != NULL) {
-                tok = next_tok;
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "include")) {
+                tok = process_include_directive(pp, tok, tok2);
                 continue;
-            } else if ((next_tok = process_define_directive(pp, tok)) != NULL) {
-                tok = next_tok;
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "define")) {
+                tok = process_define_directive(pp, tok, tok2);
                 continue;
-            } else if ((next_tok = process_undef_directive(pp, tok)) != NULL) {
-                tok = next_tok;
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "undef")) {
+                tok = process_undef_directive(pp, tok, tok2);
                 continue;
             } else {
-                fatal_error("%s:%d: unknown preprocessor directive (%s)", tok->loc.filename, tok->loc.line,
-                            token_stringify(tok + 1));
+                fatal_error("%s:%d: unknown preprocessor directive (%s)", tok2->loc.filename, tok2->loc.line,
+                            token_stringify(tok2));
             }
         } else if (skip_pp_tokens(pp)) {
             make_token_whitespace(tok);
