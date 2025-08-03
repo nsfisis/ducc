@@ -31,6 +31,7 @@ enum TokenKind {
     TokenKind_keyword_int,
     TokenKind_keyword_long,
     TokenKind_keyword_return,
+    TokenKind_keyword_short,
     TokenKind_keyword_sizeof,
     TokenKind_keyword_struct,
     TokenKind_keyword_typeof,
@@ -129,6 +130,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "long";
     else if (k == TokenKind_keyword_return)
         return "return";
+    else if (k == TokenKind_keyword_short)
+        return "short";
     else if (k == TokenKind_keyword_sizeof)
         return "sizeof";
     else if (k == TokenKind_keyword_struct)
@@ -245,6 +248,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_long;
             } else if (string_equals_cstr(&pp_tok->raw, "return")) {
                 tok->kind = TokenKind_keyword_return;
+            } else if (string_equals_cstr(&pp_tok->raw, "short")) {
+                tok->kind = TokenKind_keyword_short;
             } else if (string_equals_cstr(&pp_tok->raw, "sizeof")) {
                 tok->kind = TokenKind_keyword_sizeof;
             } else if (string_equals_cstr(&pp_tok->raw, "struct")) {
