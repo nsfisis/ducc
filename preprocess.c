@@ -362,6 +362,11 @@ int find_pp_macro(Preprocessor* pp, String* name) {
     return -1;
 }
 
+void undef_pp_macro(Preprocessor* pp, int idx) {
+    pp->pp_macros->data[idx].name.len = 0;
+    // TODO: Can predefined macro like __FILE__ be undefined?
+}
+
 void add_include_path(Preprocessor* pp, char* include_path) {
     pp->include_paths[pp->n_include_paths].data = include_path;
     pp->include_paths[pp->n_include_paths].len = strlen(include_path);
@@ -867,6 +872,24 @@ Token* process_define_directive(Preprocessor* pp, Token* tok) {
     return NULL;
 }
 
+Token* process_undef_directive(Preprocessor* pp, Token* tok) {
+    Token* tok2 = skip_whitespace(tok + 1);
+    if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "undef")) {
+        tok2 = skip_whitespace(tok2 + 1);
+        if (tok2->kind == TokenKind_ident) {
+            Token* macro_name = tok2;
+            ++tok2;
+            int pp_macro_idx = find_pp_macro(pp, &macro_name->raw);
+            if (pp_macro_idx != -1) {
+                undef_pp_macro(pp, pp_macro_idx);
+            }
+        }
+        remove_directive_tokens(tok, tok2);
+        return tok2;
+    }
+    return NULL;
+}
+
 BOOL expand_macro(Preprocessor* pp, Token* tok) {
     int pp_macro_idx = find_pp_macro(pp, &tok->raw);
     if (pp_macro_idx == -1) {
@@ -943,6 +966,9 @@ void process_pp_directives(Preprocessor* pp) {
                 tok = next_tok;
                 continue;
             } else if ((next_tok = process_define_directive(pp, tok)) != NULL) {
+                tok = next_tok;
+                continue;
+            } else if ((next_tok = process_undef_directive(pp, tok)) != NULL) {
                 tok = next_tok;
                 continue;
             } else {
