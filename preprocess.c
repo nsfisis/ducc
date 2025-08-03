@@ -945,6 +945,9 @@ void process_pp_directives(Preprocessor* pp) {
             } else if ((next_tok = process_define_directive(pp, tok)) != NULL) {
                 tok = next_tok;
                 continue;
+            } else {
+                fatal_error("%s:%d: unknown preprocessor directive (%s)", tok->loc.filename, tok->loc.line,
+                            token_stringify(tok + 1));
             }
         } else if (skip_pp_tokens(pp)) {
             make_token_whitespace(tok);
