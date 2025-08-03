@@ -268,7 +268,7 @@ struct Preprocessor {
     int n_pp_tokens;
     PpMacros* pp_macros;
     int include_depth;
-    int skip_pp_tokens;
+    BOOL skip_pp_tokens;
     String* include_paths;
     int n_include_paths;
 };
@@ -368,7 +368,7 @@ void add_include_path(Preprocessor* pp, char* include_path) {
     ++pp->n_include_paths;
 }
 
-int skip_pp_tokens(Preprocessor* pp) {
+BOOL skip_pp_tokens(Preprocessor* pp) {
     // TODO: support nested #if
     return pp->skip_pp_tokens;
 }
@@ -629,14 +629,14 @@ Token* skip_whitespace(Token* tok) {
     return tok;
 }
 
-int string_contains_newline(String* s) {
+BOOL string_contains_newline(String* s) {
     int i;
     for (i = 0; i < s->len; ++i) {
         if (s->data[i] == '\n') {
-            return 1;
+            return TRUE;
         }
     }
-    return 0;
+    return FALSE;
 }
 
 Token* find_next_newline(Token* tok) {
@@ -667,7 +667,7 @@ Token* process_endif_directive(Preprocessor* pp, Token* tok) {
     Token* tok2 = skip_whitespace(tok + 1);
     if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "endif")) {
         ++tok2;
-        pp->skip_pp_tokens = 0;
+        pp->skip_pp_tokens = FALSE;
         remove_directive_tokens(tok, tok2);
         return tok2;
     }
@@ -678,7 +678,7 @@ Token* process_else_directive(Preprocessor* pp, Token* tok) {
     Token* tok2 = skip_whitespace(tok + 1);
     if (tok2->kind == TokenKind_keyword_else) {
         ++tok2;
-        pp->skip_pp_tokens = 1 - pp->skip_pp_tokens;
+        pp->skip_pp_tokens = !pp->skip_pp_tokens;
         remove_directive_tokens(tok, tok2);
         return tok2;
     }
@@ -867,10 +867,10 @@ Token* process_define_directive(Preprocessor* pp, Token* tok) {
     return NULL;
 }
 
-int expand_macro(Preprocessor* pp, Token* tok) {
+BOOL expand_macro(Preprocessor* pp, Token* tok) {
     int pp_macro_idx = find_pp_macro(pp, &tok->raw);
     if (pp_macro_idx == -1) {
-        return 0;
+        return FALSE;
     }
 
     int i;
@@ -906,14 +906,19 @@ int expand_macro(Preprocessor* pp, Token* tok) {
     } else {
         unreachable();
     }
-    return 1;
+    return TRUE;
+}
+
+BOOL is_pp_hash(Token* t) {
+    // TODO: '#' must be at the beginning of the line.
+    return t->kind == TokenKind_hash;
 }
 
 void process_pp_directives(Preprocessor* pp) {
     Token* tok = pp->pp_tokens;
 
     while (tok->kind != TokenKind_eof) {
-        if (tok->kind == TokenKind_hash) {
+        if (is_pp_hash(tok)) {
             Token* next_tok;
 
             if ((next_tok = process_endif_directive(pp, tok)) != NULL) {
@@ -944,7 +949,7 @@ void process_pp_directives(Preprocessor* pp) {
         } else if (skip_pp_tokens(pp)) {
             make_token_whitespace(tok);
         } else if (tok->kind == TokenKind_ident) {
-            int expanded = expand_macro(pp, tok);
+            BOOL expanded = expand_macro(pp, tok);
             if (expanded) {
                 // A macro may expand to another macro. Re-scan the expanded tokens.
                 // TODO: if the macro is defined recursively, it causes infinite loop.
@@ -955,7 +960,7 @@ void process_pp_directives(Preprocessor* pp) {
     }
 }
 
-void pp_dump(Token* t, int include_whitespace) {
+void pp_dump(Token* t, BOOL include_whitespace) {
     for (; t->kind != TokenKind_eof; ++t) {
         if (t->kind == TokenKind_whitespace && !include_whitespace) {
             continue;

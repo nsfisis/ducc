@@ -87,7 +87,7 @@ Type* type_array_to_ptr(Type* ty) {
     return type_new_ptr(ty->base);
 }
 
-int type_is_unsized(Type* ty) {
+BOOL type_is_unsized(Type* ty) {
     return ty->kind == TypeKind_void;
 }
 

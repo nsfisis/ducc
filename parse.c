@@ -70,11 +70,11 @@ Token* next_token(Parser* p) {
     return p->tokens + p->pos - 1;
 }
 
-int eof(Parser* p) {
+BOOL eof(Parser* p) {
     return peek_token(p)->kind != TokenKind_eof;
 }
 
-Token* expect(Parser* p, int expected) {
+Token* expect(Parser* p, TokenKind expected) {
     Token* t = next_token(p);
     if (t->kind == expected) {
         return t;
@@ -92,7 +92,7 @@ int find_lvar(Parser* p, const String* name) {
     return -1;
 }
 
-int calc_stack_offset(Parser* p, Type* ty, int is_param) {
+int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
     int align;
     if (is_param) {
         if (8 < type_sizeof(ty) || 8 < type_alignof(ty)) {
@@ -114,7 +114,7 @@ int calc_stack_offset(Parser* p, Type* ty, int is_param) {
     return to_aligned(offset, align);
 }
 
-int add_lvar(Parser* p, String* name, Type* ty, int is_param) {
+int add_lvar(Parser* p, String* name, Type* ty, BOOL is_param) {
     int stack_offset = calc_stack_offset(p, ty, is_param);
     p->lvars[p->n_lvars].name = *name;
     p->lvars[p->n_lvars].ty = ty;
@@ -137,7 +137,7 @@ String* generate_temporary_lvar_name(Parser* p) {
 
 AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
     String* name = generate_temporary_lvar_name(p);
-    int stack_offset = add_lvar(p, name, ty, 0);
+    int stack_offset = add_lvar(p, name, ty, FALSE);
     AstNode* lvar = ast_new(AstNodeKind_lvar);
     lvar->name = *name;
     lvar->node_stack_offset = stack_offset;
@@ -370,16 +370,16 @@ AstNode* parse_postfix_expr(Parser* p) {
     return ret;
 }
 
-int is_type_token(Parser* p, Token* token) {
+BOOL is_type_token(Parser* p, Token* token) {
     if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_short ||
         token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
         token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_enum ||
         token->kind == TokenKind_keyword_struct || token->kind == TokenKind_keyword_union ||
         token->kind == TokenKind_keyword_const) {
-        return 1;
+        return TRUE;
     }
     if (token->kind != TokenKind_ident) {
-        return 0;
+        return FALSE;
     }
     return find_typedef(p, &token->raw) != -1;
 }
@@ -809,7 +809,7 @@ AstNode* parse_var_decl(Parser* p) {
     if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
         fatal_error("parse_var_decl: %.*s redeclared", name->len, name->data);
     }
-    int stack_offset = add_lvar(p, name, ty, 0);
+    int stack_offset = add_lvar(p, name, ty, FALSE);
 
     AstNode* ret;
     if (init) {
@@ -886,7 +886,7 @@ void register_params(Parser* p, AstNode* params) {
     int i;
     for (i = 0; i < params->node_len; ++i) {
         AstNode* param = params->node_items + i;
-        add_lvar(p, &param->name, param->ty, 1);
+        add_lvar(p, &param->name, param->ty, TRUE);
     }
 }
 
@@ -912,7 +912,7 @@ AstNode* parse_param(Parser* p) {
 }
 
 AstNode* parse_param_list(Parser* p) {
-    int has_void = 0;
+    BOOL has_void = FALSE;
     AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TokenKind_paren_r) {
         if (peek_token(p)->kind == TokenKind_ellipsis) {
