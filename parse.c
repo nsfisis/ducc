@@ -1040,7 +1040,7 @@ AstNode* parse_enum_def(Parser* p) {
 }
 
 AstNode* parse_typedef_decl(Parser* p) {
-    expect(p, TokenKind_keyword_typeof);
+    expect(p, TokenKind_keyword_typedef);
     Type* ty = parse_type(p);
     String* name = parse_ident(p);
     expect(p, TokenKind_semicolon);
@@ -1078,7 +1078,7 @@ AstNode* parse_toplevel(Parser* p) {
         return parse_struct_decl_or_def(p);
     } else if (tk == TokenKind_keyword_enum) {
         return parse_enum_def(p);
-    } else if (tk == TokenKind_keyword_typeof) {
+    } else if (tk == TokenKind_keyword_typedef) {
         return parse_typedef_decl(p);
     } else if (tk == TokenKind_keyword_extern) {
         return parse_extern_var_decl(p);
