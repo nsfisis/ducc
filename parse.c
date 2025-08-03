@@ -30,6 +30,8 @@ struct Parser {
     int n_funcs;
     AstNode* structs;
     int n_structs;
+    AstNode* unions;
+    int n_unions;
     AstNode* enums;
     int n_enums;
     AstNode* typedefs;
@@ -45,6 +47,7 @@ Parser* parser_new(Token* tokens) {
     p->gvars = calloc(128, sizeof(GlobalVar));
     p->funcs = calloc(256, sizeof(Func));
     p->structs = calloc(64, sizeof(AstNode));
+    p->unions = calloc(64, sizeof(AstNode));
     p->enums = calloc(16, sizeof(AstNode));
     p->typedefs = calloc(64, sizeof(AstNode));
     p->str_literals = calloc(1024, sizeof(char*));
@@ -166,6 +169,16 @@ int find_struct(Parser* p, const String* name) {
     int i;
     for (i = 0; i < p->n_structs; ++i) {
         if (string_equals(&p->structs[i].name, name)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int find_union(Parser* p, const String* name) {
+    int i;
+    for (i = 0; i < p->n_unions; ++i) {
+        if (string_equals(&p->unions[i].name, name)) {
             return i;
         }
     }
@@ -361,7 +374,8 @@ int is_type_token(Parser* p, Token* token) {
     if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_short ||
         token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
         token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_enum ||
-        token->kind == TokenKind_keyword_struct || token->kind == TokenKind_keyword_const) {
+        token->kind == TokenKind_keyword_struct || token->kind == TokenKind_keyword_union ||
+        token->kind == TokenKind_keyword_const) {
         return 1;
     }
     if (token->kind != TokenKind_ident) {
@@ -414,6 +428,14 @@ Type* parse_type(Parser* p) {
                 fatal_error("parse_type: unknown struct, %.*s", name->len, name->data);
             }
             ty->def = p->structs + struct_idx;
+        } else if (t->kind == TokenKind_keyword_union) {
+            ty->kind = TypeKind_union;
+            name = parse_ident(p);
+            int union_idx = find_union(p, name);
+            if (union_idx == -1) {
+                fatal_error("parse_type: unknown union, %.*s", name->len, name->data);
+            }
+            ty->def = p->unions + union_idx;
         } else {
             unreachable();
         }
@@ -761,7 +783,7 @@ AstNode* parse_continue_stmt(Parser* p) {
 
 AstNode* parse_var_decl(Parser* p) {
     Type* ty = parse_type(p);
-    if (!type_is_unsized(ty)) {
+    if (type_is_unsized(ty)) {
         fatal_error("parse_var_decl: invalid type for variable");
     }
     String* name = parse_ident(p);
@@ -951,7 +973,7 @@ AstNode* parse_struct_member(Parser* p) {
 }
 
 AstNode* parse_struct_members(Parser* p) {
-    AstNode* list = ast_new_list(16);
+    AstNode* list = ast_new_list(32);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_struct_member(p);
         ast_append(list, member);
@@ -988,6 +1010,56 @@ AstNode* parse_struct_decl_or_def(Parser* p) {
     expect(p, TokenKind_semicolon);
     p->structs[struct_idx].node_members = members;
     return p->structs + struct_idx;
+}
+
+AstNode* parse_union_member(Parser* p) {
+    Type* ty = parse_type(p);
+    String* name = parse_ident(p);
+    expect(p, TokenKind_semicolon);
+    AstNode* member = ast_new(AstNodeKind_union_member);
+    member->name = *name;
+    member->ty = ty;
+    return member;
+}
+
+AstNode* parse_union_members(Parser* p) {
+    AstNode* list = ast_new_list(16);
+    while (peek_token(p)->kind != TokenKind_brace_r) {
+        AstNode* member = parse_union_member(p);
+        ast_append(list, member);
+    }
+    return list;
+}
+
+AstNode* parse_union_decl_or_def(Parser* p) {
+    expect(p, TokenKind_keyword_union);
+    String* name = parse_ident(p);
+
+    if (peek_token(p)->kind != TokenKind_semicolon && peek_token(p)->kind != TokenKind_brace_l) {
+        p->pos = p->pos - 2;
+        return parse_func_decl_or_def(p);
+    }
+
+    int union_idx = find_union(p, name);
+    if (union_idx == -1) {
+        union_idx = p->n_unions;
+        p->unions[union_idx].kind = AstNodeKind_union_def;
+        p->unions[union_idx].name = *name;
+        ++p->n_unions;
+    }
+    if (peek_token(p)->kind == TokenKind_semicolon) {
+        next_token(p);
+        return ast_new(AstNodeKind_union_decl);
+    }
+    if (p->unions[union_idx].node_members) {
+        fatal_error("parse_union_decl_or_def: union %.*s redefined", name->len, name->data);
+    }
+    expect(p, TokenKind_brace_l);
+    AstNode* members = parse_union_members(p);
+    expect(p, TokenKind_brace_r);
+    expect(p, TokenKind_semicolon);
+    p->unions[union_idx].node_members = members;
+    return p->unions + union_idx;
 }
 
 AstNode* parse_enum_member(Parser* p) {
@@ -1056,7 +1128,7 @@ AstNode* parse_typedef_decl(Parser* p) {
 AstNode* parse_extern_var_decl(Parser* p) {
     expect(p, TokenKind_keyword_extern);
     Type* ty = parse_type(p);
-    if (!type_is_unsized(ty)) {
+    if (type_is_unsized(ty)) {
         fatal_error("parse_extern_var_decl: invalid type for variable");
     }
     String* name = parse_ident(p);
@@ -1076,6 +1148,8 @@ AstNode* parse_toplevel(Parser* p) {
     TokenKind tk = peek_token(p)->kind;
     if (tk == TokenKind_keyword_struct) {
         return parse_struct_decl_or_def(p);
+    } else if (tk == TokenKind_keyword_union) {
+        return parse_union_decl_or_def(p);
     } else if (tk == TokenKind_keyword_enum) {
         return parse_enum_def(p);
     } else if (tk == TokenKind_keyword_typedef) {

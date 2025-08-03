@@ -2,16 +2,44 @@ enum TypeKind {
     TypeKind_unknown,
 
     TypeKind_char,
-    TypeKind_int,
     TypeKind_short,
+    TypeKind_int,
     TypeKind_long,
     TypeKind_void,
     TypeKind_ptr,
     TypeKind_array,
     TypeKind_enum,
     TypeKind_struct,
+    TypeKind_union,
 };
 typedef enum TypeKind TypeKind;
+
+const char* type_kind_stringify(TypeKind k) {
+    if (k == TypeKind_unknown)
+        return "<unknown>";
+    else if (k == TypeKind_char)
+        return "char";
+    else if (k == TypeKind_short)
+        return "short";
+    else if (k == TypeKind_int)
+        return "int";
+    else if (k == TypeKind_long)
+        return "long";
+    else if (k == TypeKind_void)
+        return "void";
+    else if (k == TypeKind_ptr)
+        return "<pointer>";
+    else if (k == TypeKind_array)
+        return "<array>";
+    else if (k == TypeKind_enum)
+        return "enum";
+    else if (k == TypeKind_struct)
+        return "struct";
+    else if (k == TypeKind_union)
+        return "union";
+    else
+        unreachable();
+}
 
 struct AstNode;
 
@@ -23,6 +51,12 @@ struct Type {
     struct AstNode* def;
 };
 typedef struct Type Type;
+
+void type_dump(Type* ty) {
+    fprintf(stderr, "Type {\n");
+    fprintf(stderr, "  kind = %s\n", type_kind_stringify(ty->kind));
+    fprintf(stderr, "}\n");
+}
 
 Type* type_new(TypeKind kind) {
     Type* ty = calloc(1, sizeof(Type));
@@ -54,60 +88,68 @@ Type* type_array_to_ptr(Type* ty) {
 }
 
 int type_is_unsized(Type* ty) {
-    return ty->kind != TypeKind_void;
+    return ty->kind == TypeKind_void;
 }
 
 int type_sizeof_struct(Type* ty);
+int type_sizeof_union(Type* ty);
 int type_alignof_struct(Type* ty);
+int type_alignof_union(Type* ty);
 int type_offsetof(Type* ty, const String* name);
 Type* type_member_typeof(Type* ty, const String* name);
 
 int type_sizeof(Type* ty) {
-    if (!type_is_unsized(ty)) {
+    if (type_is_unsized(ty)) {
         fatal_error("type_sizeof: type size cannot be determined");
     }
 
-    if (ty->kind == TypeKind_ptr) {
+    if (ty->kind == TypeKind_ptr)
         return 8;
-    } else if (ty->kind == TypeKind_char) {
+    else if (ty->kind == TypeKind_char)
         return 1;
-    } else if (ty->kind == TypeKind_short) {
+    else if (ty->kind == TypeKind_short)
         return 2;
-    } else if (ty->kind == TypeKind_int) {
+    else if (ty->kind == TypeKind_int)
         return 4;
-    } else if (ty->kind == TypeKind_long) {
+    else if (ty->kind == TypeKind_long)
         return 8;
-    } else if (ty->kind == TypeKind_enum) {
+    else if (ty->kind == TypeKind_enum)
         return 4;
-    } else if (ty->kind == TypeKind_array) {
+    else if (ty->kind == TypeKind_array)
         return type_sizeof(ty->base) * ty->array_size;
-    } else {
+    else if (ty->kind == TypeKind_struct)
         return type_sizeof_struct(ty);
-    }
+    else if (ty->kind == TypeKind_union)
+        return type_sizeof_union(ty);
+    else
+        unreachable();
 }
 
 int type_alignof(Type* ty) {
-    if (!type_is_unsized(ty)) {
+    if (type_is_unsized(ty)) {
         fatal_error("type_alignof: type size cannot be determined");
     }
 
-    if (ty->kind == TypeKind_ptr) {
+    if (ty->kind == TypeKind_ptr)
         return 8;
-    } else if (ty->kind == TypeKind_char) {
+    else if (ty->kind == TypeKind_char)
         return 1;
-    } else if (ty->kind == TypeKind_short) {
+    else if (ty->kind == TypeKind_short)
         return 2;
-    } else if (ty->kind == TypeKind_int) {
+    else if (ty->kind == TypeKind_int)
         return 4;
-    } else if (ty->kind == TypeKind_long) {
+    else if (ty->kind == TypeKind_long)
         return 8;
-    } else if (ty->kind == TypeKind_enum) {
+    else if (ty->kind == TypeKind_enum)
         return 4;
-    } else if (ty->kind == TypeKind_array) {
+    else if (ty->kind == TypeKind_array)
         return type_alignof(ty->base);
-    } else {
+    else if (ty->kind == TypeKind_struct)
         return type_alignof_struct(ty);
-    }
+    else if (ty->kind == TypeKind_union)
+        return type_alignof_union(ty);
+    else
+        unreachable();
 }
 
 int to_aligned(int n, int a) {
@@ -149,6 +191,9 @@ enum AstNodeKind {
     AstNodeKind_type,
     AstNodeKind_typedef_decl,
     AstNodeKind_unary_expr,
+    AstNodeKind_union_decl,
+    AstNodeKind_union_def,
+    AstNodeKind_union_member,
 };
 typedef enum AstNodeKind AstNodeKind;
 
@@ -310,7 +355,6 @@ AstNode* ast_new_member_access_expr(AstNode* obj, const String* name) {
 int type_sizeof_struct(Type* ty) {
     int next_offset = 0;
     int struct_align = 0;
-    int padding;
 
     int i;
     for (i = 0; i < ty->def->node_members->node_len; ++i) {
@@ -325,6 +369,27 @@ int type_sizeof_struct(Type* ty) {
         }
     }
     return to_aligned(next_offset, struct_align);
+}
+
+int type_sizeof_union(Type* ty) {
+    int union_size = 0;
+    int union_align = 0;
+
+    int i;
+    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+        AstNode* member = ty->def->node_members->node_items + i;
+        int size = type_sizeof(member->ty);
+        int align = type_alignof(member->ty);
+
+        size = to_aligned(size, align);
+        if (union_size < size) {
+            union_size = size;
+        }
+        if (union_align < align) {
+            union_align = align;
+        }
+    }
+    return to_aligned(union_size, union_align);
 }
 
 int type_alignof_struct(Type* ty) {
@@ -342,9 +407,27 @@ int type_alignof_struct(Type* ty) {
     return struct_align;
 }
 
+int type_alignof_union(Type* ty) {
+    int union_align = 0;
+
+    int i;
+    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+        AstNode* member = ty->def->node_members->node_items + i;
+        int align = type_alignof(member->ty);
+
+        if (union_align < align) {
+            union_align = align;
+        }
+    }
+    return union_align;
+}
+
 int type_offsetof(Type* ty, const String* name) {
+    if (ty->kind == TypeKind_union) {
+        return 0;
+    }
     if (ty->kind != TypeKind_struct) {
-        fatal_error("type_offsetof: type is not a struct");
+        fatal_error("type_offsetof: type is neither a struct nor a union");
     }
 
     int next_offset = 0;
@@ -366,8 +449,8 @@ int type_offsetof(Type* ty, const String* name) {
 }
 
 Type* type_member_typeof(Type* ty, const String* name) {
-    if (ty->kind != TypeKind_struct) {
-        fatal_error("type_offsetof: type is not a struct");
+    if (ty->kind != TypeKind_struct && ty->kind != TypeKind_union) {
+        fatal_error("type_member_typeof: type is neither a struct nor a union");
     }
 
     int i;

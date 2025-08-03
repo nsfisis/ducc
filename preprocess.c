@@ -42,6 +42,7 @@ enum TokenKind {
     TokenKind_keyword_sizeof,
     TokenKind_keyword_struct,
     TokenKind_keyword_typedef,
+    TokenKind_keyword_union,
     TokenKind_keyword_void,
     TokenKind_keyword_while,
     TokenKind_le,
@@ -149,6 +150,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "struct";
     else if (k == TokenKind_keyword_typedef)
         return "typedef";
+    else if (k == TokenKind_keyword_union)
+        return "union";
     else if (k == TokenKind_keyword_void)
         return "void";
     else if (k == TokenKind_keyword_while)
@@ -592,6 +595,8 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_keyword_struct;
             } else if (string_equals_cstr(&tok->raw, "typedef")) {
                 tok->kind = TokenKind_keyword_typedef;
+            } else if (string_equals_cstr(&tok->raw, "union")) {
+                tok->kind = TokenKind_keyword_union;
             } else if (string_equals_cstr(&tok->raw, "void")) {
                 tok->kind = TokenKind_keyword_void;
             } else if (string_equals_cstr(&tok->raw, "while")) {
