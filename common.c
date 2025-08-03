@@ -23,11 +23,11 @@ char* string_to_cstr(const String* s) {
     return buf;
 }
 
-int string_equals(const String* s1, const String* s2) {
+BOOL string_equals(const String* s1, const String* s2) {
     return s1->len == s2->len && strncmp(s1->data, s2->data, s1->len) == 0;
 }
 
-int string_equals_cstr(const String* s1, const char* s2) {
+BOOL string_equals_cstr(const String* s1, const char* s2) {
     size_t s2_len = strlen(s2);
     return s1->len == s2_len && strncmp(s1->data, s2, s1->len) == 0;
 }
