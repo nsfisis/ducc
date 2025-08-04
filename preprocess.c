@@ -682,6 +682,14 @@ Token* process_else_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     return tok2;
 }
 
+Token* process_elif_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    unimplemented();
+}
+
+Token* process_if_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    unimplemented();
+}
+
 Token* process_ifdef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     ++tok2;
     tok2 = skip_whitespace(tok2);
@@ -863,6 +871,18 @@ Token* process_undef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     return tok2;
 }
 
+Token* process_line_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    unimplemented();
+}
+
+Token* process_error_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    unimplemented();
+}
+
+Token* process_pragma_directive(Preprocessor* pp, Token* tok, Token* tok2) {
+    unimplemented();
+}
+
 BOOL expand_macro(Preprocessor* pp, Token* tok) {
     int pp_macro_idx = find_pp_macro(pp, &tok->raw);
     if (pp_macro_idx == -1) {
@@ -919,46 +939,49 @@ void process_pp_directives(Preprocessor* pp) {
             Token* tok2 = skip_whitespace(tok + 1);
             if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "endif")) {
                 tok = process_endif_directive(pp, tok, tok2);
-                continue;
-            }
-            if (tok2->kind == TokenKind_keyword_else) {
+            } else if (tok2->kind == TokenKind_keyword_else) {
                 tok = process_else_directive(pp, tok, tok2);
-                continue;
-            }
-            if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifdef")) {
-                tok = process_ifdef_directive(pp, tok, tok2);
-                continue;
-            }
-            if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifndef")) {
-                tok = process_ifndef_directive(pp, tok, tok2);
-                continue;
-            }
-            if (skip_pp_tokens(pp)) {
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "elif")) {
+                tok = process_elif_directive(pp, tok, tok2);
+            } else if (skip_pp_tokens(pp)) {
                 make_token_whitespace(tok);
+                ++tok;
+            } else if (tok2->kind == TokenKind_keyword_if) {
+                tok = process_if_directive(pp, tok, tok2);
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifdef")) {
+                tok = process_ifdef_directive(pp, tok, tok2);
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "ifndef")) {
+                tok = process_ifndef_directive(pp, tok, tok2);
             } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "include")) {
                 tok = process_include_directive(pp, tok, tok2);
-                continue;
             } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "define")) {
                 tok = process_define_directive(pp, tok, tok2);
-                continue;
             } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "undef")) {
                 tok = process_undef_directive(pp, tok, tok2);
-                continue;
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "line")) {
+                tok = process_line_directive(pp, tok, tok2);
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "error")) {
+                tok = process_error_directive(pp, tok, tok2);
+            } else if (tok2->kind == TokenKind_ident && string_equals_cstr(&tok2->raw, "pragma")) {
+                tok = process_pragma_directive(pp, tok, tok2);
             } else {
                 fatal_error("%s:%d: unknown preprocessor directive (%s)", tok2->loc.filename, tok2->loc.line,
                             token_stringify(tok2));
             }
         } else if (skip_pp_tokens(pp)) {
             make_token_whitespace(tok);
+            ++tok;
         } else if (tok->kind == TokenKind_ident) {
             BOOL expanded = expand_macro(pp, tok);
             if (expanded) {
                 // A macro may expand to another macro. Re-scan the expanded tokens.
                 // TODO: if the macro is defined recursively, it causes infinite loop.
-                --tok;
+            } else {
+                ++tok;
             }
+        } else {
+            ++tok;
         }
-        ++tok;
     }
 }
 
