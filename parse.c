@@ -79,7 +79,8 @@ Token* expect(Parser* p, TokenKind expected) {
     if (t->kind == expected) {
         return t;
     }
-    fatal_error("expected '%s', but got '%s'", token_kind_stringify(expected), token_stringify(t));
+    fatal_error("%s:%d: expected '%s', but got '%s'", t->loc.filename, t->loc.line, token_kind_stringify(expected),
+                token_stringify(t));
 }
 
 int find_lvar(Parser* p, const String* name) {

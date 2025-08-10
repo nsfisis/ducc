@@ -19,6 +19,7 @@ void tokenize_all(Lexer* l) {
     while (l->src[l->pos].kind != TokenKind_eof) {
         Token* pp_tok = l->src + l->pos;
         Token* tok = l->tokens + l->n_tokens;
+        tok->loc = pp_tok->loc;
         TokenKind k = pp_tok->kind;
         ++l->pos;
         if (k == TokenKind_character_constant) {
