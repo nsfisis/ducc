@@ -527,6 +527,7 @@ void codegen(Program* prog) {
 
     printf(".intel_syntax noprefix\n\n");
 
+    printf(".section .rodata\n\n");
     int i;
     for (i = 0; prog->str_literals[i]; ++i) {
         printf(".Lstr__%d:\n", i + 1);
@@ -535,6 +536,7 @@ void codegen(Program* prog) {
 
     printf(".globl main\n\n");
 
+    printf(".text\n\n");
     for (i = 0; i < prog->funcs->node_len; ++i) {
         AstNode* func = prog->funcs->node_items + i;
         codegen_func(g, func);
