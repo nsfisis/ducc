@@ -47,8 +47,7 @@ const char* param_reg(int n) {
 void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     printf("  push rbp\n");
     printf("  mov rbp, rsp\n");
-    int i;
-    for (i = 0; i < ast->node_params->node_len; ++i) {
+    for (int i = 0; i < ast->node_params->node_len; ++i) {
         printf("  push %s\n", param_reg(i));
     }
     printf("  sub rsp, %d\n", 8 * LVAR_MAX);
@@ -105,8 +104,7 @@ void codegen_push_expr(const char* reg, int size) {
         // Perform bitwise copy. Use r10 register as temporary space.
         // Note: rsp must be aligned to 8.
         printf("  sub rsp, %d\n", to_aligned(size, 8));
-        int i;
-        for (i = 0; i < size; ++i) {
+        for (int i = 0; i < size; ++i) {
             // Copy a sinle byte from the address that "reg" points to to the stack via r10 register.
             printf("  mov r10b, [%s+%d]\n", reg, i);
             printf("  mov [rsp+%d], r10b\n", i);
@@ -250,8 +248,7 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
         int aligned_size = to_aligned(sizeof_lhs, 8);
         printf("  mov rax, [rsp+%d]\n", aligned_size);
         // Perform bitwise copy. Use r10 register as temporary space.
-        int i;
-        for (i = 0; i < aligned_size; ++i) {
+        for (int i = 0; i < aligned_size; ++i) {
             // Copy a sinle byte from the stack to the address that rax points to via r10 register.
             printf("  mov r10b, [rsp+%d]\n", i);
             printf("  mov [rax+%d], r10b\n", i);
@@ -340,8 +337,7 @@ void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 
 void codegen_composite_expr(CodeGen* g, AstNode* ast) {
     // Standard C does not have composite expression, but ducc internally has.
-    int i;
-    for (i = 0; i < ast->node_len; ++i) {
+    for (int i = 0; i < ast->node_len; ++i) {
         AstNode* expr = ast->node_items + i;
         codegen_expr(g, expr, GenMode_rval);
         if (i != ast->node_len - 1) {
@@ -472,8 +468,7 @@ void codegen_nop(CodeGen* g, AstNode* ast) {
 }
 
 void codegen_block_stmt(CodeGen* g, AstNode* ast) {
-    int i;
-    for (i = 0; i < ast->node_len; ++i) {
+    for (int i = 0; i < ast->node_len; ++i) {
         AstNode* stmt = ast->node_items + i;
         codegen_stmt(g, stmt);
     }
@@ -521,11 +516,11 @@ void codegen_func(CodeGen* g, AstNode* ast) {
 
 void codegen(Program* prog) {
     CodeGen* g = codegen_new();
+    int i;
 
     printf(".intel_syntax noprefix\n\n");
 
     printf(".section .rodata\n\n");
-    int i;
     for (i = 0; prog->str_literals[i]; ++i) {
         printf(".Lstr__%d:\n", i + 1);
         printf("  .string \"%s\"\n\n", prog->str_literals[i]);

@@ -357,8 +357,7 @@ int type_sizeof_struct(Type* ty) {
     int next_offset = 0;
     int struct_align = 0;
 
-    int i;
-    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
         AstNode* member = ty->def->node_members->node_items + i;
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
@@ -376,8 +375,7 @@ int type_sizeof_union(Type* ty) {
     int union_size = 0;
     int union_align = 0;
 
-    int i;
-    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
         AstNode* member = ty->def->node_members->node_items + i;
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
@@ -396,8 +394,7 @@ int type_sizeof_union(Type* ty) {
 int type_alignof_struct(Type* ty) {
     int struct_align = 0;
 
-    int i;
-    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
         AstNode* member = ty->def->node_members->node_items + i;
         int align = type_alignof(member->ty);
 
@@ -411,8 +408,7 @@ int type_alignof_struct(Type* ty) {
 int type_alignof_union(Type* ty) {
     int union_align = 0;
 
-    int i;
-    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
         AstNode* member = ty->def->node_members->node_items + i;
         int align = type_alignof(member->ty);
 
@@ -433,8 +429,7 @@ int type_offsetof(Type* ty, const String* name) {
 
     int next_offset = 0;
 
-    int i;
-    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
         AstNode* member = ty->def->node_members->node_items + i;
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
@@ -454,8 +449,7 @@ Type* type_member_typeof(Type* ty, const String* name) {
         fatal_error("type_member_typeof: type is neither a struct nor a union");
     }
 
-    int i;
-    for (i = 0; i < ty->def->node_members->node_len; ++i) {
+    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
         AstNode* member = ty->def->node_members->node_items + i;
         if (string_equals(&member->name, name)) {
             return member->ty;

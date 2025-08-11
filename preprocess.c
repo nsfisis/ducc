@@ -336,11 +336,10 @@ PpMacros* pp_macros_new() {
 }
 
 void pp_macros_dump(PpMacros* pp_macros) {
-    int i;
     fprintf(stderr, "PpMacros {\n");
     fprintf(stderr, "  len = %zu\n", pp_macros->len);
     fprintf(stderr, "  data = [\n");
-    for (i = 0; i < pp_macros->len; ++i) {
+    for (int i = 0; i < pp_macros->len; ++i) {
         PpMacro* m = &pp_macros->data[i];
         fprintf(stderr, "    PpMacro {\n");
         fprintf(stderr, "      kind = %s\n", pp_macro_kind_stringify(m->kind));
@@ -406,8 +405,7 @@ Preprocessor* preprocessor_new(InFile* src, int include_depth, PpMacros* pp_macr
 }
 
 int find_pp_macro(Preprocessor* pp, String* name) {
-    int i;
-    for (i = 0; i < pp->pp_macros->len; ++i) {
+    for (int i = 0; i < pp->pp_macros->len; ++i) {
         if (string_equals(&pp->pp_macros->data[i].name, name)) {
             return i;
         }
@@ -722,8 +720,7 @@ Token* skip_whitespace(Token* tok) {
 }
 
 BOOL string_contains_newline(String* s) {
-    int i;
-    for (i = 0; i < s->len; ++i) {
+    for (int i = 0; i < s->len; ++i) {
         if (s->data[i] == '\n') {
             return TRUE;
         }
@@ -834,8 +831,7 @@ const char* resolve_include_name(Preprocessor* pp, String* include_name) {
         sprintf(buf, "%.*s", include_name->len - 2, include_name->data + 1);
         return buf;
     } else {
-        int i;
-        for (i = 0; i < pp->n_include_paths; ++i) {
+        for (int i = 0; i < pp->n_include_paths; ++i) {
             buf = calloc(include_name->len + 1 + pp->include_paths[i].len, sizeof(char));
             sprintf(buf, "%s/%.*s", pp->include_paths[i].data, include_name->len, include_name->data);
             if (access(buf, F_OK | R_OK) == 0) {
