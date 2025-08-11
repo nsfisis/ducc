@@ -13,6 +13,9 @@ enum TokenKind {
     TokenKind_arrow,
     TokenKind_assign,
     TokenKind_assign_add,
+    TokenKind_assign_div,
+    TokenKind_assign_mod,
+    TokenKind_assign_mul,
     TokenKind_assign_sub,
     TokenKind_brace_l,
     TokenKind_brace_r,
@@ -111,6 +114,12 @@ const char* token_kind_stringify(TokenKind k) {
         return "=";
     else if (k == TokenKind_assign_add)
         return "+=";
+    else if (k == TokenKind_assign_div)
+        return "/=";
+    else if (k == TokenKind_assign_mod)
+        return "%=";
+    else if (k == TokenKind_assign_mul)
+        return "*=";
     else if (k == TokenKind_assign_sub)
         return "-=";
     else if (k == TokenKind_brace_l)
@@ -493,9 +502,17 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_minus;
             }
         } else if (c == '*') {
-            tok->kind = TokenKind_star;
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = TokenKind_assign_mul;
+            } else {
+                tok->kind = TokenKind_star;
+            }
         } else if (c == '/') {
-            if (pp->src[pp->pos] == '/') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = TokenKind_assign_div;
+            } else if (pp->src[pp->pos] == '/') {
                 start = pp->pos - 1;
                 ++pp->pos;
                 while (pp->src[pp->pos] && pp->src[pp->pos] != '\n' && pp->src[pp->pos] != '\r') {
@@ -524,7 +541,12 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_slash;
             }
         } else if (c == '%') {
-            tok->kind = TokenKind_percent;
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = TokenKind_assign_mod;
+            } else {
+                tok->kind = TokenKind_percent;
+            }
         } else if (c == '.') {
             if (pp->src[pp->pos] == '.') {
                 ++pp->pos;

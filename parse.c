@@ -651,7 +651,8 @@ AstNode* parse_assignment_expr(Parser* p) {
     AstNode* rhs;
     while (1) {
         TokenKind op = peek_token(p)->kind;
-        if (op == TokenKind_assign) {
+        if (op == TokenKind_assign || op == TokenKind_assign_mul || op == TokenKind_assign_div ||
+            op == TokenKind_assign_mod) {
             next_token(p);
             rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);

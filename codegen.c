@@ -196,30 +196,43 @@ void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     printf("  push rax\n");
 }
 
+void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
+    if (ast->node_op == TokenKind_assign) {
+        return;
+    }
+
+    printf("  pop rdi\n");
+    printf("  push [rsp]\n");
+    codegen_lval2rval(ast->node_lhs->ty);
+    printf("  pop rax\n");
+
+    if (ast->node_op == TokenKind_assign_add) {
+        printf("  add rax, rdi\n");
+    } else if (ast->node_op == TokenKind_assign_sub) {
+        printf("  sub rax, rdi\n");
+    } else if (ast->node_op == TokenKind_assign_mul) {
+        printf("  imul rax, rdi\n");
+    } else if (ast->node_op == TokenKind_assign_div) {
+        printf("  cqo\n");
+        printf("  idiv rdi\n");
+    } else if (ast->node_op == TokenKind_assign_mod) {
+        printf("  cqo\n");
+        printf("  idiv rdi\n");
+        printf("  mov rax, rdx\n");
+    } else {
+        unreachable();
+    }
+
+    printf("  push rax\n");
+}
+
 void codegen_assign_expr(CodeGen* g, AstNode* ast) {
     int sizeof_lhs = type_sizeof(ast->node_lhs->ty);
     int sizeof_rhs = type_sizeof(ast->node_rhs->ty);
 
     codegen_expr(g, ast->node_lhs, GenMode_lval);
     codegen_expr(g, ast->node_rhs, GenMode_rval);
-    if (ast->node_op == TokenKind_assign) {
-    } else if (ast->node_op == TokenKind_assign_add) {
-        printf("  pop rdi\n");
-        printf("  push [rsp]\n");
-        codegen_lval2rval(ast->node_lhs->ty);
-        printf("  pop rax\n");
-        printf("  add rax, rdi\n");
-        printf("  push rax\n");
-    } else if (ast->node_op == TokenKind_assign_sub) {
-        printf("  pop rdi\n");
-        printf("  push [rsp]\n");
-        codegen_lval2rval(ast->node_lhs->ty);
-        printf("  pop rax\n");
-        printf("  sub rax, rdi\n");
-        printf("  push rax\n");
-    } else {
-        unreachable();
-    }
+    codegen_assign_expr_helper(g, ast);
     if (sizeof_lhs == 1) {
         printf("  pop rdi\n");
         printf("  pop rax\n");
