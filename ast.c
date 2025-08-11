@@ -231,6 +231,7 @@ typedef struct AstNode AstNode;
 
 struct Program {
     AstNode* funcs;
+    AstNode* vars;
     char** str_literals;
 };
 typedef struct Program Program;

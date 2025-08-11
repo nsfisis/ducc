@@ -392,7 +392,7 @@ Type* parse_type(Parser* p) {
         t = next_token(p);
     }
     if (!is_type_token(p, t)) {
-        fatal_error("parse_type: expected type, but got '%s'", token_stringify(t));
+        fatal_error("%s:%d: parse_type: expected type, but got '%s'", t->loc.filename, t->loc.line, token_stringify(t));
     }
     Type* ty;
     if (t->kind == TokenKind_ident) {
@@ -489,6 +489,11 @@ AstNode* parse_prefix_expr(Parser* p) {
             if (lvar_idx != -1) {
                 next_token(p);
                 ty = p->lvars[lvar_idx].ty;
+            }
+            int gvar_idx = find_gvar(p, &next_tok->raw);
+            if (gvar_idx != -1) {
+                next_token(p);
+                ty = p->gvars[gvar_idx].ty;
             }
         }
         if (!ty) {
@@ -941,11 +946,48 @@ AstNode* parse_param_list(Parser* p) {
     return list;
 }
 
+AstNode* parse_global_var_decl(Parser* p, Type* ty, String* name) {
+    if (type_is_unsized(ty)) {
+        fatal_error("parse_global_var_decl: invalid type for variable");
+    }
+
+    if (peek_token(p)->kind == TokenKind_bracket_l) {
+        next_token(p);
+        AstNode* size_expr = parse_expr(p);
+        if (size_expr->kind != AstNodeKind_int_expr) {
+            fatal_error("parse_global_var_decl: invalid array size");
+        }
+        int size = size_expr->node_int_value;
+        expect(p, TokenKind_bracket_r);
+        ty = type_new_array(ty, size);
+    }
+
+    expect(p, TokenKind_semicolon);
+
+    if (find_gvar(p, name) != -1) {
+        fatal_error("parse_global_var_decl: %.*s redeclared", name->len, name->data);
+    }
+
+    p->gvars[p->n_gvars].name = *name;
+    p->gvars[p->n_gvars].ty = ty;
+    ++p->n_gvars;
+
+    AstNode* ret = ast_new(AstNodeKind_gvar_decl);
+    ret->name = *name;
+    ret->ty = ty;
+    return ret;
+}
+
 AstNode* parse_func_decl_or_def(Parser* p) {
     Type* ty = parse_type(p);
     String* name = parse_ident(p);
-    register_func(p, name, ty);
+
+    if (peek_token(p)->kind != TokenKind_paren_l) {
+        return parse_global_var_decl(p, ty, name);
+    }
+
     expect(p, TokenKind_paren_l);
+    register_func(p, name, ty);
     AstNode* params = parse_param_list(p);
     expect(p, TokenKind_paren_r);
     if (peek_token(p)->kind == TokenKind_semicolon) {
@@ -1165,14 +1207,18 @@ AstNode* parse_toplevel(Parser* p) {
 Program* parse(Token* tokens) {
     Parser* p = parser_new(tokens);
     AstNode* funcs = ast_new_list(1024);
+    AstNode* vars = ast_new_list(1024);
     while (eof(p)) {
         AstNode* n = parse_toplevel(p);
         if (n->kind == AstNodeKind_func_def) {
             ast_append(funcs, n);
+        } else if (n->kind == AstNodeKind_gvar_decl && n->ty) {
+            ast_append(vars, n);
         }
     }
     Program* prog = calloc(1, sizeof(Program));
     prog->funcs = funcs;
+    prog->vars = vars;
     prog->str_literals = p->str_literals;
     return prog;
 }

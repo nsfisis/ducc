@@ -331,14 +331,11 @@ void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 }
 
 void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
-    if (gen_mode == GenMode_lval) {
-        unimplemented();
-    }
-    if (ast->ty->kind != TypeKind_ptr) {
-        unimplemented();
-    }
-    printf("  mov rax, QWORD PTR %.*s[rip]\n", ast->name.len, ast->name.data);
+    printf("  lea rax, %.*s[rip]\n", ast->name.len, ast->name.data);
     printf("  push rax\n");
+    if (gen_mode == GenMode_rval) {
+        codegen_lval2rval(ast->ty);
+    }
 }
 
 void codegen_composite_expr(CodeGen* g, AstNode* ast) {
@@ -532,6 +529,12 @@ void codegen(Program* prog) {
     for (i = 0; prog->str_literals[i]; ++i) {
         printf(".Lstr__%d:\n", i + 1);
         printf("  .string \"%s\"\n\n", prog->str_literals[i]);
+    }
+
+    printf(".bss\n\n");
+    for (i = 0; i < prog->vars->node_len; ++i) {
+        AstNode* var = prog->vars->node_items + i;
+        printf("  .lcomm %.*s, %d\n", var->name.len, var->name.data, type_sizeof(var->ty));
     }
 
     printf(".globl main\n\n");
