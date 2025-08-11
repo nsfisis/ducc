@@ -331,6 +331,7 @@ AstNode* create_new_postfix_inc_or_dec(Parser* p, AstNode* e, TokenKind op) {
     ast_append(ret, expr2);
     ast_append(ret, expr3);
     ast_append(ret, expr4);
+    ret->ty = expr4->ty;
     return ret;
 }
 
