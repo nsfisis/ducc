@@ -198,7 +198,8 @@ enum AstNodeKind {
 typedef enum AstNodeKind AstNodeKind;
 
 #define node_items __n1
-#define node_len __i
+#define node_len __i1
+#define node_cap __i2
 #define node_expr __n1
 #define node_lhs __n1
 #define node_rhs __n2
@@ -212,10 +213,10 @@ typedef enum AstNodeKind AstNodeKind;
 #define node_members __n1
 #define node_params __n1
 #define node_args __n1
-#define node_int_value __i
-#define node_idx __i
-#define node_op __i
-#define node_stack_offset __i
+#define node_int_value __i1
+#define node_idx __i1
+#define node_op __i1
+#define node_stack_offset __i1
 
 struct AstNode {
     AstNodeKind kind;
@@ -225,7 +226,8 @@ struct AstNode {
     struct AstNode* __n2;
     struct AstNode* __n3;
     struct AstNode* __n4;
-    int __i;
+    int __i1;
+    int __i2;
 };
 typedef struct AstNode AstNode;
 
@@ -243,9 +245,12 @@ AstNode* ast_new(AstNodeKind kind) {
 }
 
 AstNode* ast_new_list(int capacity) {
+    if (capacity == 0)
+        unreachable();
     AstNode* list = ast_new(AstNodeKind_list);
-    list->node_items = calloc(capacity, sizeof(AstNode));
+    list->node_cap = capacity;
     list->node_len = 0;
+    list->node_items = calloc(list->node_cap, sizeof(AstNode));
     return list;
 }
 
@@ -255,6 +260,11 @@ void ast_append(AstNode* list, AstNode* item) {
     }
     if (!item) {
         return;
+    }
+    if (list->node_cap <= list->node_len) {
+        list->node_cap *= 2;
+        list->node_items = realloc(list->node_items, sizeof(AstNode) * list->node_cap);
+        memset(list->node_items + list->node_len, 0, sizeof(AstNode) * (list->node_cap - list->node_len));
     }
     memcpy(list->node_items + list->node_len, item, sizeof(AstNode));
     ++list->node_len;

@@ -841,7 +841,7 @@ AstNode* parse_expr_stmt(Parser* p) {
 }
 
 AstNode* parse_block_stmt(Parser* p) {
-    AstNode* list = ast_new_list(1024);
+    AstNode* list = ast_new_list(4);
     expect(p, TokenKind_brace_l);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* stmt = parse_stmt(p);
@@ -1015,7 +1015,7 @@ AstNode* parse_struct_member(Parser* p) {
 }
 
 AstNode* parse_struct_members(Parser* p) {
-    AstNode* list = ast_new_list(32);
+    AstNode* list = ast_new_list(4);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_struct_member(p);
         ast_append(list, member);
@@ -1065,7 +1065,7 @@ AstNode* parse_union_member(Parser* p) {
 }
 
 AstNode* parse_union_members(Parser* p) {
-    AstNode* list = ast_new_list(16);
+    AstNode* list = ast_new_list(4);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_union_member(p);
         ast_append(list, member);
@@ -1113,7 +1113,7 @@ AstNode* parse_enum_member(Parser* p) {
 
 AstNode* parse_enum_members(Parser* p) {
     int next_value = 0;
-    AstNode* list = ast_new_list(256);
+    AstNode* list = ast_new_list(16);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_enum_member(p);
         member->node_int_value = next_value;
@@ -1205,8 +1205,8 @@ AstNode* parse_toplevel(Parser* p) {
 
 Program* parse(Token* tokens) {
     Parser* p = parser_new(tokens);
-    AstNode* funcs = ast_new_list(1024);
-    AstNode* vars = ast_new_list(1024);
+    AstNode* funcs = ast_new_list(32);
+    AstNode* vars = ast_new_list(16);
     while (eof(p)) {
         AstNode* n = parse_toplevel(p);
         if (n->kind == AstNodeKind_func_def) {

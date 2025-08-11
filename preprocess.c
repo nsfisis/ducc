@@ -317,6 +317,7 @@ typedef struct PpMacro PpMacro;
 
 struct PpMacros {
     size_t len;
+    size_t cap;
     PpMacro* data;
 };
 typedef struct PpMacros PpMacros;
@@ -340,8 +341,19 @@ Token* do_preprocess(InFile* src, int depth, PpMacros* pp_macros);
 
 PpMacros* pp_macros_new() {
     PpMacros* pp_macros = calloc(1, sizeof(PpMacros));
-    pp_macros->data = calloc(1024, sizeof(PpMacro));
+    pp_macros->len = 0;
+    pp_macros->cap = 8;
+    pp_macros->data = calloc(pp_macros->cap, sizeof(PpMacro));
     return pp_macros;
+}
+
+PpMacro* pp_macros_push_new(PpMacros* pp_macros) {
+    if (pp_macros->cap <= pp_macros->len) {
+        pp_macros->cap *= 2;
+        pp_macros->data = realloc(pp_macros->data, pp_macros->cap * sizeof(PpMacro));
+        memset(pp_macros->data + pp_macros->len, 0, (pp_macros->cap - pp_macros->len) * sizeof(PpMacro));
+    }
+    return &pp_macros->data[pp_macros->len++];
 }
 
 void pp_macros_dump(PpMacros* pp_macros) {
@@ -364,7 +376,7 @@ void pp_macros_dump(PpMacros* pp_macros) {
 void add_predefined_macros(PpMacros* pp_macros) {
     PpMacro* m;
 
-    m = pp_macros->data + pp_macros->len;
+    m = pp_macros_push_new(pp_macros);
     m->kind = PpMacroKind_obj;
     m->name.len = strlen("__ducc__");
     m->name.data = "__ducc__";
@@ -373,19 +385,16 @@ void add_predefined_macros(PpMacros* pp_macros) {
     m->replacements[0].kind = TokenKind_literal_int;
     m->replacements[0].raw.len = strlen("1");
     m->replacements[0].raw.data = "1";
-    pp_macros->len += 1;
 
-    m = pp_macros->data + pp_macros->len;
+    m = pp_macros_push_new(pp_macros);
     m->kind = PpMacroKind_builtin_file;
     m->name.len = strlen("__FILE__");
     m->name.data = "__FILE__";
-    pp_macros->len += 1;
 
-    m = pp_macros->data + pp_macros->len;
+    m = pp_macros_push_new(pp_macros);
     m->kind = PpMacroKind_builtin_line;
     m->name.len = strlen("__LINE__");
     m->name.data = "__LINE__";
-    pp_macros->len += 1;
 }
 
 int count_pp_tokens(Token* pp_tokens) {
@@ -934,7 +943,7 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         if (!tok3) {
             fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
         }
-        pp_macro = pp->pp_macros->data + pp->pp_macros->len;
+        pp_macro = pp_macros_push_new(pp->pp_macros);
         pp_macro->kind = PpMacroKind_func;
         pp_macro->name = macro_name->raw;
         pp_macro->n_replacements = tok3 - tok2;
@@ -942,13 +951,12 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         for (i = 0; i < pp_macro->n_replacements; ++i) {
             pp_macro->replacements[i] = tok2[i];
         }
-        ++pp->pp_macros->len;
     } else {
         tok3 = find_next_newline(tok2);
         if (!tok3) {
             fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
         }
-        pp_macro = pp->pp_macros->data + pp->pp_macros->len;
+        pp_macro = pp_macros_push_new(pp->pp_macros);
         pp_macro->kind = PpMacroKind_obj;
         pp_macro->name = macro_name->raw;
         pp_macro->n_replacements = tok3 - tok2;
@@ -956,7 +964,6 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         for (i = 0; i < pp_macro->n_replacements; ++i) {
             pp_macro->replacements[i] = tok2[i];
         }
-        ++pp->pp_macros->len;
     }
     remove_directive_tokens(tok, tok3);
     return tok3;
