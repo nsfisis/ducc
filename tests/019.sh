@@ -1,6 +1,7 @@
 set -e
 
-bash ../../test_output.sh "" <<'EOF'
+touch expected
+bash ../../test_diff.sh <<'EOF'
 int printf();
 
 int main() {
@@ -9,7 +10,10 @@ int main() {
 }
 EOF
 
-bash ../../test_output.sh "Hello, World!" <<'EOF'
+cat <<'EOF' > expected
+Hello, World!
+EOF
+bash ../../test_diff.sh <<'EOF'
 int printf();
 
 int main() {
@@ -18,7 +22,10 @@ int main() {
 }
 EOF
 
-bash ../../test_output.sh '"Hello, World!"' <<'EOF'
+cat <<'EOF' > expected
+"Hello, World!"
+EOF
+bash ../../test_diff.sh <<'EOF'
 int printf();
 
 int main() {

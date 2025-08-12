@@ -1,6 +1,7 @@
 set -e
 
-bash ../../test_output.sh "" <<'EOF'
+touch expected
+bash ../../test_diff.sh <<'EOF'
 int main() {
     return 0;
 }
