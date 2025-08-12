@@ -286,41 +286,132 @@ const char* token_stringify(Token* t) {
     }
 }
 
-enum PpMacroKind {
-    PpMacroKind_obj,
-    PpMacroKind_func,
-    PpMacroKind_builtin_file,
-    PpMacroKind_builtin_line,
+struct TokenArray {
+    size_t len;
+    size_t capacity;
+    Token* data;
 };
-typedef enum PpMacroKind PpMacroKind;
+typedef struct TokenArray TokenArray;
 
-const char* pp_macro_kind_stringify(PpMacroKind kind) {
-    if (kind == PpMacroKind_obj)
+void tokens_init(TokenArray* tokens, size_t capacity) {
+    tokens->len = 0;
+    tokens->capacity = capacity;
+    tokens->data = calloc(tokens->capacity, sizeof(Token));
+}
+
+void tokens_reserve(TokenArray* tokens, size_t size) {
+    if (size <= tokens->capacity)
+        return;
+    tokens->capacity *= 2;
+    tokens->data = realloc(tokens->data, tokens->capacity * sizeof(Token));
+    memset(tokens->data + tokens->len, 0, (tokens->capacity - tokens->len) * sizeof(Token));
+}
+
+Token* tokens_push_new(TokenArray* tokens) {
+    tokens_reserve(tokens, tokens->len + 1);
+    return &tokens->data[tokens->len++];
+}
+
+Token* tokens_pop(TokenArray* tokens) {
+    if (tokens->len != 0)
+        tokens->len--;
+}
+
+enum MacroKind {
+    MacroKind_obj,
+    MacroKind_func,
+    MacroKind_builtin_file,
+    MacroKind_builtin_line,
+};
+typedef enum MacroKind MacroKind;
+
+const char* macro_kind_stringify(MacroKind kind) {
+    if (kind == MacroKind_obj)
         return "object-like";
-    else if (kind == PpMacroKind_func)
+    else if (kind == MacroKind_func)
         return "function-like";
-    else if (kind == PpMacroKind_builtin_file)
+    else if (kind == MacroKind_builtin_file)
         return "__FILE__";
-    else if (kind == PpMacroKind_builtin_line)
+    else if (kind == MacroKind_builtin_line)
         return "__LINE__";
     else
         unreachable();
 }
 
-struct PpMacro {
-    PpMacroKind kind;
+struct Macro {
+    MacroKind kind;
     String name;
-    size_t n_replacements;
-    Token* replacements;
+    TokenArray replacements;
 };
-typedef struct PpMacro PpMacro;
+typedef struct Macro Macro;
 
-struct PpMacros {
+struct MacroArray {
     size_t len;
-    size_t cap;
-    PpMacro* data;
+    size_t capacity;
+    Macro* data;
 };
-typedef struct PpMacros PpMacros;
+typedef struct MacroArray MacroArray;
+
+MacroArray* macros_new() {
+    MacroArray* macros = calloc(1, sizeof(MacroArray));
+    macros->len = 0;
+    macros->capacity = 8;
+    macros->data = calloc(macros->capacity, sizeof(Macro));
+    return macros;
+}
+
+void macros_reserve(MacroArray* macros, size_t size) {
+    if (size <= macros->capacity)
+        return;
+    macros->capacity *= 2;
+    macros->data = realloc(macros->data, macros->capacity * sizeof(Macro));
+    memset(macros->data + macros->len, 0, (macros->capacity - macros->len) * sizeof(Macro));
+}
+
+Macro* macros_push_new(MacroArray* macros) {
+    macros_reserve(macros, macros->len + 1);
+    return &macros->data[macros->len++];
+}
+
+void macros_dump(MacroArray* macros) {
+    fprintf(stderr, "MacroArray {\n");
+    fprintf(stderr, "  len = %zu\n", macros->len);
+    fprintf(stderr, "  data = [\n");
+    for (int i = 0; i < macros->len; ++i) {
+        Macro* m = &macros->data[i];
+        fprintf(stderr, "    Macro {\n");
+        fprintf(stderr, "      kind = %s\n", macro_kind_stringify(m->kind));
+        fprintf(stderr, "      name = %.*s\n", m->name.len, m->name.data);
+        fprintf(stderr, "      replacements = TODO\n");
+        fprintf(stderr, "    }\n");
+    }
+    fprintf(stderr, "  ]\n");
+    fprintf(stderr, "}\n");
+}
+
+void add_predefined_macros(MacroArray* macros) {
+    Macro* m;
+
+    m = macros_push_new(macros);
+    m->kind = MacroKind_obj;
+    m->name.len = strlen("__ducc__");
+    m->name.data = "__ducc__";
+    tokens_init(&m->replacements, 1);
+    Token* tok = tokens_push_new(&m->replacements);
+    tok->kind = TokenKind_literal_int;
+    tok->raw.len = strlen("1");
+    tok->raw.data = "1";
+
+    m = macros_push_new(macros);
+    m->kind = MacroKind_builtin_file;
+    m->name.len = strlen("__FILE__");
+    m->name.data = "__FILE__";
+
+    m = macros_push_new(macros);
+    m->kind = MacroKind_builtin_line;
+    m->name.len = strlen("__LINE__");
+    m->name.data = "__LINE__";
+}
 
 struct Preprocessor {
     const char* filename;
@@ -329,7 +420,7 @@ struct Preprocessor {
     int pos;
     Token* pp_tokens;
     int n_pp_tokens;
-    PpMacros* pp_macros;
+    MacroArray* macros;
     int include_depth;
     BOOL skip_pp_tokens;
     String* include_paths;
@@ -337,75 +428,9 @@ struct Preprocessor {
 };
 typedef struct Preprocessor Preprocessor;
 
-Token* do_preprocess(InFile* src, int depth, PpMacros* pp_macros);
+void do_preprocess(TokenArray* tokens, InFile* src, int depth, MacroArray* macros);
 
-PpMacros* pp_macros_new() {
-    PpMacros* pp_macros = calloc(1, sizeof(PpMacros));
-    pp_macros->len = 0;
-    pp_macros->cap = 8;
-    pp_macros->data = calloc(pp_macros->cap, sizeof(PpMacro));
-    return pp_macros;
-}
-
-PpMacro* pp_macros_push_new(PpMacros* pp_macros) {
-    if (pp_macros->cap <= pp_macros->len) {
-        pp_macros->cap *= 2;
-        pp_macros->data = realloc(pp_macros->data, pp_macros->cap * sizeof(PpMacro));
-        memset(pp_macros->data + pp_macros->len, 0, (pp_macros->cap - pp_macros->len) * sizeof(PpMacro));
-    }
-    return &pp_macros->data[pp_macros->len++];
-}
-
-void pp_macros_dump(PpMacros* pp_macros) {
-    fprintf(stderr, "PpMacros {\n");
-    fprintf(stderr, "  len = %zu\n", pp_macros->len);
-    fprintf(stderr, "  data = [\n");
-    for (int i = 0; i < pp_macros->len; ++i) {
-        PpMacro* m = &pp_macros->data[i];
-        fprintf(stderr, "    PpMacro {\n");
-        fprintf(stderr, "      kind = %s\n", pp_macro_kind_stringify(m->kind));
-        fprintf(stderr, "      name = %.*s\n", m->name.len, m->name.data);
-        fprintf(stderr, "      n_replacements = %zu\n", m->n_replacements);
-        fprintf(stderr, "      replacements = TODO\n");
-        fprintf(stderr, "    }\n");
-    }
-    fprintf(stderr, "  ]\n");
-    fprintf(stderr, "}\n");
-}
-
-void add_predefined_macros(PpMacros* pp_macros) {
-    PpMacro* m;
-
-    m = pp_macros_push_new(pp_macros);
-    m->kind = PpMacroKind_obj;
-    m->name.len = strlen("__ducc__");
-    m->name.data = "__ducc__";
-    m->n_replacements = 1;
-    m->replacements = calloc(1, sizeof(Token));
-    m->replacements[0].kind = TokenKind_literal_int;
-    m->replacements[0].raw.len = strlen("1");
-    m->replacements[0].raw.data = "1";
-
-    m = pp_macros_push_new(pp_macros);
-    m->kind = PpMacroKind_builtin_file;
-    m->name.len = strlen("__FILE__");
-    m->name.data = "__FILE__";
-
-    m = pp_macros_push_new(pp_macros);
-    m->kind = PpMacroKind_builtin_line;
-    m->name.len = strlen("__LINE__");
-    m->name.data = "__LINE__";
-}
-
-int count_pp_tokens(Token* pp_tokens) {
-    int n = 0;
-    while (pp_tokens[n].kind != TokenKind_eof) {
-        ++n;
-    }
-    return n;
-}
-
-Preprocessor* preprocessor_new(InFile* src, int include_depth, PpMacros* pp_macros) {
+Preprocessor* preprocessor_new(InFile* src, int include_depth, MacroArray* macros) {
     if (include_depth >= 32) {
         fatal_error("include depth limit exceeded");
     }
@@ -415,24 +440,24 @@ Preprocessor* preprocessor_new(InFile* src, int include_depth, PpMacros* pp_macr
     pp->line = 1;
     pp->src = src->buf;
     pp->pp_tokens = calloc(1024 * 1024, sizeof(Token));
-    pp->pp_macros = pp_macros;
+    pp->macros = macros;
     pp->include_depth = include_depth;
     pp->include_paths = calloc(16, sizeof(String));
 
     return pp;
 }
 
-int find_pp_macro(Preprocessor* pp, String* name) {
-    for (int i = 0; i < pp->pp_macros->len; ++i) {
-        if (string_equals(&pp->pp_macros->data[i].name, name)) {
+int find_macro(Preprocessor* pp, String* name) {
+    for (int i = 0; i < pp->macros->len; ++i) {
+        if (string_equals(&pp->macros->data[i].name, name)) {
             return i;
         }
     }
     return -1;
 }
 
-void undef_pp_macro(Preprocessor* pp, int idx) {
-    pp->pp_macros->data[idx].name.len = 0;
+void undef_macro(Preprocessor* pp, int idx) {
+    pp->macros->data[idx].name.len = 0;
     // TODO: Can predefined macro like __FILE__ be undefined?
 }
 
@@ -738,6 +763,10 @@ void pp_tokenize_all(Preprocessor* pp) {
         }
         ++pp->n_pp_tokens;
     }
+    Token* eof_tok = &pp->pp_tokens[pp->n_pp_tokens++];
+    eof_tok->loc.filename = pp->filename;
+    eof_tok->loc.line = pp->line;
+    eof_tok->kind = TokenKind_eof;
 }
 
 Token* skip_whitespace(Token* tok) {
@@ -808,7 +837,7 @@ Token* process_ifdef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     if (tok2->kind == TokenKind_ident) {
         Token* name = tok2;
         ++tok2;
-        pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) == -1;
+        pp->skip_pp_tokens = find_macro(pp, &name->raw) == -1;
     }
     remove_directive_tokens(tok, tok2);
     return tok2;
@@ -820,7 +849,7 @@ Token* process_ifndef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     if (tok2->kind == TokenKind_ident) {
         Token* name = tok2;
         ++tok2;
-        pp->skip_pp_tokens = find_pp_macro(pp, &name->raw) != -1;
+        pp->skip_pp_tokens = find_macro(pp, &name->raw) != -1;
     }
     remove_directive_tokens(tok, tok2);
     return tok2;
@@ -869,28 +898,27 @@ const char* resolve_include_name(Preprocessor* pp, String* include_name) {
     }
 }
 
-Token* replace_pp_tokens(Preprocessor* pp, Token* dest_start, Token* dest_end, int n_source_tokens,
-                         Token* source_tokens) {
+Token* replace_pp_tokens(Preprocessor* pp, Token* dest_start, Token* dest_end, TokenArray* source_tokens) {
     int n_tokens_to_remove = dest_end - dest_start;
     int n_tokens_after_dest = (pp->pp_tokens + pp->n_pp_tokens) - dest_end;
     int shift_amount;
 
-    if (n_tokens_to_remove < n_source_tokens) {
+    if (n_tokens_to_remove < source_tokens->len) {
         // Move existing tokens backward to make room.
-        shift_amount = n_source_tokens - n_tokens_to_remove;
+        shift_amount = source_tokens->len - n_tokens_to_remove;
         memmove(dest_end + shift_amount, dest_end, n_tokens_after_dest * sizeof(Token));
         pp->n_pp_tokens += shift_amount;
-    } else if (n_source_tokens < n_tokens_to_remove) {
+    } else if (source_tokens->len < n_tokens_to_remove) {
         // Move existing tokens forward to reduce room.
-        shift_amount = n_tokens_to_remove - n_source_tokens;
-        memmove(dest_start + n_source_tokens, dest_end, n_tokens_after_dest * sizeof(Token));
+        shift_amount = n_tokens_to_remove - source_tokens->len;
+        memmove(dest_start + source_tokens->len, dest_end, n_tokens_after_dest * sizeof(Token));
         pp->n_pp_tokens -= shift_amount;
         memset(pp->pp_tokens + pp->n_pp_tokens, 0, shift_amount * sizeof(Token));
     }
 
-    memcpy(dest_start, source_tokens, n_source_tokens * sizeof(Token));
+    memcpy(dest_start, source_tokens->data, source_tokens->len * sizeof(Token));
 
-    return dest_start + n_source_tokens;
+    return dest_start + source_tokens->len;
 }
 
 Token* expand_include_directive(Preprocessor* pp, Token* tok, Token* tok2, const char* include_name_buf) {
@@ -899,8 +927,10 @@ Token* expand_include_directive(Preprocessor* pp, Token* tok, Token* tok2, const
         fatal_error("cannot open include file: %s", include_name_buf);
     }
 
-    Token* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->pp_macros);
-    return replace_pp_tokens(pp, tok, tok2 + 1, count_pp_tokens(include_pp_tokens), include_pp_tokens);
+    TokenArray include_pp_tokens;
+    do_preprocess(&include_pp_tokens, include_source, pp->include_depth + 1, pp->macros);
+    tokens_pop(&include_pp_tokens); // pop EOF token
+    return replace_pp_tokens(pp, tok, tok2 + 1, &include_pp_tokens);
 }
 
 Token* process_include_directive(Preprocessor* pp, Token* tok, Token* tok2) {
@@ -937,26 +967,26 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         if (!tok3) {
             fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
         }
-        PpMacro* pp_macro = pp_macros_push_new(pp->pp_macros);
-        pp_macro->kind = PpMacroKind_func;
-        pp_macro->name = macro_name->raw;
-        pp_macro->n_replacements = tok3 - tok2;
-        pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
-        for (int i = 0; i < pp_macro->n_replacements; ++i) {
-            pp_macro->replacements[i] = tok2[i];
+        Macro* macro = macros_push_new(pp->macros);
+        macro->kind = MacroKind_func;
+        macro->name = macro_name->raw;
+        int n_replacements = tok3 - tok2;
+        tokens_init(&macro->replacements, n_replacements);
+        for (int i = 0; i < n_replacements; ++i) {
+            *tokens_push_new(&macro->replacements) = tok2[i];
         }
     } else {
         tok3 = find_next_newline(tok2);
         if (!tok3) {
             fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
         }
-        PpMacro* pp_macro = pp_macros_push_new(pp->pp_macros);
-        pp_macro->kind = PpMacroKind_obj;
-        pp_macro->name = macro_name->raw;
-        pp_macro->n_replacements = tok3 - tok2;
-        pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
-        for (int i = 0; i < pp_macro->n_replacements; ++i) {
-            pp_macro->replacements[i] = tok2[i];
+        Macro* macro = macros_push_new(pp->macros);
+        macro->kind = MacroKind_obj;
+        macro->name = macro_name->raw;
+        int n_replacements = tok3 - tok2;
+        tokens_init(&macro->replacements, n_replacements);
+        for (int i = 0; i < n_replacements; ++i) {
+            *tokens_push_new(&macro->replacements) = tok2[i];
         }
     }
     remove_directive_tokens(tok, tok3);
@@ -968,9 +998,9 @@ Token* process_undef_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     if (tok2->kind == TokenKind_ident) {
         Token* macro_name = tok2;
         ++tok2;
-        int pp_macro_idx = find_pp_macro(pp, &macro_name->raw);
-        if (pp_macro_idx != -1) {
-            undef_pp_macro(pp, pp_macro_idx);
+        int macro_idx = find_macro(pp, &macro_name->raw);
+        if (macro_idx != -1) {
+            undef_macro(pp, macro_idx);
         }
     }
     remove_directive_tokens(tok, tok2);
@@ -990,40 +1020,44 @@ Token* process_pragma_directive(Preprocessor* pp, Token* tok, Token* tok2) {
 }
 
 BOOL expand_macro(Preprocessor* pp, Token* tok) {
-    int pp_macro_idx = find_pp_macro(pp, &tok->raw);
-    if (pp_macro_idx == -1) {
+    int macro_idx = find_macro(pp, &tok->raw);
+    if (macro_idx == -1) {
         return FALSE;
     }
 
     SourceLocation original_loc = tok->loc;
-    PpMacro* pp_macro = pp->pp_macros->data + pp_macro_idx;
-    if (pp_macro->kind == PpMacroKind_func) {
+    Macro* macro = pp->macros->data + macro_idx;
+    if (macro->kind == MacroKind_func) {
         // also consume '(' and ')'
-        replace_pp_tokens(pp, tok, tok + 3, pp_macro->n_replacements, pp_macro->replacements);
+        replace_pp_tokens(pp, tok, tok + 3, &macro->replacements);
         // Inherit a source location from the original macro token.
-        for (int i = 0; i < pp_macro->n_replacements; ++i) {
+        for (int i = 0; i < macro->replacements.len; ++i) {
             tok[i].loc = original_loc;
         }
-    } else if (pp_macro->kind == PpMacroKind_obj) {
-        replace_pp_tokens(pp, tok, tok + 1, pp_macro->n_replacements, pp_macro->replacements);
+    } else if (macro->kind == MacroKind_obj) {
+        replace_pp_tokens(pp, tok, tok + 1, &macro->replacements);
         // Inherit a source location from the original macro token.
-        for (int i = 0; i < pp_macro->n_replacements; ++i) {
+        for (int i = 0; i < macro->replacements.len; ++i) {
             tok[i].loc = original_loc;
         }
-    } else if (pp_macro->kind == PpMacroKind_builtin_file) {
-        Token* file_tok = calloc(1, sizeof(Token));
+    } else if (macro->kind == MacroKind_builtin_file) {
+        TokenArray tokens;
+        tokens_init(&tokens, 1);
+        Token* file_tok = tokens_push_new(&tokens);
         file_tok->kind = TokenKind_literal_str;
         file_tok->raw.len = strlen(tok->loc.filename) + 2;
         file_tok->raw.data = calloc(file_tok->raw.len, sizeof(char));
         sprintf(file_tok->raw.data, "\"%s\"", tok->loc.filename);
-        replace_pp_tokens(pp, tok, tok + 1, 1, file_tok);
-    } else if (pp_macro->kind == PpMacroKind_builtin_line) {
-        Token* line_tok = calloc(1, sizeof(Token));
+        replace_pp_tokens(pp, tok, tok + 1, &tokens);
+    } else if (macro->kind == MacroKind_builtin_line) {
+        TokenArray tokens;
+        tokens_init(&tokens, 1);
+        Token* line_tok = tokens_push_new(&tokens);
         line_tok->kind = TokenKind_literal_int;
         line_tok->raw.data = calloc(10, sizeof(char));
         sprintf(line_tok->raw.data, "%d", tok->loc.line);
         line_tok->raw.len = strlen(line_tok->raw.data);
-        replace_pp_tokens(pp, tok, tok + 1, 1, line_tok);
+        replace_pp_tokens(pp, tok, tok + 1, &tokens);
     } else {
         unreachable();
     }
@@ -1106,18 +1140,23 @@ char* get_ducc_include_path() {
     return buf;
 }
 
-Token* do_preprocess(InFile* src, int depth, PpMacros* pp_macros) {
-    Preprocessor* pp = preprocessor_new(src, depth, pp_macros);
+void do_preprocess(TokenArray* tokens, InFile* src, int depth, MacroArray* macros) {
+    Preprocessor* pp = preprocessor_new(src, depth, macros);
     add_include_path(pp, get_ducc_include_path());
     add_include_path(pp, "/usr/include/x86_64-linux-gnu");
     add_include_path(pp, "/usr/include");
     pp_tokenize_all(pp);
     process_pp_directives(pp);
-    return pp->pp_tokens;
+    tokens_init(tokens, pp->n_pp_tokens);
+    for (int i = 0; i < pp->n_pp_tokens; ++i) {
+        *tokens_push_new(tokens) = pp->pp_tokens[i];
+    }
 }
 
 Token* preprocess(InFile* src) {
-    PpMacros* pp_macros = pp_macros_new();
-    add_predefined_macros(pp_macros);
-    return do_preprocess(src, 0, pp_macros);
+    MacroArray* macros = macros_new();
+    add_predefined_macros(macros);
+    TokenArray tokens;
+    do_preprocess(&tokens, src, 0, macros);
+    return tokens.data;
 }

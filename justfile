@@ -2,6 +2,7 @@ all: build
 
 build N="1":
     #!/usr/bin/env bash
+    set -e
     if [[ {{N}} = 1 ]]; then
         gcc -g -O0 -o ducc main.c
     else
@@ -28,6 +29,7 @@ test-self-hosted: build-upto-5-gen
 
 test TESTCASE="all" $BIN="ducc": build
     #!/usr/bin/env bash
+    set -e
     if [[ {{TESTCASE}} = all ]]; then
         bash tests/all.sh
     else
