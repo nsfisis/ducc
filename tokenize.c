@@ -14,8 +14,6 @@ Lexer* lexer_new(Token* pp_tokens) {
 }
 
 void tokenize_all(Lexer* l) {
-    int ch;
-    int start;
     while (l->src[l->pos].kind != TokenKind_eof) {
         Token* pp_tok = l->src + l->pos;
         Token* tok = l->tokens + l->n_tokens;
@@ -24,7 +22,7 @@ void tokenize_all(Lexer* l) {
         ++l->pos;
         if (k == TokenKind_character_constant) {
             tok->kind = TokenKind_literal_int;
-            ch = pp_tok->raw.data[1];
+            int ch = pp_tok->raw.data[1];
             if (ch == '\\') {
                 ch = pp_tok->raw.data[2];
                 if (ch == 'a') {

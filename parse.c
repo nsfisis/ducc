@@ -276,23 +276,22 @@ int register_str_literal(Parser* p, char* s) {
 
 AstNode* parse_primary_expr(Parser* p) {
     Token* t = next_token(p);
-    AstNode* e;
     if (t->kind == TokenKind_literal_int) {
         return ast_new_int(atoi(string_to_cstr(&t->raw)));
     } else if (t->kind == TokenKind_literal_str) {
-        e = ast_new(AstNodeKind_str_expr);
+        AstNode* e = ast_new(AstNodeKind_str_expr);
         e->node_idx = register_str_literal(p, string_to_cstr(&t->raw));
         e->ty = type_new_static_string(t->raw.len);
         return e;
     } else if (t->kind == TokenKind_paren_l) {
-        e = parse_expr(p);
+        AstNode* e = parse_expr(p);
         expect(p, TokenKind_paren_r);
         return e;
     } else if (t->kind == TokenKind_ident || t->kind == TokenKind_va_start) {
         String* name = &t->raw;
 
         if (peek_token(p)->kind == TokenKind_paren_l) {
-            e = ast_new(AstNodeKind_func_call);
+            AstNode* e = ast_new(AstNodeKind_func_call);
             int func_idx = find_func(p, name);
             if (func_idx == -1) {
                 fatal_error("undefined function: %.*s", name->len, name->data);
@@ -312,18 +311,18 @@ AstNode* parse_primary_expr(Parser* p) {
                 }
                 int enum_idx = enum_member_idx / 1000;
                 int n = enum_member_idx % 1000;
-                e = ast_new_int(p->enums[enum_idx].node_members->node_items[n].node_int_value);
+                AstNode* e = ast_new_int(p->enums[enum_idx].node_members->node_items[n].node_int_value);
                 e->ty = type_new(TypeKind_enum);
                 e->ty->def = p->enums + enum_idx;
                 return e;
             }
-            e = ast_new(AstNodeKind_gvar);
+            AstNode* e = ast_new(AstNodeKind_gvar);
             e->name = *name;
             e->ty = p->gvars[gvar_idx].ty;
             return e;
         }
 
-        e = ast_new(AstNodeKind_lvar);
+        AstNode* e = ast_new(AstNodeKind_lvar);
         e->name = *name;
         e->node_stack_offset = p->lvars[lvar_idx].stack_offset;
         e->ty = p->lvars[lvar_idx].ty;
@@ -379,7 +378,6 @@ AstNode* create_new_postfix_inc_or_dec(Parser* p, AstNode* e, TokenKind op) {
 
 AstNode* parse_postfix_expr(Parser* p) {
     AstNode* ret = parse_primary_expr(p);
-    String* name;
     while (1) {
         TokenKind tk = peek_token(p)->kind;
         if (tk == TokenKind_paren_l) {
@@ -395,11 +393,11 @@ AstNode* parse_postfix_expr(Parser* p) {
             ret = ast_new_deref_expr(ast_new_binary_expr(TokenKind_plus, ret, idx));
         } else if (tk == TokenKind_dot) {
             next_token(p);
-            name = parse_ident(p);
+            String* name = parse_ident(p);
             ret = ast_new_member_access_expr(ast_new_ref_expr(ret), name);
         } else if (tk == TokenKind_arrow) {
             next_token(p);
-            name = parse_ident(p);
+            String* name = parse_ident(p);
             ret = ast_new_member_access_expr(ret, name);
         } else if (tk == TokenKind_plusplus) {
             next_token(p);
@@ -430,7 +428,6 @@ BOOL is_type_token(Parser* p, Token* token) {
 
 Type* parse_type(Parser* p) {
     Token* t = next_token(p);
-    String* name;
     if (t->kind == TokenKind_keyword_const) {
         t = next_token(p);
     }
@@ -458,7 +455,7 @@ Type* parse_type(Parser* p) {
             ty->kind = TypeKind_void;
         } else if (t->kind == TokenKind_keyword_enum) {
             ty->kind = TypeKind_enum;
-            name = parse_ident(p);
+            String* name = parse_ident(p);
             int enum_idx = find_enum(p, name);
             if (enum_idx == -1) {
                 fatal_error("parse_type: unknown enum, %.*s", name->len, name->data);
@@ -466,7 +463,7 @@ Type* parse_type(Parser* p) {
             ty->def = p->enums + enum_idx;
         } else if (t->kind == TokenKind_keyword_struct) {
             ty->kind = TypeKind_struct;
-            name = parse_ident(p);
+            String* name = parse_ident(p);
             int struct_idx = find_struct(p, name);
             if (struct_idx == -1) {
                 fatal_error("parse_type: unknown struct, %.*s", name->len, name->data);
@@ -474,7 +471,7 @@ Type* parse_type(Parser* p) {
             ty->def = p->structs + struct_idx;
         } else if (t->kind == TokenKind_keyword_union) {
             ty->kind = TypeKind_union;
-            name = parse_ident(p);
+            String* name = parse_ident(p);
             int union_idx = find_union(p, name);
             if (union_idx == -1) {
                 fatal_error("parse_type: unknown union, %.*s", name->len, name->data);
@@ -496,31 +493,30 @@ Type* parse_type(Parser* p) {
 }
 
 AstNode* parse_prefix_expr(Parser* p) {
-    AstNode* operand;
     TokenKind op = peek_token(p)->kind;
     if (op == TokenKind_minus) {
         next_token(p);
-        operand = parse_prefix_expr(p);
+        AstNode* operand = parse_prefix_expr(p);
         return ast_new_binary_expr(op, ast_new_int(0), operand);
     } else if (op == TokenKind_not) {
         next_token(p);
-        operand = parse_prefix_expr(p);
+        AstNode* operand = parse_prefix_expr(p);
         return ast_new_unary_expr(op, operand);
     } else if (op == TokenKind_and) {
         next_token(p);
-        operand = parse_prefix_expr(p);
+        AstNode* operand = parse_prefix_expr(p);
         return ast_new_ref_expr(operand);
     } else if (op == TokenKind_star) {
         next_token(p);
-        operand = parse_prefix_expr(p);
+        AstNode* operand = parse_prefix_expr(p);
         return ast_new_deref_expr(operand);
     } else if (op == TokenKind_plusplus) {
         next_token(p);
-        operand = parse_prefix_expr(p);
+        AstNode* operand = parse_prefix_expr(p);
         return ast_new_assign_add_expr(operand, ast_new_int(1));
     } else if (op == TokenKind_minusminus) {
         next_token(p);
-        operand = parse_prefix_expr(p);
+        AstNode* operand = parse_prefix_expr(p);
         return ast_new_assign_sub_expr(operand, ast_new_int(1));
     } else if (op == TokenKind_keyword_sizeof) {
         next_token(p);
@@ -565,12 +561,11 @@ AstNode* parse_multiplicative_expr(Parser* p) {
 
 AstNode* parse_additive_expr(Parser* p) {
     AstNode* lhs = parse_multiplicative_expr(p);
-    AstNode* rhs;
     while (1) {
         TokenKind op = peek_token(p)->kind;
         if (op == TokenKind_plus) {
             next_token(p);
-            rhs = parse_multiplicative_expr(p);
+            AstNode* rhs = parse_multiplicative_expr(p);
             if (lhs->ty->base) {
                 lhs = ast_new_binary_expr(
                     op, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base))));
@@ -582,7 +577,7 @@ AstNode* parse_additive_expr(Parser* p) {
             }
         } else if (op == TokenKind_minus) {
             next_token(p);
-            rhs = parse_multiplicative_expr(p);
+            AstNode* rhs = parse_multiplicative_expr(p);
             if (lhs->ty->base) {
                 if (rhs->ty->base) {
                     // (a - b) / sizeof(a)
@@ -605,20 +600,19 @@ AstNode* parse_additive_expr(Parser* p) {
 
 AstNode* parse_relational_expr(Parser* p) {
     AstNode* lhs = parse_additive_expr(p);
-    AstNode* rhs;
     while (1) {
         TokenKind op = peek_token(p)->kind;
         if (op == TokenKind_lt || op == TokenKind_le) {
             next_token(p);
-            rhs = parse_additive_expr(p);
+            AstNode* rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
         } else if (op == TokenKind_gt) {
             next_token(p);
-            rhs = parse_additive_expr(p);
+            AstNode* rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(TokenKind_lt, rhs, lhs);
         } else if (op == TokenKind_ge) {
             next_token(p);
-            rhs = parse_additive_expr(p);
+            AstNode* rhs = parse_additive_expr(p);
             lhs = ast_new_binary_expr(TokenKind_le, rhs, lhs);
         } else {
             break;
@@ -700,21 +694,20 @@ AstNode* parse_logical_or_expr(Parser* p) {
 
 AstNode* parse_assignment_expr(Parser* p) {
     AstNode* lhs = parse_logical_or_expr(p);
-    AstNode* rhs;
     while (1) {
         TokenKind op = peek_token(p)->kind;
         if (op == TokenKind_assign || op == TokenKind_assign_mul || op == TokenKind_assign_div ||
             op == TokenKind_assign_mod) {
             next_token(p);
-            rhs = parse_logical_or_expr(p);
+            AstNode* rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
         } else if (op == TokenKind_assign_add) {
             next_token(p);
-            rhs = parse_logical_or_expr(p);
+            AstNode* rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_add_expr(lhs, rhs);
         } else if (op == TokenKind_assign_sub) {
             next_token(p);
-            rhs = parse_logical_or_expr(p);
+            AstNode* rhs = parse_logical_or_expr(p);
             lhs = ast_new_assign_sub_expr(lhs, rhs);
         } else {
             break;

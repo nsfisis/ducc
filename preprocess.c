@@ -448,9 +448,6 @@ BOOL skip_pp_tokens(Preprocessor* pp) {
 }
 
 void pp_tokenize_all(Preprocessor* pp) {
-    char* buf;
-    int ch;
-    int start;
     while (pp->src[pp->pos]) {
         Token* tok = pp->pp_tokens + pp->n_pp_tokens;
         tok->loc.filename = pp->filename;
@@ -522,7 +519,7 @@ void pp_tokenize_all(Preprocessor* pp) {
                 ++pp->pos;
                 tok->kind = TokenKind_assign_div;
             } else if (pp->src[pp->pos] == '/') {
-                start = pp->pos - 1;
+                int start = pp->pos - 1;
                 ++pp->pos;
                 while (pp->src[pp->pos] && pp->src[pp->pos] != '\n' && pp->src[pp->pos] != '\r') {
                     ++pp->pos;
@@ -531,7 +528,7 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->raw.len = pp->pos - start;
                 tok->raw.data = pp->src + pp->pos - tok->raw.len;
             } else if (pp->src[pp->pos] == '*') {
-                start = pp->pos - 1;
+                int start = pp->pos - 1;
                 ++pp->pos;
                 while (pp->src[pp->pos]) {
                     if (pp->src[pp->pos] == '*' && pp->src[pp->pos + 1] == '/') {
@@ -608,7 +605,7 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_hash;
             }
         } else if (c == '\'') {
-            start = pp->pos - 1;
+            int start = pp->pos - 1;
             if (pp->src[pp->pos] == '\\') {
                 ++pp->pos;
             }
@@ -617,9 +614,9 @@ void pp_tokenize_all(Preprocessor* pp) {
             tok->raw.data = pp->src + start;
             tok->raw.len = pp->pos - start;
         } else if (c == '"') {
-            start = pp->pos - 1;
+            int start = pp->pos - 1;
             while (1) {
-                ch = pp->src[pp->pos];
+                char ch = pp->src[pp->pos];
                 if (ch == '\\') {
                     ++pp->pos;
                 } else if (ch == '"') {
@@ -633,7 +630,7 @@ void pp_tokenize_all(Preprocessor* pp) {
             tok->raw.len = pp->pos - start;
         } else if (isdigit(c)) {
             --pp->pos;
-            start = pp->pos;
+            int start = pp->pos;
             while (isdigit(pp->src[pp->pos])) {
                 ++pp->pos;
             }
@@ -642,7 +639,7 @@ void pp_tokenize_all(Preprocessor* pp) {
             tok->raw.len = pp->pos - start;
         } else if (isalpha(c) || c == '_') {
             --pp->pos;
-            start = pp->pos;
+            int start = pp->pos;
             while (isalnum(pp->src[pp->pos]) || pp->src[pp->pos] == '_') {
                 ++pp->pos;
             }
@@ -856,14 +853,13 @@ Token* read_include_header_name(Token* tok2, String* include_name) {
 }
 
 const char* resolve_include_name(Preprocessor* pp, String* include_name) {
-    char* buf;
     if (include_name->data[0] == '"') {
-        buf = calloc(include_name->len - 2 + 1, sizeof(char));
+        char* buf = calloc(include_name->len - 2 + 1, sizeof(char));
         sprintf(buf, "%.*s", include_name->len - 2, include_name->data + 1);
         return buf;
     } else {
         for (int i = 0; i < pp->n_include_paths; ++i) {
-            buf = calloc(include_name->len + 1 + pp->include_paths[i].len, sizeof(char));
+            char* buf = calloc(include_name->len + 1 + pp->include_paths[i].len, sizeof(char));
             sprintf(buf, "%s/%.*s", pp->include_paths[i].data, include_name->len, include_name->data);
             if (access(buf, F_OK | R_OK) == 0) {
                 return buf;
@@ -921,7 +917,6 @@ Token* process_include_directive(Preprocessor* pp, Token* tok, Token* tok2) {
 
 Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     Token* tok3 = NULL;
-    PpMacro* pp_macro;
     ++tok2;
     tok2 = skip_whitespace(tok2);
     if (tok2->kind != TokenKind_ident) {
@@ -942,7 +937,7 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         if (!tok3) {
             fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
         }
-        pp_macro = pp_macros_push_new(pp->pp_macros);
+        PpMacro* pp_macro = pp_macros_push_new(pp->pp_macros);
         pp_macro->kind = PpMacroKind_func;
         pp_macro->name = macro_name->raw;
         pp_macro->n_replacements = tok3 - tok2;
@@ -955,7 +950,7 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         if (!tok3) {
             fatal_error("%s:%s: invalid #define syntax", tok3->loc.filename, tok3->loc.line);
         }
-        pp_macro = pp_macros_push_new(pp->pp_macros);
+        PpMacro* pp_macro = pp_macros_push_new(pp->pp_macros);
         pp_macro->kind = PpMacroKind_obj;
         pp_macro->name = macro_name->raw;
         pp_macro->n_replacements = tok3 - tok2;
