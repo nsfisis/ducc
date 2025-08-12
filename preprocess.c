@@ -922,7 +922,6 @@ Token* process_include_directive(Preprocessor* pp, Token* tok, Token* tok2) {
 Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
     Token* tok3 = NULL;
     PpMacro* pp_macro;
-    int i;
     ++tok2;
     tok2 = skip_whitespace(tok2);
     if (tok2->kind != TokenKind_ident) {
@@ -948,7 +947,7 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         pp_macro->name = macro_name->raw;
         pp_macro->n_replacements = tok3 - tok2;
         pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
-        for (i = 0; i < pp_macro->n_replacements; ++i) {
+        for (int i = 0; i < pp_macro->n_replacements; ++i) {
             pp_macro->replacements[i] = tok2[i];
         }
     } else {
@@ -961,7 +960,7 @@ Token* process_define_directive(Preprocessor* pp, Token* tok, Token* tok2) {
         pp_macro->name = macro_name->raw;
         pp_macro->n_replacements = tok3 - tok2;
         pp_macro->replacements = calloc(pp_macro->n_replacements, sizeof(Token));
-        for (i = 0; i < pp_macro->n_replacements; ++i) {
+        for (int i = 0; i < pp_macro->n_replacements; ++i) {
             pp_macro->replacements[i] = tok2[i];
         }
     }
@@ -1001,20 +1000,19 @@ BOOL expand_macro(Preprocessor* pp, Token* tok) {
         return FALSE;
     }
 
-    int i;
     SourceLocation original_loc = tok->loc;
     PpMacro* pp_macro = pp->pp_macros->data + pp_macro_idx;
     if (pp_macro->kind == PpMacroKind_func) {
         // also consume '(' and ')'
         replace_pp_tokens(pp, tok, tok + 3, pp_macro->n_replacements, pp_macro->replacements);
         // Inherit a source location from the original macro token.
-        for (i = 0; i < pp_macro->n_replacements; ++i) {
+        for (int i = 0; i < pp_macro->n_replacements; ++i) {
             tok[i].loc = original_loc;
         }
     } else if (pp_macro->kind == PpMacroKind_obj) {
         replace_pp_tokens(pp, tok, tok + 1, pp_macro->n_replacements, pp_macro->replacements);
         // Inherit a source location from the original macro token.
-        for (i = 0; i < pp_macro->n_replacements; ++i) {
+        for (int i = 0; i < pp_macro->n_replacements; ++i) {
             tok[i].loc = original_loc;
         }
     } else if (pp_macro->kind == PpMacroKind_builtin_file) {

@@ -275,11 +275,10 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
 
 void codegen_func_call(CodeGen* g, AstNode* ast) {
     String* func_name = &ast->name;
-    int i;
 
     if (string_equals_cstr(func_name, "va_start")) {
         printf("  # va_start BEGIN\n");
-        for (i = 0; i < 6; ++i) {
+        for (int i = 0; i < 6; ++i) {
             printf("  mov rax, %s\n", param_reg(i));
             printf("  mov [rbp-%d], rax\n", 8 + (LVAR_MAX - 4 - i) * 8);
         }
@@ -300,11 +299,11 @@ void codegen_func_call(CodeGen* g, AstNode* ast) {
     }
 
     AstNode* args = ast->node_args;
-    for (i = 0; i < args->node_len; ++i) {
+    for (int i = 0; i < args->node_len; ++i) {
         AstNode* arg = args->node_items + i;
         codegen_expr(g, arg, GenMode_rval);
     }
-    for (i = args->node_len - 1; i >= 0; --i) {
+    for (int i = args->node_len - 1; i >= 0; --i) {
         printf("  pop %s\n", param_reg(i));
     }
 
@@ -529,18 +528,17 @@ void codegen_func(CodeGen* g, AstNode* ast) {
 
 void codegen(Program* prog) {
     CodeGen* g = codegen_new();
-    int i;
 
     printf(".intel_syntax noprefix\n\n");
 
     printf(".section .rodata\n\n");
-    for (i = 0; prog->str_literals[i]; ++i) {
+    for (int i = 0; prog->str_literals[i]; ++i) {
         printf(".Lstr__%d:\n", i + 1);
         printf("  .string \"%s\"\n\n", prog->str_literals[i]);
     }
 
     printf(".bss\n\n");
-    for (i = 0; i < prog->vars->node_len; ++i) {
+    for (int i = 0; i < prog->vars->node_len; ++i) {
         AstNode* var = prog->vars->node_items + i;
         printf("  .lcomm %.*s, %d\n", var->name.len, var->name.data, type_sizeof(var->ty));
     }
@@ -548,7 +546,7 @@ void codegen(Program* prog) {
     printf(".globl main\n\n");
 
     printf(".text\n\n");
-    for (i = 0; i < prog->funcs->node_len; ++i) {
+    for (int i = 0; i < prog->funcs->node_len; ++i) {
         AstNode* func = prog->funcs->node_items + i;
         codegen_func(g, func);
     }

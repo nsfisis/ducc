@@ -7,6 +7,13 @@ struct LocalVar {
 };
 typedef struct LocalVar LocalVar;
 
+struct Scope {
+    struct Scope* outer;
+    String* lvar_names;
+    int* lvar_indices;
+};
+typedef struct Scope Scope;
+
 struct GlobalVar {
     String name;
     Type* ty;
@@ -24,6 +31,7 @@ struct Parser {
     int pos;
     LocalVar* lvars;
     int n_lvars;
+    Scope* scope;
     GlobalVar* gvars;
     int n_gvars;
     Func* funcs;
@@ -83,11 +91,26 @@ Token* expect(Parser* p, TokenKind expected) {
                 token_stringify(t));
 }
 
-int find_lvar(Parser* p, const String* name) {
-    for (int i = 0; i < p->n_lvars; ++i) {
-        if (string_equals(&p->lvars[i].name, name)) {
-            return i;
+int find_lvar_in_scope(Parser* p, Scope* scope, const String* name) {
+    for (int i = 0; i < LVAR_MAX; ++i) {
+        if (string_equals(&scope->lvar_names[i], name)) {
+            return scope->lvar_indices[i];
         }
+    }
+    return -1;
+}
+
+int find_lvar_in_current_scope(Parser* p, const String* name) {
+    return find_lvar_in_scope(p, p->scope, name);
+}
+
+int find_lvar(Parser* p, const String* name) {
+    Scope* scope = p->scope;
+    while (scope) {
+        int idx = find_lvar_in_scope(p, scope, name);
+        if (idx != -1)
+            return idx;
+        scope = scope->outer;
     }
     return -1;
 }
@@ -119,6 +142,13 @@ int add_lvar(Parser* p, String* name, Type* ty, BOOL is_param) {
     p->lvars[p->n_lvars].name = *name;
     p->lvars[p->n_lvars].ty = ty;
     p->lvars[p->n_lvars].stack_offset = stack_offset;
+    for (int i = 0; i < LVAR_MAX; ++i) {
+        if (p->scope->lvar_names[i].len == 0) {
+            p->scope->lvar_names[i] = *name;
+            p->scope->lvar_indices[i] = p->n_lvars;
+            break;
+        }
+    }
     ++p->n_lvars;
     return stack_offset;
 }
@@ -207,6 +237,28 @@ int find_typedef(Parser* p, const String* name) {
         }
     }
     return -1;
+}
+
+void enter_scope(Parser* p) {
+    Scope* outer_scope = p->scope;
+    p->scope = calloc(1, sizeof(Scope));
+    p->scope->outer = outer_scope;
+    p->scope->lvar_names = calloc(LVAR_MAX, sizeof(String));
+    p->scope->lvar_indices = calloc(LVAR_MAX, sizeof(int));
+}
+
+void leave_scope(Parser* p) {
+    p->scope = p->scope->outer;
+}
+
+void enter_func(Parser* p) {
+    p->lvars = calloc(LVAR_MAX, sizeof(LocalVar));
+    p->n_lvars = 0;
+    enter_scope(p);
+}
+
+void leave_func(Parser* p) {
+    leave_scope(p);
 }
 
 AstNode* parse_expr(Parser* p);
@@ -734,10 +786,10 @@ AstNode* parse_var_decl(Parser* p) {
     }
     expect(p, TokenKind_semicolon);
 
-    if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
+    if (find_lvar_in_current_scope(p, name) != -1) {
         // TODO: use name's location.
-        fatal_error("%s:%d: parse_var_decl: %.*s redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line,
-                    name->len, name->data);
+        fatal_error("%s:%d: '%.*s' redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line, name->len,
+                    name->data);
     }
     int stack_offset = add_lvar(p, name, ty, FALSE);
 
@@ -762,6 +814,7 @@ AstNode* parse_for_stmt(Parser* p) {
     AstNode* init = NULL;
     AstNode* cond = NULL;
     AstNode* update = NULL;
+    enter_scope(p);
     if (peek_token(p)->kind != TokenKind_semicolon) {
         if (is_type_token(p, peek_token(p))) {
             init = parse_var_decl(p)->node_expr;
@@ -783,6 +836,7 @@ AstNode* parse_for_stmt(Parser* p) {
     }
     expect(p, TokenKind_paren_r);
     AstNode* body = parse_stmt(p);
+    leave_scope(p);
 
     AstNode* stmt = ast_new(AstNodeKind_for_stmt);
     stmt->node_cond = cond;
@@ -843,10 +897,12 @@ AstNode* parse_expr_stmt(Parser* p) {
 AstNode* parse_block_stmt(Parser* p) {
     AstNode* list = ast_new_list(4);
     expect(p, TokenKind_brace_l);
+    enter_scope(p);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* stmt = parse_stmt(p);
         ast_append(list, stmt);
     }
+    leave_scope(p);
     expect(p, TokenKind_brace_r);
     return list;
 }
@@ -881,11 +937,6 @@ AstNode* parse_stmt(Parser* p) {
     } else {
         return parse_expr_stmt(p);
     }
-}
-
-void enter_func(Parser* p) {
-    p->lvars = calloc(LVAR_MAX, sizeof(LocalVar));
-    p->n_lvars = 0;
 }
 
 void register_params(Parser* p, AstNode* params) {
@@ -996,6 +1047,7 @@ AstNode* parse_func_decl_or_def(Parser* p) {
     enter_func(p);
     register_params(p, params);
     AstNode* body = parse_block_stmt(p);
+    leave_func(p);
     AstNode* func = ast_new(AstNodeKind_func_def);
     func->ty = ty;
     func->name = *name;
