@@ -17,7 +17,7 @@ if [[ $? -ne 0 ]]; then
     cat main.s >&2
     exit 1
 fi
-gcc -Wl,-z,noexecstack -o a.out main.s
+gcc -o a.out main.s
 ./a.out "$@" > output
 exit_code=$?
 

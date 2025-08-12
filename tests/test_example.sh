@@ -4,7 +4,7 @@ filename="../../../examples/$1.c"
 if [[ $? -ne 0 ]]; then
     exit 1
 fi
-gcc -Wl,-z,noexecstack -o a.out main.s
+gcc -o a.out main.s
 if [[ ! -f input ]]; then
     touch input
 fi

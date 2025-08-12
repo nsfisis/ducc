@@ -531,6 +531,10 @@ void codegen(Program* prog) {
 
     printf(".intel_syntax noprefix\n\n");
 
+    // For GNU ld:
+    // https://sourceware.org/binutils/docs/ld/Options.html
+    printf(".section .note.GNU-stack,\"\",@progbits\n\n");
+
     printf(".section .rodata\n\n");
     for (int i = 0; prog->str_literals[i]; ++i) {
         printf(".Lstr__%d:\n", i + 1);

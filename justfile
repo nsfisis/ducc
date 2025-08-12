@@ -11,7 +11,7 @@ build N="1":
             prev=$(({{N}} - 1))
         fi
         "./ducc${prev}" main.c > main{{N}}.s
-        gcc -s -Wl,-z,noexecstack -o ducc{{N}} main{{N}}.s
+        gcc -s -o ducc{{N}} main{{N}}.s
     fi
 
 build-upto-5-gen:
