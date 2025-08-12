@@ -2,13 +2,18 @@ set -e
 
 rm -rf tests/tmp
 mkdir -p tests/tmp
-for i in $(seq 1 999); do
-    testcase=$(printf '%03d' $i)
+
+for filename in tests/*.sh; do
+    testcase_="$(basename "$filename")"
+    testcase="${testcase_/%.sh/}"
     test_file="tests/$testcase.sh"
-    if [[ -f "$test_file" ]]; then
-        bash tests/run.sh "$testcase"
-    else
-        echo "All tests passed."
-        exit
-    fi
+    case "$testcase" in
+        all|run|test_*)
+            ;;
+        *)
+            bash tests/run.sh "$testcase"
+            ;;
+    esac
 done
+
+echo "All tests passed."
