@@ -3,7 +3,7 @@ all: build
 build N="1":
     #!/usr/bin/env bash
     if [[ {{N}} = 1 ]]; then
-        gcc -Wno-builtin-declaration-mismatch -g -O0 -o ducc main.c
+        gcc -g -O0 -o ducc main.c
     else
         if [[ {{N}} = 2 ]]; then
             prev=""
