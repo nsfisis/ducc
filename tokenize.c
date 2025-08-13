@@ -1,25 +1,27 @@
 struct Lexer {
-    Token* src;
-    int pos;
-    Token* tokens;
-    int n_tokens;
+    TokenArray* src;
+    TokenArray* tokens;
 };
 typedef struct Lexer Lexer;
 
-Lexer* lexer_new(Token* pp_tokens) {
+Lexer* lexer_new(TokenArray* pp_tokens) {
     Lexer* l = calloc(1, sizeof(Lexer));
     l->src = pp_tokens;
-    l->tokens = calloc(1024 * 1024, sizeof(Token));
+    l->tokens = calloc(1, sizeof(TokenArray));
+    // l->tokens need not store whitespace tokens.
+    tokens_init(l->tokens, pp_tokens->len / 2);
     return l;
 }
 
 void tokenize_all(Lexer* l) {
-    while (l->src[l->pos].kind != TokenKind_eof) {
-        Token* pp_tok = l->src + l->pos;
-        Token* tok = l->tokens + l->n_tokens;
-        tok->loc = pp_tok->loc;
+    for (int pos = 0; pos < l->src->len; ++pos) {
+        Token* pp_tok = &l->src->data[pos];
         TokenKind k = pp_tok->kind;
-        ++l->pos;
+        if (k == TokenKind_whitespace) {
+            continue;
+        }
+        Token* tok = tokens_push_new(l->tokens);
+        tok->loc = pp_tok->loc;
         if (k == TokenKind_character_constant) {
             tok->kind = TokenKind_literal_int;
             int ch = pp_tok->raw.data[1];
@@ -53,17 +55,14 @@ void tokenize_all(Lexer* l) {
             tok->raw.len = pp_tok->raw.len - 2;
         } else if (k == TokenKind_other) {
             unreachable();
-        } else if (k == TokenKind_whitespace) {
-            continue;
         } else {
             tok->kind = pp_tok->kind;
             tok->raw = pp_tok->raw;
         }
-        ++l->n_tokens;
     }
 }
 
-Token* tokenize(Token* pp_tokens) {
+TokenArray* tokenize(TokenArray* pp_tokens) {
     Lexer* l = lexer_new(pp_tokens);
     tokenize_all(l);
     return l->tokens;

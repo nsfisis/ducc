@@ -27,7 +27,7 @@ struct Func {
 typedef struct Func Func;
 
 struct Parser {
-    Token* tokens;
+    TokenArray* tokens;
     int pos;
     LocalVar* lvars;
     int n_lvars;
@@ -49,7 +49,7 @@ struct Parser {
 };
 typedef struct Parser Parser;
 
-Parser* parser_new(Token* tokens) {
+Parser* parser_new(TokenArray* tokens) {
     Parser* p = calloc(1, sizeof(Parser));
     p->tokens = tokens;
     p->gvars = calloc(128, sizeof(GlobalVar));
@@ -70,12 +70,11 @@ Parser* parser_new(Token* tokens) {
 }
 
 Token* peek_token(Parser* p) {
-    return p->tokens + p->pos;
+    return &p->tokens->data[p->pos];
 }
 
 Token* next_token(Parser* p) {
-    ++p->pos;
-    return p->tokens + p->pos - 1;
+    return &p->tokens->data[p->pos++];
 }
 
 BOOL eof(Parser* p) {
@@ -1248,7 +1247,7 @@ AstNode* parse_toplevel(Parser* p) {
     }
 }
 
-Program* parse(Token* tokens) {
+Program* parse(TokenArray* tokens) {
     Parser* p = parser_new(tokens);
     AstNode* funcs = ast_new_list(32);
     AstNode* vars = ast_new_list(16);
