@@ -597,21 +597,36 @@ AstNode* parse_additive_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_relational_expr(Parser* p) {
+AstNode* parse_shift_expr(Parser* p) {
     AstNode* lhs = parse_additive_expr(p);
+    while (1) {
+        TokenKind op = peek_token(p)->kind;
+        if (op == TokenKind_lshift || op == TokenKind_rshift) {
+            next_token(p);
+            AstNode* rhs = parse_additive_expr(p);
+            lhs = ast_new_binary_expr(op, lhs, rhs);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
+AstNode* parse_relational_expr(Parser* p) {
+    AstNode* lhs = parse_shift_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
         if (op == TokenKind_lt || op == TokenKind_le) {
             next_token(p);
-            AstNode* rhs = parse_additive_expr(p);
+            AstNode* rhs = parse_shift_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
         } else if (op == TokenKind_gt) {
             next_token(p);
-            AstNode* rhs = parse_additive_expr(p);
+            AstNode* rhs = parse_shift_expr(p);
             lhs = ast_new_binary_expr(TokenKind_lt, rhs, lhs);
         } else if (op == TokenKind_ge) {
             next_token(p);
-            AstNode* rhs = parse_additive_expr(p);
+            AstNode* rhs = parse_shift_expr(p);
             lhs = ast_new_binary_expr(TokenKind_le, rhs, lhs);
         } else {
             break;

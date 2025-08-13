@@ -68,6 +68,7 @@ enum TokenKind {
     TokenKind_keyword__Imaginary,
 
     TokenKind_le,
+    TokenKind_lshift,
     TokenKind_lt,
     TokenKind_literal_int,
     TokenKind_literal_str,
@@ -82,6 +83,7 @@ enum TokenKind {
     TokenKind_percent,
     TokenKind_plus,
     TokenKind_plusplus,
+    TokenKind_rshift,
     TokenKind_semicolon,
     TokenKind_slash,
     TokenKind_star,
@@ -220,6 +222,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "_Imaginary";
     else if (k == TokenKind_le)
         return "le";
+    else if (k == TokenKind_lshift)
+        return "<<";
     else if (k == TokenKind_lt)
         return "lt";
     else if (k == TokenKind_literal_int)
@@ -248,6 +252,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "+";
     else if (k == TokenKind_plusplus)
         return "++";
+    else if (k == TokenKind_rshift)
+        return ">>";
     else if (k == TokenKind_semicolon)
         return ";";
     else if (k == TokenKind_slash)
@@ -616,6 +622,9 @@ void pp_tokenize_all(Preprocessor* pp) {
             if (pp->src[pp->pos] == '=') {
                 ++pp->pos;
                 tok->kind = TokenKind_le;
+            } else if (pp->src[pp->pos] == '<') {
+                ++pp->pos;
+                tok->kind = TokenKind_lshift;
             } else {
                 tok->kind = TokenKind_lt;
             }
@@ -623,6 +632,9 @@ void pp_tokenize_all(Preprocessor* pp) {
             if (pp->src[pp->pos] == '=') {
                 ++pp->pos;
                 tok->kind = TokenKind_ge;
+            } else if (pp->src[pp->pos] == '>') {
+                ++pp->pos;
+                tok->kind = TokenKind_rshift;
             } else {
                 tok->kind = TokenKind_gt;
             }
