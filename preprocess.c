@@ -13,14 +13,20 @@ enum TokenKind {
     TokenKind_arrow,
     TokenKind_assign,
     TokenKind_assign_add,
+    TokenKind_assign_and,
     TokenKind_assign_div,
+    TokenKind_assign_lshift,
     TokenKind_assign_mod,
     TokenKind_assign_mul,
+    TokenKind_assign_or,
+    TokenKind_assign_rshift,
     TokenKind_assign_sub,
+    TokenKind_assign_xor,
     TokenKind_brace_l,
     TokenKind_brace_r,
     TokenKind_bracket_l,
     TokenKind_bracket_r,
+    TokenKind_colon,
     TokenKind_comma,
     TokenKind_dot,
     TokenKind_ellipsis,
@@ -28,7 +34,9 @@ enum TokenKind {
     TokenKind_ge,
     TokenKind_gt,
     TokenKind_ident,
-
+    TokenKind_keyword__Bool,
+    TokenKind_keyword__Complex,
+    TokenKind_keyword__Imaginary,
     TokenKind_keyword_auto,
     TokenKind_keyword_break,
     TokenKind_keyword_case,
@@ -63,15 +71,11 @@ enum TokenKind {
     TokenKind_keyword_void,
     TokenKind_keyword_volatile,
     TokenKind_keyword_while,
-    TokenKind_keyword__Bool,
-    TokenKind_keyword__Complex,
-    TokenKind_keyword__Imaginary,
-
     TokenKind_le,
-    TokenKind_lshift,
-    TokenKind_lt,
     TokenKind_literal_int,
     TokenKind_literal_str,
+    TokenKind_lshift,
+    TokenKind_lt,
     TokenKind_minus,
     TokenKind_minusminus,
     TokenKind_ne,
@@ -83,10 +87,13 @@ enum TokenKind {
     TokenKind_percent,
     TokenKind_plus,
     TokenKind_plusplus,
+    TokenKind_question,
     TokenKind_rshift,
     TokenKind_semicolon,
     TokenKind_slash,
     TokenKind_star,
+    TokenKind_tilde,
+    TokenKind_xor,
 
     // va_start() is currently implemented as a special form due to the current limitation of #define macro.
     TokenKind_va_start,
@@ -116,14 +123,24 @@ const char* token_kind_stringify(TokenKind k) {
         return "=";
     else if (k == TokenKind_assign_add)
         return "+=";
+    else if (k == TokenKind_assign_and)
+        return "&=";
     else if (k == TokenKind_assign_div)
         return "/=";
+    else if (k == TokenKind_assign_lshift)
+        return "<<=";
     else if (k == TokenKind_assign_mod)
         return "%=";
     else if (k == TokenKind_assign_mul)
         return "*=";
+    else if (k == TokenKind_assign_or)
+        return "|=";
+    else if (k == TokenKind_assign_rshift)
+        return ">>=";
     else if (k == TokenKind_assign_sub)
         return "-=";
+    else if (k == TokenKind_assign_xor)
+        return "^=";
     else if (k == TokenKind_brace_l)
         return "{";
     else if (k == TokenKind_brace_r)
@@ -132,6 +149,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "[";
     else if (k == TokenKind_bracket_r)
         return "]";
+    else if (k == TokenKind_colon)
+        return ":";
     else if (k == TokenKind_comma)
         return ",";
     else if (k == TokenKind_dot)
@@ -146,6 +165,12 @@ const char* token_kind_stringify(TokenKind k) {
         return ">";
     else if (k == TokenKind_ident)
         return "<identifier>";
+    else if (k == TokenKind_keyword__Bool)
+        return "_Bool";
+    else if (k == TokenKind_keyword__Complex)
+        return "_Complex";
+    else if (k == TokenKind_keyword__Imaginary)
+        return "_Imaginary";
     else if (k == TokenKind_keyword_auto)
         return "auto";
     else if (k == TokenKind_keyword_break)
@@ -214,22 +239,16 @@ const char* token_kind_stringify(TokenKind k) {
         return "volatile";
     else if (k == TokenKind_keyword_while)
         return "while";
-    else if (k == TokenKind_keyword__Bool)
-        return "_Bool";
-    else if (k == TokenKind_keyword__Complex)
-        return "_Complex";
-    else if (k == TokenKind_keyword__Imaginary)
-        return "_Imaginary";
     else if (k == TokenKind_le)
         return "le";
-    else if (k == TokenKind_lshift)
-        return "<<";
-    else if (k == TokenKind_lt)
-        return "lt";
     else if (k == TokenKind_literal_int)
         return "<integer>";
     else if (k == TokenKind_literal_str)
         return "<string>";
+    else if (k == TokenKind_lshift)
+        return "<<";
+    else if (k == TokenKind_lt)
+        return "lt";
     else if (k == TokenKind_minus)
         return "-";
     else if (k == TokenKind_minusminus)
@@ -252,6 +271,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "+";
     else if (k == TokenKind_plusplus)
         return "++";
+    else if (k == TokenKind_question)
+        return "?";
     else if (k == TokenKind_rshift)
         return ">>";
     else if (k == TokenKind_semicolon)
@@ -260,6 +281,10 @@ const char* token_kind_stringify(TokenKind k) {
         return "/";
     else if (k == TokenKind_star)
         return "*";
+    else if (k == TokenKind_tilde)
+        return "~";
+    else if (k == TokenKind_xor)
+        return "^";
     else if (k == TokenKind_va_start)
         return "va_start";
     else
@@ -503,8 +528,21 @@ void pp_tokenize_all(Preprocessor* pp) {
             tok->kind = TokenKind_bracket_r;
         } else if (c == ',') {
             tok->kind = TokenKind_comma;
+        } else if (c == ':') {
+            tok->kind = TokenKind_colon;
         } else if (c == ';') {
             tok->kind = TokenKind_semicolon;
+        } else if (c == '^') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = TokenKind_assign_xor;
+            } else {
+                tok->kind = TokenKind_xor;
+            }
+        } else if (c == '?') {
+            tok->kind = TokenKind_question;
+        } else if (c == '~') {
+            tok->kind = TokenKind_tilde;
         } else if (c == '+') {
             if (pp->src[pp->pos] == '=') {
                 ++pp->pos;
@@ -516,14 +554,20 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_plus;
             }
         } else if (c == '|') {
-            if (pp->src[pp->pos] == '|') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = TokenKind_assign_or;
+            } else if (pp->src[pp->pos] == '|') {
                 ++pp->pos;
                 tok->kind = TokenKind_oror;
             } else {
                 tok->kind = TokenKind_or;
             }
         } else if (c == '&') {
-            if (pp->src[pp->pos] == '&') {
+            if (pp->src[pp->pos] == '=') {
+                ++pp->pos;
+                tok->kind = TokenKind_assign_and;
+            } else if (pp->src[pp->pos] == '&') {
                 ++pp->pos;
                 tok->kind = TokenKind_andand;
             } else {
@@ -624,7 +668,12 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_le;
             } else if (pp->src[pp->pos] == '<') {
                 ++pp->pos;
-                tok->kind = TokenKind_lshift;
+                if (pp->src[pp->pos] == '=') {
+                    ++pp->pos;
+                    tok->kind = TokenKind_assign_lshift;
+                } else {
+                    tok->kind = TokenKind_lshift;
+                }
             } else {
                 tok->kind = TokenKind_lt;
             }
@@ -634,7 +683,12 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_ge;
             } else if (pp->src[pp->pos] == '>') {
                 ++pp->pos;
-                tok->kind = TokenKind_rshift;
+                if (pp->src[pp->pos] == '=') {
+                    ++pp->pos;
+                    tok->kind = TokenKind_assign_rshift;
+                } else {
+                    tok->kind = TokenKind_rshift;
+                }
             } else {
                 tok->kind = TokenKind_gt;
             }
