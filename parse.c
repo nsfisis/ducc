@@ -260,6 +260,7 @@ void leave_func(Parser* p) {
     leave_scope(p);
 }
 
+AstNode* parse_assignment_expr(Parser* p);
 AstNode* parse_expr(Parser* p);
 AstNode* parse_stmt(Parser* p);
 
@@ -334,7 +335,7 @@ AstNode* parse_primary_expr(Parser* p) {
 AstNode* parse_arg_list(Parser* p) {
     AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TokenKind_paren_r) {
-        AstNode* arg = parse_expr(p);
+        AstNode* arg = parse_assignment_expr(p);
         ast_append(list, arg);
         if (peek_token(p)->kind == TokenKind_comma) {
             next_token(p);
@@ -730,8 +731,27 @@ AstNode* parse_assignment_expr(Parser* p) {
     return lhs;
 }
 
+AstNode* parse_comma_expr(Parser* p) {
+    AstNode* lhs = parse_assignment_expr(p);
+    while (1) {
+        TokenKind op = peek_token(p)->kind;
+        if (op == TokenKind_comma) {
+            next_token(p);
+            AstNode* rhs = parse_assignment_expr(p);
+            AstNode* list = ast_new_list(2);
+            ast_append(list, lhs);
+            ast_append(list, rhs);
+            list->ty = rhs->ty;
+            lhs = list;
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
 AstNode* parse_expr(Parser* p) {
-    return parse_assignment_expr(p);
+    return parse_comma_expr(p);
 }
 
 AstNode* parse_return_stmt(Parser* p) {
@@ -789,7 +809,7 @@ AstNode* parse_var_decl(Parser* p) {
     AstNode* init = NULL;
     if (peek_token(p)->kind == TokenKind_assign) {
         next_token(p);
-        init = parse_expr(p);
+        init = parse_assignment_expr(p);
     }
     expect(p, TokenKind_semicolon);
 
