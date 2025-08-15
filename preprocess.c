@@ -377,6 +377,18 @@ struct Macro {
 };
 typedef struct Macro Macro;
 
+int macro_find_param(Macro* macro, Token* tok) {
+    if (tok->kind != TokenKind_ident)
+        return -1;
+
+    for (int i = 0; i < macro->parameters.len; ++i) {
+        if (string_equals(&macro->parameters.data[i].raw, &tok->raw)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 struct MacroArray {
     size_t len;
     size_t capacity;
@@ -443,6 +455,39 @@ void add_predefined_macros(MacroArray* macros) {
     m->kind = MacroKind_builtin_line;
     m->name.len = strlen("__LINE__");
     m->name.data = "__LINE__";
+}
+
+struct MacroArg {
+    TokenArray tokens;
+};
+typedef struct MacroArg MacroArg;
+
+struct MacroArgArray {
+    size_t len;
+    size_t capacity;
+    MacroArg* data;
+};
+typedef struct MacroArgArray MacroArgArray;
+
+MacroArgArray* macroargs_new() {
+    MacroArgArray* macroargs = calloc(1, sizeof(MacroArgArray));
+    macroargs->len = 0;
+    macroargs->capacity = 2;
+    macroargs->data = calloc(macroargs->capacity, sizeof(MacroArg));
+    return macroargs;
+}
+
+void macroargs_reserve(MacroArgArray* macroargs, size_t size) {
+    if (size <= macroargs->capacity)
+        return;
+    macroargs->capacity *= 2;
+    macroargs->data = realloc(macroargs->data, macroargs->capacity * sizeof(MacroArg));
+    memset(macroargs->data + macroargs->len, 0, (macroargs->capacity - macroargs->len) * sizeof(MacroArg));
+}
+
+MacroArg* macroargs_push_new(MacroArgArray* macroargs) {
+    macroargs_reserve(macroargs, macroargs->len + 1);
+    return &macroargs->data[macroargs->len++];
 }
 
 struct PpLexer {
@@ -1147,6 +1192,39 @@ void process_pragma_directive(Preprocessor* pp, int hash_pos) {
     unimplemented();
 }
 
+// ws ::= many0(<Whitespace>)
+// macro-arguments ::= '(' <ws> opt(<any-token> <ws> many0(',' <ws> <any-token> <ws>)) ')'
+MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
+    MacroArgArray* args = macroargs_new();
+
+    Token* tok = next_pp_token(pp);
+    if (tok->kind != TokenKind_paren_l) {
+        fatal_error("%s:%d: invalid macro syntax", tok->loc.filename, tok->loc.line);
+    }
+    skip_whitespaces(pp);
+    tok = next_pp_token(pp);
+    if (tok->kind != TokenKind_paren_r) {
+        MacroArg* arg = macroargs_push_new(args);
+        tokens_init(&arg->tokens, 1);
+        *tokens_push_new(&arg->tokens) = *tok;
+        skip_whitespaces(pp);
+        while (peek_pp_token(pp)->kind == TokenKind_comma) {
+            next_pp_token(pp);
+            skip_whitespaces(pp);
+            tok = next_pp_token(pp);
+            arg = macroargs_push_new(args);
+            tokens_init(&arg->tokens, 1);
+            *tokens_push_new(&arg->tokens) = *tok;
+        }
+        tok = next_pp_token(pp);
+    }
+    if (tok->kind != TokenKind_paren_r) {
+        fatal_error("%s:%d: invalid macro syntax", tok->loc.filename, tok->loc.line);
+    }
+
+    return args;
+}
+
 BOOL expand_macro(Preprocessor* pp) {
     int macro_name_pos = pp->pos;
     Token* macro_name = next_pp_token(pp);
@@ -1158,8 +1236,15 @@ BOOL expand_macro(Preprocessor* pp) {
     SourceLocation original_loc = macro_name->loc;
     Macro* macro = &pp->macros->data[macro_idx];
     if (macro->kind == MacroKind_func) {
-        // also consume '(' and ')'
-        replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 3, &macro->replacements);
+        MacroArgArray* args = pp_parse_macro_arguments(pp);
+        replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
+        for (int i = 0; i < macro->replacements.len; ++i) {
+            Token* tok = pp_token_at(pp, macro_name_pos + i);
+            int macro_param_idx = macro_find_param(macro, tok);
+            if (macro_param_idx != -1) {
+                replace_pp_tokens(pp, macro_name_pos + i, macro_name_pos + i + 1, &args->data[macro_param_idx].tokens);
+            }
+        }
         // Inherit a source location from the original macro token.
         for (int i = 0; i < macro->replacements.len; ++i) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
