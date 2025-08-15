@@ -707,22 +707,41 @@ AstNode* parse_logical_or_expr(Parser* p) {
     return lhs;
 }
 
+AstNode* parse_conditional_expr(Parser* p) {
+    AstNode* e = parse_logical_or_expr(p);
+    if (peek_token(p)->kind == TokenKind_question) {
+        next_token(p);
+        AstNode* then_expr = parse_expr(p);
+        expect(p, TokenKind_colon);
+        AstNode* else_expr = parse_assignment_expr(p);
+        AstNode* ret = ast_new(AstNodeKind_cond_expr);
+        ret->node_cond = e;
+        ret->node_then = then_expr;
+        ret->node_else = else_expr;
+        ret->ty = then_expr->ty;
+        return ret;
+    } else {
+        return e;
+    }
+}
+
 AstNode* parse_assignment_expr(Parser* p) {
-    AstNode* lhs = parse_logical_or_expr(p);
+    AstNode* lhs = parse_conditional_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
+        // TODO: check if the lhs is unary expression.
         if (op == TokenKind_assign || op == TokenKind_assign_mul || op == TokenKind_assign_div ||
             op == TokenKind_assign_mod) {
             next_token(p);
-            AstNode* rhs = parse_logical_or_expr(p);
+            AstNode* rhs = parse_assignment_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
         } else if (op == TokenKind_assign_add) {
             next_token(p);
-            AstNode* rhs = parse_logical_or_expr(p);
+            AstNode* rhs = parse_assignment_expr(p);
             lhs = ast_new_assign_add_expr(lhs, rhs);
         } else if (op == TokenKind_assign_sub) {
             next_token(p);
-            AstNode* rhs = parse_logical_or_expr(p);
+            AstNode* rhs = parse_assignment_expr(p);
             lhs = ast_new_assign_sub_expr(lhs, rhs);
         } else {
             break;

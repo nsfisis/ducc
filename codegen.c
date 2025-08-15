@@ -203,6 +203,20 @@ void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     printf("  push rax\n");
 }
 
+void codegen_cond_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+    int label = codegen_new_label(g);
+
+    codegen_expr(g, ast->node_cond, GenMode_rval);
+    printf("  pop rax\n");
+    printf("  cmp rax, 0\n");
+    printf("  je .Lelse%d\n", label);
+    codegen_expr(g, ast->node_then, gen_mode);
+    printf("  jmp .Lend%d\n", label);
+    printf(".Lelse%d:\n", label);
+    codegen_expr(g, ast->node_else, gen_mode);
+    printf(".Lend%d:\n", label);
+}
+
 void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
     if (ast->node_op == TokenKind_assign) {
         return;
@@ -379,6 +393,8 @@ void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
         codegen_deref_expr(g, ast, gen_mode);
     } else if (ast->kind == AstNodeKind_binary_expr) {
         codegen_binary_expr(g, ast, gen_mode);
+    } else if (ast->kind == AstNodeKind_cond_expr) {
+        codegen_cond_expr(g, ast, gen_mode);
     } else if (ast->kind == AstNodeKind_logical_expr) {
         codegen_logical_expr(g, ast);
     } else if (ast->kind == AstNodeKind_assign_expr) {

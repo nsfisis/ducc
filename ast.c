@@ -163,6 +163,7 @@ enum AstNodeKind {
     AstNodeKind_assign_expr,
     AstNodeKind_binary_expr,
     AstNodeKind_break_stmt,
+    AstNodeKind_cond_expr,
     AstNodeKind_continue_stmt,
     AstNodeKind_deref_expr,
     AstNodeKind_do_while_stmt,
