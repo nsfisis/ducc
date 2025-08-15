@@ -778,12 +778,17 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                 tok->kind = TokenKind_ident;
             }
         } else if (isspace(c)) {
-            if (c == '\n' || c == '\r') {
-                ++ppl->line;
+            --ppl->pos;
+            int start = ppl->pos;
+            while (isspace((c = ppl->src[ppl->pos]))) {
+                if (c == '\n' || c == '\r') {
+                    ++ppl->line;
+                }
+                ++ppl->pos;
             }
             tok->kind = TokenKind_whitespace;
-            tok->raw.len = 1;
-            tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
+            tok->raw.data = ppl->src + start;
+            tok->raw.len = ppl->pos - start;
         } else {
             tok->kind = TokenKind_other;
             tok->raw.len = 1;
