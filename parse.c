@@ -1058,6 +1058,11 @@ AstNode* parse_global_var_decl(Parser* p, Type* ty, String* name) {
         ty = type_new_array(ty, size);
     }
 
+    AstNode* init = NULL;
+    if (peek_token(p)->kind == TokenKind_assign) {
+        next_token(p);
+        init = parse_assignment_expr(p);
+    }
     expect(p, TokenKind_semicolon);
 
     if (find_gvar(p, name) != -1) {
@@ -1071,6 +1076,7 @@ AstNode* parse_global_var_decl(Parser* p, Type* ty, String* name) {
     AstNode* ret = ast_new(AstNodeKind_gvar_decl);
     ret->name = *name;
     ret->ty = ty;
+    ret->node_expr = init;
     return ret;
 }
 

@@ -564,10 +564,21 @@ void codegen(Program* prog) {
         printf("  .string \"%s\"\n\n", prog->str_literals[i]);
     }
 
-    printf(".bss\n\n");
+    printf(".data\n\n");
     for (int i = 0; i < prog->vars->node_len; ++i) {
         AstNode* var = prog->vars->node_items + i;
-        printf("  .lcomm %.*s, %d\n", var->name.len, var->name.data, type_sizeof(var->ty));
+        if (var->node_expr) {
+            if (var->ty->kind == TypeKind_char)
+                printf("  %.*s: .byte %d\n", var->name.len, var->name.data, var->node_expr->node_int_value);
+            else if (var->ty->kind == TypeKind_short)
+                printf("  %.*s: .word %d\n", var->name.len, var->name.data, var->node_expr->node_int_value);
+            else if (var->ty->kind == TypeKind_int)
+                printf("  %.*s: .int %d\n", var->name.len, var->name.data, var->node_expr->node_int_value);
+            else
+                unimplemented();
+        } else {
+            printf("  %.*s: .zero %d\n", var->name.len, var->name.data, type_sizeof(var->ty));
+        }
     }
 
     printf(".globl main\n\n");
