@@ -444,76 +444,34 @@ void add_predefined_macros(MacroArray* macros) {
     m->name.data = "__LINE__";
 }
 
-struct Preprocessor {
+struct PpLexer {
     const char* filename;
     int line;
     char* src;
     int pos;
     TokenArray* pp_tokens;
-    MacroArray* macros;
-    int include_depth;
-    BOOL skip_pp_tokens;
-    String* include_paths;
-    int n_include_paths;
 };
-typedef struct Preprocessor Preprocessor;
+typedef struct PpLexer PpLexer;
 
-TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros);
+PpLexer* pplexer_new(InFile* src) {
+    PpLexer* ppl = calloc(1, sizeof(PpLexer));
 
-Preprocessor* preprocessor_new(InFile* src, int include_depth, MacroArray* macros) {
-    if (include_depth >= 32) {
-        fatal_error("include depth limit exceeded");
-    }
+    ppl->filename = src->filename;
+    ppl->line = 1;
+    ppl->src = src->buf;
+    ppl->pp_tokens = calloc(1, sizeof(TokenArray));
+    tokens_init(ppl->pp_tokens, 1024 * 16);
 
-    Preprocessor* pp = calloc(1, sizeof(Preprocessor));
-    pp->filename = src->filename;
-    pp->line = 1;
-    pp->src = src->buf;
-    pp->pp_tokens = calloc(1, sizeof(TokenArray));
-    tokens_init(pp->pp_tokens, 1024 * 16);
-    pp->macros = macros;
-    pp->include_depth = include_depth;
-    pp->include_paths = calloc(16, sizeof(String));
-
-    return pp;
+    return ppl;
 }
 
-Token* pp_token_at(Preprocessor* pp, int i) {
-    return &pp->pp_tokens->data[i];
-}
-
-int find_macro(Preprocessor* pp, String* name) {
-    for (int i = 0; i < pp->macros->len; ++i) {
-        if (string_equals(&pp->macros->data[i].name, name)) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-void undef_macro(Preprocessor* pp, int idx) {
-    pp->macros->data[idx].name.len = 0;
-    // TODO: Can predefined macro like __FILE__ be undefined?
-}
-
-void add_include_path(Preprocessor* pp, char* include_path) {
-    pp->include_paths[pp->n_include_paths].data = include_path;
-    pp->include_paths[pp->n_include_paths].len = strlen(include_path);
-    ++pp->n_include_paths;
-}
-
-BOOL skip_pp_tokens(Preprocessor* pp) {
-    // TODO: support nested #if
-    return pp->skip_pp_tokens;
-}
-
-void pp_tokenize_all(Preprocessor* pp) {
-    while (pp->src[pp->pos]) {
-        Token* tok = tokens_push_new(pp->pp_tokens);
-        tok->loc.filename = pp->filename;
-        tok->loc.line = pp->line;
-        char c = pp->src[pp->pos];
-        ++pp->pos;
+void pplexer_tokenize_all(PpLexer* ppl) {
+    while (ppl->src[ppl->pos]) {
+        Token* tok = tokens_push_new(ppl->pp_tokens);
+        tok->loc.filename = ppl->filename;
+        tok->loc.line = ppl->line;
+        char c = ppl->src[ppl->pos];
+        ++ppl->pos;
         if (c == '(') {
             tok->kind = TokenKind_paren_l;
         } else if (c == ')') {
@@ -533,8 +491,8 @@ void pp_tokenize_all(Preprocessor* pp) {
         } else if (c == ';') {
             tok->kind = TokenKind_semicolon;
         } else if (c == '^') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_xor;
             } else {
                 tok->kind = TokenKind_xor;
@@ -544,132 +502,132 @@ void pp_tokenize_all(Preprocessor* pp) {
         } else if (c == '~') {
             tok->kind = TokenKind_tilde;
         } else if (c == '+') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_add;
-            } else if (pp->src[pp->pos] == '+') {
-                ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '+') {
+                ++ppl->pos;
                 tok->kind = TokenKind_plusplus;
             } else {
                 tok->kind = TokenKind_plus;
             }
         } else if (c == '|') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_or;
-            } else if (pp->src[pp->pos] == '|') {
-                ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '|') {
+                ++ppl->pos;
                 tok->kind = TokenKind_oror;
             } else {
                 tok->kind = TokenKind_or;
             }
         } else if (c == '&') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_and;
-            } else if (pp->src[pp->pos] == '&') {
-                ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '&') {
+                ++ppl->pos;
                 tok->kind = TokenKind_andand;
             } else {
                 tok->kind = TokenKind_and;
             }
         } else if (c == '-') {
-            if (pp->src[pp->pos] == '>') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '>') {
+                ++ppl->pos;
                 tok->kind = TokenKind_arrow;
-            } else if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_sub;
-            } else if (pp->src[pp->pos] == '-') {
-                ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '-') {
+                ++ppl->pos;
                 tok->kind = TokenKind_minusminus;
             } else {
                 tok->kind = TokenKind_minus;
             }
         } else if (c == '*') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_mul;
             } else {
                 tok->kind = TokenKind_star;
             }
         } else if (c == '/') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_div;
-            } else if (pp->src[pp->pos] == '/') {
-                int start = pp->pos - 1;
-                ++pp->pos;
-                while (pp->src[pp->pos] && pp->src[pp->pos] != '\n' && pp->src[pp->pos] != '\r') {
-                    ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '/') {
+                int start = ppl->pos - 1;
+                ++ppl->pos;
+                while (ppl->src[ppl->pos] && ppl->src[ppl->pos] != '\n' && ppl->src[ppl->pos] != '\r') {
+                    ++ppl->pos;
                 }
                 tok->kind = TokenKind_whitespace;
-                tok->raw.len = pp->pos - start;
-                tok->raw.data = pp->src + pp->pos - tok->raw.len;
-            } else if (pp->src[pp->pos] == '*') {
-                int start = pp->pos - 1;
-                ++pp->pos;
-                while (pp->src[pp->pos]) {
-                    if (pp->src[pp->pos] == '*' && pp->src[pp->pos + 1] == '/') {
-                        pp->pos += 2;
+                tok->raw.len = ppl->pos - start;
+                tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
+            } else if (ppl->src[ppl->pos] == '*') {
+                int start = ppl->pos - 1;
+                ++ppl->pos;
+                while (ppl->src[ppl->pos]) {
+                    if (ppl->src[ppl->pos] == '*' && ppl->src[ppl->pos + 1] == '/') {
+                        ppl->pos += 2;
                         break;
                     }
-                    if (pp->src[pp->pos] == '\n') {
-                        ++pp->line;
+                    if (ppl->src[ppl->pos] == '\n') {
+                        ++ppl->line;
                     }
-                    ++pp->pos;
+                    ++ppl->pos;
                 }
                 tok->kind = TokenKind_whitespace;
-                tok->raw.len = pp->pos - start;
-                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+                tok->raw.len = ppl->pos - start;
+                tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
             } else {
                 tok->kind = TokenKind_slash;
             }
         } else if (c == '%') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_assign_mod;
             } else {
                 tok->kind = TokenKind_percent;
             }
         } else if (c == '.') {
-            if (pp->src[pp->pos] == '.') {
-                ++pp->pos;
-                if (pp->src[pp->pos] == '.') {
-                    ++pp->pos;
+            if (ppl->src[ppl->pos] == '.') {
+                ++ppl->pos;
+                if (ppl->src[ppl->pos] == '.') {
+                    ++ppl->pos;
                     tok->kind = TokenKind_ellipsis;
                 } else {
                     tok->kind = TokenKind_other;
                     tok->raw.len = 2;
-                    tok->raw.data = pp->src + pp->pos - tok->raw.len;
+                    tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
                 }
             } else {
                 tok->kind = TokenKind_dot;
                 tok->raw.len = 1;
-                tok->raw.data = pp->src + pp->pos - tok->raw.len;
+                tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
             }
         } else if (c == '!') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_ne;
             } else {
                 tok->kind = TokenKind_not;
             }
         } else if (c == '=') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_eq;
             } else {
                 tok->kind = TokenKind_assign;
             }
         } else if (c == '<') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_le;
-            } else if (pp->src[pp->pos] == '<') {
-                ++pp->pos;
-                if (pp->src[pp->pos] == '=') {
-                    ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '<') {
+                ++ppl->pos;
+                if (ppl->src[ppl->pos] == '=') {
+                    ++ppl->pos;
                     tok->kind = TokenKind_assign_lshift;
                 } else {
                     tok->kind = TokenKind_lshift;
@@ -678,13 +636,13 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_lt;
             }
         } else if (c == '>') {
-            if (pp->src[pp->pos] == '=') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '=') {
+                ++ppl->pos;
                 tok->kind = TokenKind_ge;
-            } else if (pp->src[pp->pos] == '>') {
-                ++pp->pos;
-                if (pp->src[pp->pos] == '=') {
-                    ++pp->pos;
+            } else if (ppl->src[ppl->pos] == '>') {
+                ++ppl->pos;
+                if (ppl->src[ppl->pos] == '=') {
+                    ++ppl->pos;
                     tok->kind = TokenKind_assign_rshift;
                 } else {
                     tok->kind = TokenKind_rshift;
@@ -693,53 +651,53 @@ void pp_tokenize_all(Preprocessor* pp) {
                 tok->kind = TokenKind_gt;
             }
         } else if (c == '#') {
-            if (pp->src[pp->pos] == '#') {
-                ++pp->pos;
+            if (ppl->src[ppl->pos] == '#') {
+                ++ppl->pos;
                 tok->kind = TokenKind_hashhash;
             } else {
                 tok->kind = TokenKind_hash;
             }
         } else if (c == '\'') {
-            int start = pp->pos - 1;
-            if (pp->src[pp->pos] == '\\') {
-                ++pp->pos;
+            int start = ppl->pos - 1;
+            if (ppl->src[ppl->pos] == '\\') {
+                ++ppl->pos;
             }
-            pp->pos += 2;
+            ppl->pos += 2;
             tok->kind = TokenKind_character_constant;
-            tok->raw.data = pp->src + start;
-            tok->raw.len = pp->pos - start;
+            tok->raw.data = ppl->src + start;
+            tok->raw.len = ppl->pos - start;
         } else if (c == '"') {
-            int start = pp->pos - 1;
+            int start = ppl->pos - 1;
             while (1) {
-                char ch = pp->src[pp->pos];
+                char ch = ppl->src[ppl->pos];
                 if (ch == '\\') {
-                    ++pp->pos;
+                    ++ppl->pos;
                 } else if (ch == '"') {
                     break;
                 }
-                ++pp->pos;
+                ++ppl->pos;
             }
-            ++pp->pos;
+            ++ppl->pos;
             tok->kind = TokenKind_literal_str;
-            tok->raw.data = pp->src + start;
-            tok->raw.len = pp->pos - start;
+            tok->raw.data = ppl->src + start;
+            tok->raw.len = ppl->pos - start;
         } else if (isdigit(c)) {
-            --pp->pos;
-            int start = pp->pos;
-            while (isdigit(pp->src[pp->pos])) {
-                ++pp->pos;
+            --ppl->pos;
+            int start = ppl->pos;
+            while (isdigit(ppl->src[ppl->pos])) {
+                ++ppl->pos;
             }
             tok->kind = TokenKind_literal_int;
-            tok->raw.data = pp->src + start;
-            tok->raw.len = pp->pos - start;
+            tok->raw.data = ppl->src + start;
+            tok->raw.len = ppl->pos - start;
         } else if (isalpha(c) || c == '_') {
-            --pp->pos;
-            int start = pp->pos;
-            while (isalnum(pp->src[pp->pos]) || pp->src[pp->pos] == '_') {
-                ++pp->pos;
+            --ppl->pos;
+            int start = ppl->pos;
+            while (isalnum(ppl->src[ppl->pos]) || ppl->src[ppl->pos] == '_') {
+                ++ppl->pos;
             }
-            tok->raw.data = pp->src + start;
-            tok->raw.len = pp->pos - start;
+            tok->raw.data = ppl->src + start;
+            tok->raw.len = ppl->pos - start;
             if (string_equals_cstr(&tok->raw, "auto")) {
                 tok->kind = TokenKind_keyword_auto;
             } else if (string_equals_cstr(&tok->raw, "break")) {
@@ -821,30 +779,101 @@ void pp_tokenize_all(Preprocessor* pp) {
             }
         } else if (isspace(c)) {
             if (c == '\n' || c == '\r') {
-                ++pp->line;
+                ++ppl->line;
             }
             tok->kind = TokenKind_whitespace;
             tok->raw.len = 1;
-            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
         } else {
             tok->kind = TokenKind_other;
             tok->raw.len = 1;
-            tok->raw.data = pp->src + pp->pos - tok->raw.len;
+            tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
         }
     }
-    Token* eof_tok = tokens_push_new(pp->pp_tokens);
-    eof_tok->loc.filename = pp->filename;
-    eof_tok->loc.line = pp->line;
+    Token* eof_tok = tokens_push_new(ppl->pp_tokens);
+    eof_tok->loc.filename = ppl->filename;
+    eof_tok->loc.line = ppl->line;
     eof_tok->kind = TokenKind_eof;
 }
 
-int skip_whitespace(Preprocessor* pp, int pos) {
-    for (; pos < pp->pp_tokens->len; ++pos) {
-        if (pp_token_at(pp, pos)->kind != TokenKind_whitespace) {
-            break;
+TokenArray* pp_tokenize(InFile* src) {
+    PpLexer* ppl = pplexer_new(src);
+    pplexer_tokenize_all(ppl);
+    return ppl->pp_tokens;
+}
+
+struct Preprocessor {
+    TokenArray* pp_tokens;
+    int pos;
+    MacroArray* macros;
+    int include_depth;
+    BOOL skip_pp_tokens;
+    String* include_paths;
+    int n_include_paths;
+};
+typedef struct Preprocessor Preprocessor;
+
+TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros);
+
+Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros) {
+    if (include_depth >= 32) {
+        fatal_error("include depth limit exceeded");
+    }
+
+    Preprocessor* pp = calloc(1, sizeof(Preprocessor));
+    pp->pp_tokens = pp_tokens;
+    pp->macros = macros;
+    pp->include_depth = include_depth;
+    pp->include_paths = calloc(16, sizeof(String));
+
+    return pp;
+}
+
+Token* pp_token_at(Preprocessor* pp, int i) {
+    return &pp->pp_tokens->data[i];
+}
+
+Token* peek_pp_token(Preprocessor* pp) {
+    return pp_token_at(pp, pp->pos);
+}
+
+Token* next_pp_token(Preprocessor* pp) {
+    return pp_token_at(pp, pp->pos++);
+}
+
+BOOL pp_eof(Preprocessor* pp) {
+    return peek_pp_token(pp)->kind == TokenKind_eof;
+}
+
+int find_macro(Preprocessor* pp, String* name) {
+    for (int i = 0; i < pp->macros->len; ++i) {
+        if (string_equals(&pp->macros->data[i].name, name)) {
+            return i;
         }
     }
-    return pos;
+    return -1;
+}
+
+void undef_macro(Preprocessor* pp, int idx) {
+    pp->macros->data[idx].name.len = 0;
+    // TODO: Can predefined macro like __FILE__ be undefined?
+}
+
+void add_include_path(Preprocessor* pp, char* include_path) {
+    pp->include_paths[pp->n_include_paths].data = include_path;
+    pp->include_paths[pp->n_include_paths].len = strlen(include_path);
+    ++pp->n_include_paths;
+}
+
+BOOL skip_pp_tokens(Preprocessor* pp) {
+    // TODO: support nested #if
+    return pp->skip_pp_tokens;
+}
+
+void skip_whitespaces(Preprocessor* pp) {
+    while (!pp_eof(pp) && peek_pp_token(pp)->kind == TokenKind_whitespace) {
+        next_pp_token(pp);
+    }
 }
 
 BOOL string_contains_newline(String* s) {
@@ -856,13 +885,14 @@ BOOL string_contains_newline(String* s) {
     return FALSE;
 }
 
-int find_next_newline(Preprocessor* pp, int pos) {
-    for (; pos < pp->pp_tokens->len; ++pos) {
-        if (pp_token_at(pp, pos)->kind == TokenKind_whitespace && string_contains_newline(&pp_token_at(pp, pos)->raw)) {
-            return pos;
+void seek_to_next_newline(Preprocessor* pp) {
+    while (!pp_eof(pp)) {
+        Token* tok = peek_pp_token(pp);
+        if (tok->kind == TokenKind_whitespace && string_contains_newline(&tok->raw)) {
+            break;
         }
+        next_pp_token(pp);
     }
-    return -1;
 }
 
 void make_token_whitespace(Token* tok) {
@@ -877,75 +907,72 @@ void remove_directive_tokens(Preprocessor* pp, int start, int end) {
     }
 }
 
-int process_endif_directive(Preprocessor* pp, int tok, int tok2) {
-    ++tok2;
+void process_endif_directive(Preprocessor* pp, int hash_pos) {
+    next_pp_token(pp);
     pp->skip_pp_tokens = FALSE;
-    remove_directive_tokens(pp, tok, tok2);
-    return tok2;
+    remove_directive_tokens(pp, hash_pos, pp->pos);
 }
 
-int process_else_directive(Preprocessor* pp, int tok, int tok2) {
-    ++tok2;
+void process_else_directive(Preprocessor* pp, int hash_pos) {
+    next_pp_token(pp);
     pp->skip_pp_tokens = !pp->skip_pp_tokens;
-    remove_directive_tokens(pp, tok, tok2);
-    return tok2;
+    remove_directive_tokens(pp, hash_pos, pp->pos);
 }
 
-int process_elif_directive(Preprocessor* pp, int tok, int tok2) {
+void process_elif_directive(Preprocessor* pp, int hash_pos) {
     unimplemented();
 }
 
-int process_if_directive(Preprocessor* pp, int tok, int tok2) {
+void process_if_directive(Preprocessor* pp, int hash_pos) {
     unimplemented();
 }
 
-int process_ifdef_directive(Preprocessor* pp, int tok, int tok2) {
-    ++tok2;
-    tok2 = skip_whitespace(pp, tok2);
-    if (pp_token_at(pp, tok2)->kind == TokenKind_ident) {
-        Token* name = pp_token_at(pp, tok2);
-        ++tok2;
-        pp->skip_pp_tokens = find_macro(pp, &name->raw) == -1;
+void process_ifdef_directive(Preprocessor* pp, int hash_pos) {
+    next_pp_token(pp);
+    skip_whitespaces(pp);
+    Token* macro_name = peek_pp_token(pp);
+    if (macro_name->kind == TokenKind_ident) {
+        next_pp_token(pp);
+        pp->skip_pp_tokens = find_macro(pp, &macro_name->raw) == -1;
     }
-    remove_directive_tokens(pp, tok, tok2);
-    return tok2;
+    remove_directive_tokens(pp, hash_pos, pp->pos);
 }
 
-int process_ifndef_directive(Preprocessor* pp, int tok, int tok2) {
-    ++tok2;
-    tok2 = skip_whitespace(pp, tok2);
-    if (pp_token_at(pp, tok2)->kind == TokenKind_ident) {
-        Token* name = pp_token_at(pp, tok2);
-        ++tok2;
-        pp->skip_pp_tokens = find_macro(pp, &name->raw) != -1;
+void process_ifndef_directive(Preprocessor* pp, int hash_pos) {
+    next_pp_token(pp);
+    skip_whitespaces(pp);
+    Token* macro_name = peek_pp_token(pp);
+    if (macro_name->kind == TokenKind_ident) {
+        next_pp_token(pp);
+        pp->skip_pp_tokens = find_macro(pp, &macro_name->raw) != -1;
     }
-    remove_directive_tokens(pp, tok, tok2);
-    return tok2;
+    remove_directive_tokens(pp, hash_pos, pp->pos);
 }
 
-int read_include_header_name(Preprocessor* pp, int tok2, String* include_name) {
-    if (pp_token_at(pp, tok2)->kind == TokenKind_literal_str) {
-        *include_name = pp_token_at(pp, tok2)->raw;
-        ++tok2;
-        return tok2;
-    } else if (pp_token_at(pp, tok2)->kind == TokenKind_lt) {
-        ++tok2;
-        char* include_name_start = pp_token_at(pp, tok2)->raw.data;
+String* read_include_header_name(Preprocessor* pp) {
+    Token* tok = next_pp_token(pp);
+    if (tok->kind == TokenKind_literal_str) {
+        return &tok->raw;
+    } else if (tok->kind == TokenKind_lt) {
+        char* include_name_start = peek_pp_token(pp)->raw.data;
         int include_name_len = 0;
-        while (pp_token_at(pp, tok2)->kind != TokenKind_eof) {
-            if (pp_token_at(pp, tok2)->kind == TokenKind_gt) {
+        while (!pp_eof(pp)) {
+            if (peek_pp_token(pp)->kind == TokenKind_gt) {
                 break;
             }
-            include_name_len += pp_token_at(pp, tok2)->raw.len;
-            ++tok2;
+            include_name_len += peek_pp_token(pp)->raw.len;
+            next_pp_token(pp);
         }
-        if (pp_token_at(pp, tok2)->kind == TokenKind_eof) {
+        if (pp_eof(pp)) {
             fatal_error("invalid #include: <> not balanced");
         }
-        ++tok2;
+        next_pp_token(pp);
+        String* include_name = calloc(1, sizeof(String));
         include_name->data = include_name_start;
         include_name->len = include_name_len;
-        return tok2;
+        return include_name;
+    } else {
+        unreachable();
     }
 }
 
@@ -975,24 +1002,24 @@ int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, TokenArray
         // Move existing tokens backward to make room.
         shift_amount = source_tokens->len - n_tokens_to_remove;
         tokens_reserve(pp->pp_tokens, pp->pp_tokens->len + shift_amount);
-        memmove(pp->pp_tokens->data + dest_end + shift_amount, pp->pp_tokens->data + dest_end,
+        memmove(pp_token_at(pp, dest_end + shift_amount), pp_token_at(pp, dest_end),
                 n_tokens_after_dest * sizeof(Token));
         pp->pp_tokens->len += shift_amount;
     } else if (source_tokens->len < n_tokens_to_remove) {
         // Move existing tokens forward to reduce room.
         shift_amount = n_tokens_to_remove - source_tokens->len;
-        memmove(pp->pp_tokens->data + dest_start + source_tokens->len, pp->pp_tokens->data + dest_end,
+        memmove(pp_token_at(pp, dest_start + source_tokens->len), pp_token_at(pp, dest_end),
                 n_tokens_after_dest * sizeof(Token));
         pp->pp_tokens->len -= shift_amount;
-        memset(pp->pp_tokens->data + pp->pp_tokens->len, 0, shift_amount * sizeof(Token));
+        memset(pp_token_at(pp, pp->pp_tokens->len), 0, shift_amount * sizeof(Token));
     }
 
-    memcpy(pp->pp_tokens->data + dest_start, source_tokens->data, source_tokens->len * sizeof(Token));
+    memcpy(pp_token_at(pp, dest_start), source_tokens->data, source_tokens->len * sizeof(Token));
 
     return dest_start + source_tokens->len;
 }
 
-int expand_include_directive(Preprocessor* pp, int tok, int tok2, const char* include_name_buf) {
+void expand_include_directive(Preprocessor* pp, int hash_pos, const char* include_name_buf) {
     InFile* include_source = read_all(include_name_buf);
     if (!include_source) {
         fatal_error("cannot open include file: %s", include_name_buf);
@@ -1000,137 +1027,133 @@ int expand_include_directive(Preprocessor* pp, int tok, int tok2, const char* in
 
     TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros);
     tokens_pop(include_pp_tokens); // pop EOF token
-    return replace_pp_tokens(pp, tok, tok2 + 1, include_pp_tokens);
+    pp->pos = replace_pp_tokens(pp, hash_pos, pp->pos, include_pp_tokens);
 }
 
-int process_include_directive(Preprocessor* pp, int tok, int tok2) {
-    ++tok2;
-    tok2 = skip_whitespace(pp, tok2);
-    String* include_name = calloc(1, sizeof(String));
-    tok2 = read_include_header_name(pp, tok2, include_name);
+void process_include_directive(Preprocessor* pp, int hash_pos) {
+    next_pp_token(pp);
+    skip_whitespaces(pp);
+    String* include_name = read_include_header_name(pp);
     const char* include_name_buf = resolve_include_name(pp, include_name);
     if (include_name_buf == NULL) {
         fatal_error("cannot resolve include file name: %.*s", include_name->len, include_name->data);
     }
-    return expand_include_directive(pp, tok, tok2, include_name_buf);
+    expand_include_directive(pp, hash_pos, include_name_buf);
 }
 
-int process_define_directive(Preprocessor* pp, int tok, int tok2) {
-    int tok3 = -1;
-    ++tok2;
-    tok2 = skip_whitespace(pp, tok2);
-    if (pp_token_at(pp, tok2)->kind != TokenKind_ident) {
-        fatal_error("%s:%s: invalid #define syntax", pp_token_at(pp, tok2)->loc.filename,
-                    pp_token_at(pp, tok2)->loc.line);
+void process_define_directive(Preprocessor* pp, int hash_pos) {
+    next_pp_token(pp);
+    skip_whitespaces(pp);
+    Token* macro_name = next_pp_token(pp);
+
+    if (macro_name->kind != TokenKind_ident) {
+        fatal_error("%s:%s: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
     }
 
-    Token* macro_name = pp_token_at(pp, tok2);
-    ++tok2;
-    if (pp_token_at(pp, tok2)->kind == TokenKind_paren_l) {
-        ++tok2;
-        if (pp_token_at(pp, tok2)->kind == TokenKind_paren_r) {
-            ++tok2;
-        } else {
-            fatal_error("%s:%d: invalid function-like macro syntax (#define %.*s)", macro_name->loc.filename,
-                        macro_name->loc.line, macro_name->raw.len, macro_name->raw.data);
+    if (peek_pp_token(pp)->kind == TokenKind_paren_l) {
+        next_pp_token(pp);
+        if (peek_pp_token(pp)->kind != TokenKind_paren_r) {
+            unimplemented();
         }
-        tok3 = find_next_newline(pp, tok2);
-        if (tok3 == -1) {
-            fatal_error("%s:%s: invalid #define syntax", pp_token_at(pp, tok3)->loc.filename,
-                        pp_token_at(pp, tok3)->loc.line);
+        next_pp_token(pp);
+        int replacements_start_pos = pp->pos;
+        seek_to_next_newline(pp);
+        if (pp_eof(pp)) {
+            fatal_error("%s:%s: invalid #define syntax");
         }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_func;
         macro->name = macro_name->raw;
-        int n_replacements = tok3 - tok2;
+        int n_replacements = pp->pos - replacements_start_pos;
         tokens_init(&macro->replacements, n_replacements);
         for (int i = 0; i < n_replacements; ++i) {
-            *tokens_push_new(&macro->replacements) = *pp_token_at(pp, tok2 + i);
+            *tokens_push_new(&macro->replacements) = *pp_token_at(pp, replacements_start_pos + i);
         }
     } else {
-        tok3 = find_next_newline(pp, tok2);
-        if (tok3 == -1) {
-            fatal_error("%s:%s: invalid #define syntax", pp_token_at(pp, tok3)->loc.filename,
-                        pp_token_at(pp, tok3)->loc.line);
+        int replacements_start_pos = pp->pos;
+        seek_to_next_newline(pp);
+        if (pp_eof(pp)) {
+            fatal_error("%s:%s: invalid #define syntax");
         }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_obj;
         macro->name = macro_name->raw;
-        int n_replacements = tok3 - tok2;
+        int n_replacements = pp->pos - replacements_start_pos;
         tokens_init(&macro->replacements, n_replacements);
         for (int i = 0; i < n_replacements; ++i) {
-            *tokens_push_new(&macro->replacements) = *pp_token_at(pp, tok2 + i);
+            *tokens_push_new(&macro->replacements) = *pp_token_at(pp, replacements_start_pos + i);
         }
     }
-    remove_directive_tokens(pp, tok, tok3);
-    return tok3;
+    remove_directive_tokens(pp, hash_pos, pp->pos);
 }
 
-int process_undef_directive(Preprocessor* pp, int tok, int tok2) {
-    tok2 = skip_whitespace(pp, tok2 + 1);
-    if (pp_token_at(pp, tok2)->kind == TokenKind_ident) {
-        Token* macro_name = pp_token_at(pp, tok2);
-        ++tok2;
+void process_undef_directive(Preprocessor* pp, int hash_pos) {
+    next_pp_token(pp);
+    skip_whitespaces(pp);
+    Token* macro_name = peek_pp_token(pp);
+    if (macro_name->kind == TokenKind_ident) {
+        next_pp_token(pp);
         int macro_idx = find_macro(pp, &macro_name->raw);
         if (macro_idx != -1) {
             undef_macro(pp, macro_idx);
         }
     }
-    remove_directive_tokens(pp, tok, tok2);
-    return tok2;
+    remove_directive_tokens(pp, hash_pos, pp->pos);
 }
 
-int process_line_directive(Preprocessor* pp, int tok, int tok2) {
+void process_line_directive(Preprocessor* pp, int hash_pos) {
     unimplemented();
 }
 
-int process_error_directive(Preprocessor* pp, int tok, int tok2) {
+void process_error_directive(Preprocessor* pp, int hash_pos) {
     unimplemented();
 }
 
-int process_pragma_directive(Preprocessor* pp, int tok, int tok2) {
+void process_pragma_directive(Preprocessor* pp, int hash_pos) {
     unimplemented();
 }
 
-BOOL expand_macro(Preprocessor* pp, int tok) {
-    int macro_idx = find_macro(pp, &pp_token_at(pp, tok)->raw);
+BOOL expand_macro(Preprocessor* pp) {
+    int macro_name_pos = pp->pos;
+    Token* macro_name = next_pp_token(pp);
+    int macro_idx = find_macro(pp, &macro_name->raw);
     if (macro_idx == -1) {
         return FALSE;
     }
 
-    SourceLocation original_loc = pp_token_at(pp, tok)->loc;
-    Macro* macro = pp->macros->data + macro_idx;
+    SourceLocation original_loc = macro_name->loc;
+    Macro* macro = &pp->macros->data[macro_idx];
     if (macro->kind == MacroKind_func) {
         // also consume '(' and ')'
-        replace_pp_tokens(pp, tok, tok + 3, &macro->replacements);
+        replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 3, &macro->replacements);
         // Inherit a source location from the original macro token.
         for (int i = 0; i < macro->replacements.len; ++i) {
-            pp_token_at(pp, tok + i)->loc = original_loc;
+            pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
     } else if (macro->kind == MacroKind_obj) {
-        replace_pp_tokens(pp, tok, tok + 1, &macro->replacements);
+        replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &macro->replacements);
         // Inherit a source location from the original macro token.
         for (int i = 0; i < macro->replacements.len; ++i) {
-            pp_token_at(pp, tok + i)->loc = original_loc;
+            pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
     } else if (macro->kind == MacroKind_builtin_file) {
         TokenArray tokens;
         tokens_init(&tokens, 1);
         Token* file_tok = tokens_push_new(&tokens);
         file_tok->kind = TokenKind_literal_str;
-        file_tok->raw.len = strlen(pp_token_at(pp, tok)->loc.filename) + 2;
+        file_tok->raw.len = strlen(macro_name->loc.filename) + 2;
         file_tok->raw.data = calloc(file_tok->raw.len, sizeof(char));
-        sprintf(file_tok->raw.data, "\"%s\"", pp_token_at(pp, tok)->loc.filename);
-        replace_pp_tokens(pp, tok, tok + 1, &tokens);
+        sprintf(file_tok->raw.data, "\"%s\"", macro_name->loc.filename);
+        replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &tokens);
     } else if (macro->kind == MacroKind_builtin_line) {
         TokenArray tokens;
         tokens_init(&tokens, 1);
         Token* line_tok = tokens_push_new(&tokens);
         line_tok->kind = TokenKind_literal_int;
         line_tok->raw.data = calloc(10, sizeof(char));
-        sprintf(line_tok->raw.data, "%d", pp_token_at(pp, tok)->loc.line);
+        sprintf(line_tok->raw.data, "%d", macro_name->loc.line);
         line_tok->raw.len = strlen(line_tok->raw.data);
-        replace_pp_tokens(pp, tok, tok + 1, &tokens);
+        replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &tokens);
     } else {
         unreachable();
     }
@@ -1142,68 +1165,63 @@ BOOL is_pp_hash(Token* t) {
     return t->kind == TokenKind_hash;
 }
 
-void process_pp_directives(Preprocessor* pp) {
-    int tok = 0;
-
-    while (pp_token_at(pp, tok)->kind != TokenKind_eof) {
-        if (is_pp_hash(pp_token_at(pp, tok))) {
-            // TODO: don't skip newline after '#'.
-            int tok2 = skip_whitespace(pp, tok + 1);
-            if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                string_equals_cstr(&pp_token_at(pp, tok2)->raw, "endif")) {
-                tok = process_endif_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_keyword_else) {
-                tok = process_else_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "elif")) {
-                tok = process_elif_directive(pp, tok, tok2);
-            } else if (skip_pp_tokens(pp)) {
-                make_token_whitespace(pp_token_at(pp, tok));
-                ++tok;
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_keyword_if) {
-                tok = process_if_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "ifdef")) {
-                tok = process_ifdef_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "ifndef")) {
-                tok = process_ifndef_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "include")) {
-                tok = process_include_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "define")) {
-                tok = process_define_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "undef")) {
-                tok = process_undef_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "line")) {
-                tok = process_line_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "error")) {
-                tok = process_error_directive(pp, tok, tok2);
-            } else if (pp_token_at(pp, tok2)->kind == TokenKind_ident &&
-                       string_equals_cstr(&pp_token_at(pp, tok2)->raw, "pragma")) {
-                tok = process_pragma_directive(pp, tok, tok2);
-            } else {
-                fatal_error("%s:%d: unknown preprocessor directive (%s)", pp_token_at(pp, tok2)->loc.filename,
-                            pp_token_at(pp, tok2)->loc.line, token_stringify(pp_token_at(pp, tok2)));
-            }
+void process_pp_directive(Preprocessor* pp) {
+    int first_token_pos = pp->pos;
+    Token* first_token = peek_pp_token(pp);
+    if (is_pp_hash(first_token)) {
+        next_pp_token(pp);
+        // TODO: don't skip newline after '#'.
+        skip_whitespaces(pp);
+        Token* next_tok = peek_pp_token(pp);
+        if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "endif")) {
+            process_endif_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_keyword_else) {
+            process_else_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "elif")) {
+            process_elif_directive(pp, first_token_pos);
         } else if (skip_pp_tokens(pp)) {
-            make_token_whitespace(pp_token_at(pp, tok));
-            ++tok;
-        } else if (pp_token_at(pp, tok)->kind == TokenKind_ident) {
-            BOOL expanded = expand_macro(pp, tok);
-            if (expanded) {
-                // A macro may expand to another macro. Re-scan the expanded tokens.
-                // TODO: if the macro is defined recursively, it causes infinite loop.
-            } else {
-                ++tok;
-            }
+            make_token_whitespace(pp_token_at(pp, first_token_pos));
+            make_token_whitespace(next_pp_token(pp));
+        } else if (next_tok->kind == TokenKind_keyword_if) {
+            process_if_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "ifdef")) {
+            process_ifdef_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "ifndef")) {
+            process_ifndef_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "include")) {
+            process_include_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "define")) {
+            process_define_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "undef")) {
+            process_undef_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "line")) {
+            process_line_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "error")) {
+            process_error_directive(pp, first_token_pos);
+        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "pragma")) {
+            process_pragma_directive(pp, first_token_pos);
         } else {
-            ++tok;
+            fatal_error("%s:%d: unknown preprocessor directive (%s)", next_tok->loc.filename, next_tok->loc.line,
+                        token_stringify(next_tok));
         }
+    } else if (skip_pp_tokens(pp)) {
+        make_token_whitespace(next_pp_token(pp));
+    } else if (first_token->kind == TokenKind_ident) {
+        BOOL expanded = expand_macro(pp);
+        if (expanded) {
+            // A macro may expand to another macro. Re-scan the expanded tokens.
+            // TODO: if the macro is defined recursively, it causes infinite loop.
+        } else {
+            next_pp_token(pp);
+        }
+    } else {
+        next_pp_token(pp);
+    }
+}
+
+void process_pp_directives(Preprocessor* pp) {
+    while (!pp_eof(pp)) {
+        process_pp_directive(pp);
     }
 }
 
@@ -1224,11 +1242,11 @@ char* get_ducc_include_path() {
 }
 
 TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros) {
-    Preprocessor* pp = preprocessor_new(src, depth, macros);
+    TokenArray* pp_tokens = pp_tokenize(src);
+    Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros);
     add_include_path(pp, get_ducc_include_path());
     add_include_path(pp, "/usr/include/x86_64-linux-gnu");
     add_include_path(pp, "/usr/include");
-    pp_tokenize_all(pp);
     process_pp_directives(pp);
     return pp->pp_tokens;
 }
