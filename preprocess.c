@@ -1070,6 +1070,13 @@ int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, TokenArray
     return dest_start + source_tokens->len;
 }
 
+int replace_single_pp_token(Preprocessor* pp, int dest, Token* source_tok) {
+    TokenArray tokens;
+    tokens_init(&tokens, 1);
+    *tokens_push_new(&tokens) = *source_tok;
+    replace_pp_tokens(pp, dest, dest + 1, &tokens);
+}
+
 void expand_include_directive(Preprocessor* pp, int hash_pos, const char* include_name_buf) {
     InFile* include_source = read_all(include_name_buf);
     if (!include_source) {
@@ -1256,23 +1263,23 @@ BOOL expand_macro(Preprocessor* pp) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
     } else if (macro->kind == MacroKind_builtin_file) {
-        TokenArray tokens;
-        tokens_init(&tokens, 1);
-        Token* file_tok = tokens_push_new(&tokens);
-        file_tok->kind = TokenKind_literal_str;
-        file_tok->raw.len = strlen(macro_name->loc.filename) + 2;
-        file_tok->raw.data = calloc(file_tok->raw.len, sizeof(char));
-        sprintf(file_tok->raw.data, "\"%s\"", macro_name->loc.filename);
-        replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &tokens);
+        Token file_tok;
+        file_tok.kind = TokenKind_literal_str;
+        file_tok.raw.len = strlen(macro_name->loc.filename) + 2;
+        file_tok.raw.data = calloc(file_tok.raw.len, sizeof(char));
+        sprintf(file_tok.raw.data, "\"%s\"", macro_name->loc.filename);
+        file_tok.loc.filename = NULL;
+        file_tok.loc.line = 0;
+        replace_single_pp_token(pp, macro_name_pos, &file_tok);
     } else if (macro->kind == MacroKind_builtin_line) {
-        TokenArray tokens;
-        tokens_init(&tokens, 1);
-        Token* line_tok = tokens_push_new(&tokens);
-        line_tok->kind = TokenKind_literal_int;
-        line_tok->raw.data = calloc(10, sizeof(char));
-        sprintf(line_tok->raw.data, "%d", macro_name->loc.line);
-        line_tok->raw.len = strlen(line_tok->raw.data);
-        replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &tokens);
+        Token line_tok;
+        line_tok.kind = TokenKind_literal_int;
+        line_tok.raw.data = calloc(10, sizeof(char));
+        sprintf(line_tok.raw.data, "%d", macro_name->loc.line);
+        line_tok.raw.len = strlen(line_tok.raw.data);
+        line_tok.loc.filename = NULL;
+        line_tok.loc.line = 0;
+        replace_single_pp_token(pp, macro_name_pos, &line_tok);
     } else {
         unreachable();
     }
