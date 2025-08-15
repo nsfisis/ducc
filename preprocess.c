@@ -372,6 +372,7 @@ const char* macro_kind_stringify(MacroKind kind) {
 struct Macro {
     MacroKind kind;
     String name;
+    TokenArray parameters;
     TokenArray replacements;
 };
 typedef struct Macro Macro;
@@ -1046,6 +1047,36 @@ void process_include_directive(Preprocessor* pp, int hash_pos) {
     expand_include_directive(pp, hash_pos, include_name_buf);
 }
 
+// ws ::= many0(<whitespace>)
+// macro-parameters ::= '(' <ws> opt(<identifier> <ws> many0(',' <ws> <identifier> <ws>)) ')'
+TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
+    TokenArray* parameters = calloc(1, sizeof(TokenArray));
+    tokens_init(parameters, 2);
+
+    // '(' is consumed by caller.
+    skip_whitespaces(pp);
+    Token* tok = next_pp_token(pp);
+    if (tok->kind == TokenKind_ident) {
+        *tokens_push_new(parameters) = *tok;
+        skip_whitespaces(pp);
+        while (peek_pp_token(pp)->kind == TokenKind_comma) {
+            next_pp_token(pp);
+            skip_whitespaces(pp);
+            tok = next_pp_token(pp);
+            if (tok->kind != TokenKind_ident) {
+                fatal_error("%s:%d: invalid macro syntax", tok->loc.filename, tok->loc.line);
+            }
+            *tokens_push_new(parameters) = *tok;
+        }
+        tok = next_pp_token(pp);
+    }
+    if (tok->kind != TokenKind_paren_r) {
+        fatal_error("%s:%d: invalid macro syntax", tok->loc.filename, tok->loc.line);
+    }
+
+    return parameters;
+}
+
 void process_define_directive(Preprocessor* pp, int hash_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
@@ -1057,10 +1088,7 @@ void process_define_directive(Preprocessor* pp, int hash_pos) {
 
     if (peek_pp_token(pp)->kind == TokenKind_paren_l) {
         next_pp_token(pp);
-        if (peek_pp_token(pp)->kind != TokenKind_paren_r) {
-            unimplemented();
-        }
-        next_pp_token(pp);
+        TokenArray* parameters = pp_parse_macro_parameters(pp);
         int replacements_start_pos = pp->pos;
         seek_to_next_newline(pp);
         if (pp_eof(pp)) {
@@ -1069,6 +1097,7 @@ void process_define_directive(Preprocessor* pp, int hash_pos) {
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_func;
         macro->name = macro_name->raw;
+        macro->parameters = *parameters;
         int n_replacements = pp->pos - replacements_start_pos;
         tokens_init(&macro->replacements, n_replacements);
         for (int i = 0; i < n_replacements; ++i) {
