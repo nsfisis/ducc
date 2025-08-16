@@ -53,6 +53,88 @@ void tokenize_all(Lexer* l) {
             tok->kind = TokenKind_literal_str;
             tok->raw.data = pp_tok->raw.data + 1;
             tok->raw.len = pp_tok->raw.len - 2;
+        } else if (k == TokenKind_ident) {
+            if (string_equals_cstr(&pp_tok->raw, "auto")) {
+                tok->kind = TokenKind_keyword_auto;
+            } else if (string_equals_cstr(&pp_tok->raw, "break")) {
+                tok->kind = TokenKind_keyword_break;
+            } else if (string_equals_cstr(&pp_tok->raw, "case")) {
+                tok->kind = TokenKind_keyword_case;
+            } else if (string_equals_cstr(&pp_tok->raw, "char")) {
+                tok->kind = TokenKind_keyword_char;
+            } else if (string_equals_cstr(&pp_tok->raw, "const")) {
+                tok->kind = TokenKind_keyword_const;
+            } else if (string_equals_cstr(&pp_tok->raw, "continue")) {
+                tok->kind = TokenKind_keyword_continue;
+            } else if (string_equals_cstr(&pp_tok->raw, "default")) {
+                tok->kind = TokenKind_keyword_default;
+            } else if (string_equals_cstr(&pp_tok->raw, "do")) {
+                tok->kind = TokenKind_keyword_do;
+            } else if (string_equals_cstr(&pp_tok->raw, "double")) {
+                tok->kind = TokenKind_keyword_double;
+            } else if (string_equals_cstr(&pp_tok->raw, "else")) {
+                tok->kind = TokenKind_keyword_else;
+            } else if (string_equals_cstr(&pp_tok->raw, "enum")) {
+                tok->kind = TokenKind_keyword_enum;
+            } else if (string_equals_cstr(&pp_tok->raw, "extern")) {
+                tok->kind = TokenKind_keyword_extern;
+            } else if (string_equals_cstr(&pp_tok->raw, "float")) {
+                tok->kind = TokenKind_keyword_float;
+            } else if (string_equals_cstr(&pp_tok->raw, "for")) {
+                tok->kind = TokenKind_keyword_for;
+            } else if (string_equals_cstr(&pp_tok->raw, "goto")) {
+                tok->kind = TokenKind_keyword_goto;
+            } else if (string_equals_cstr(&pp_tok->raw, "if")) {
+                tok->kind = TokenKind_keyword_if;
+            } else if (string_equals_cstr(&pp_tok->raw, "inline")) {
+                tok->kind = TokenKind_keyword_inline;
+            } else if (string_equals_cstr(&pp_tok->raw, "int")) {
+                tok->kind = TokenKind_keyword_int;
+            } else if (string_equals_cstr(&pp_tok->raw, "long")) {
+                tok->kind = TokenKind_keyword_long;
+            } else if (string_equals_cstr(&pp_tok->raw, "register")) {
+                tok->kind = TokenKind_keyword_register;
+            } else if (string_equals_cstr(&pp_tok->raw, "restrict")) {
+                tok->kind = TokenKind_keyword_restrict;
+            } else if (string_equals_cstr(&pp_tok->raw, "return")) {
+                tok->kind = TokenKind_keyword_return;
+            } else if (string_equals_cstr(&pp_tok->raw, "short")) {
+                tok->kind = TokenKind_keyword_short;
+            } else if (string_equals_cstr(&pp_tok->raw, "signed")) {
+                tok->kind = TokenKind_keyword_signed;
+            } else if (string_equals_cstr(&pp_tok->raw, "sizeof")) {
+                tok->kind = TokenKind_keyword_sizeof;
+            } else if (string_equals_cstr(&pp_tok->raw, "static")) {
+                tok->kind = TokenKind_keyword_static;
+            } else if (string_equals_cstr(&pp_tok->raw, "struct")) {
+                tok->kind = TokenKind_keyword_struct;
+            } else if (string_equals_cstr(&pp_tok->raw, "switch")) {
+                tok->kind = TokenKind_keyword_switch;
+            } else if (string_equals_cstr(&pp_tok->raw, "typedef")) {
+                tok->kind = TokenKind_keyword_typedef;
+            } else if (string_equals_cstr(&pp_tok->raw, "union")) {
+                tok->kind = TokenKind_keyword_union;
+            } else if (string_equals_cstr(&pp_tok->raw, "unsigned")) {
+                tok->kind = TokenKind_keyword_unsigned;
+            } else if (string_equals_cstr(&pp_tok->raw, "void")) {
+                tok->kind = TokenKind_keyword_void;
+            } else if (string_equals_cstr(&pp_tok->raw, "volatile")) {
+                tok->kind = TokenKind_keyword_volatile;
+            } else if (string_equals_cstr(&pp_tok->raw, "while")) {
+                tok->kind = TokenKind_keyword_while;
+            } else if (string_equals_cstr(&pp_tok->raw, "_Bool")) {
+                tok->kind = TokenKind_keyword__Bool;
+            } else if (string_equals_cstr(&pp_tok->raw, "_Complex")) {
+                tok->kind = TokenKind_keyword__Complex;
+            } else if (string_equals_cstr(&pp_tok->raw, "_Imaginary")) {
+                tok->kind = TokenKind_keyword__Imaginary;
+            } else if (string_equals_cstr(&pp_tok->raw, "va_start")) {
+                tok->kind = TokenKind_va_start;
+                tok->raw = pp_tok->raw;
+            } else {
+                tok->kind = TokenKind_ident;
+                tok->raw = pp_tok->raw;
+            }
         } else if (k == TokenKind_other) {
             unreachable();
         } else {
