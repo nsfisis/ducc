@@ -5,6 +5,7 @@ enum TokenKind {
     TokenKind_hash,
     TokenKind_hashhash,
     TokenKind_whitespace,
+    TokenKind_newline,
     TokenKind_other,
     TokenKind_character_constant,
 
@@ -109,6 +110,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "##";
     else if (k == TokenKind_whitespace)
         return "<whitespace>";
+    else if (k == TokenKind_newline)
+        return "<new-line>";
     else if (k == TokenKind_other)
         return "<other>";
     else if (k == TokenKind_character_constant)
@@ -306,8 +309,8 @@ typedef struct Token Token;
 
 const char* token_stringify(Token* t) {
     TokenKind k = t->kind;
-    if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_whitespace ||
-        k == TokenKind_ident || k == TokenKind_literal_int || k == TokenKind_literal_str) {
+    if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_ident ||
+        k == TokenKind_literal_int || k == TokenKind_literal_str) {
         const char* kind_str = token_kind_stringify(k);
         char* buf = calloc(t->raw.len + strlen(kind_str) + 3 + 1, sizeof(char));
         sprintf(buf, "%.*s (%s)", t->raw.len, t->raw.data, kind_str);
@@ -608,8 +611,6 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                     ++ppl->pos;
                 }
                 tok->kind = TokenKind_whitespace;
-                tok->raw.len = ppl->pos - start;
-                tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
             } else if (ppl->src[ppl->pos] == '*') {
                 int start = ppl->pos - 1;
                 ++ppl->pos;
@@ -624,8 +625,6 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                     ++ppl->pos;
                 }
                 tok->kind = TokenKind_whitespace;
-                tok->raw.len = ppl->pos - start;
-                tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
             } else {
                 tok->kind = TokenKind_slash;
             }
@@ -823,18 +822,18 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             } else {
                 tok->kind = TokenKind_ident;
             }
+        } else if (c == '\n' || c == '\r') {
+            ++ppl->line;
+            tok->kind = TokenKind_newline;
         } else if (isspace(c)) {
             --ppl->pos;
-            int start = ppl->pos;
             while (isspace((c = ppl->src[ppl->pos]))) {
                 if (c == '\n' || c == '\r') {
-                    ++ppl->line;
+                    break;
                 }
                 ++ppl->pos;
             }
             tok->kind = TokenKind_whitespace;
-            tok->raw.data = ppl->src + start;
-            tok->raw.len = ppl->pos - start;
         } else {
             tok->kind = TokenKind_other;
             tok->raw.len = 1;
@@ -927,19 +926,10 @@ void skip_whitespaces(Preprocessor* pp) {
     }
 }
 
-BOOL string_contains_newline(String* s) {
-    for (int i = 0; i < s->len; ++i) {
-        if (s->data[i] == '\n') {
-            return TRUE;
-        }
-    }
-    return FALSE;
-}
-
 void seek_to_next_newline(Preprocessor* pp) {
     while (!pp_eof(pp)) {
         Token* tok = peek_pp_token(pp);
-        if (tok->kind == TokenKind_whitespace && string_contains_newline(&tok->raw)) {
+        if (tok->kind == TokenKind_newline) {
             break;
         }
         next_pp_token(pp);

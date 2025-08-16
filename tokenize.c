@@ -17,7 +17,7 @@ void tokenize_all(Lexer* l) {
     for (int pos = 0; pos < l->src->len; ++pos) {
         Token* pp_tok = &l->src->data[pos];
         TokenKind k = pp_tok->kind;
-        if (k == TokenKind_whitespace) {
+        if (k == TokenKind_whitespace || k == TokenKind_newline) {
             continue;
         }
         Token* tok = tokens_push_new(l->tokens);
