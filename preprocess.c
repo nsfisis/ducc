@@ -8,6 +8,7 @@ enum TokenKind {
     TokenKind_newline,
     TokenKind_other,
     TokenKind_character_constant,
+    TokenKind_header_name,
     TokenKind_pp_directive_define,
     TokenKind_pp_directive_elif,
     TokenKind_pp_directive_else,
@@ -128,6 +129,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "<other>";
     else if (k == TokenKind_character_constant)
         return "<character-constant>";
+    else if (k == TokenKind_header_name)
+        return "<header-name>";
     else if (k == TokenKind_pp_directive_define)
         return "#define";
     else if (k == TokenKind_pp_directive_elif)
@@ -535,6 +538,7 @@ struct PpLexer {
     char* src;
     int pos;
     BOOL at_bol;
+    BOOL expect_header_name;
     TokenArray* pp_tokens;
 };
 typedef struct PpLexer PpLexer;
@@ -546,6 +550,7 @@ PpLexer* pplexer_new(InFile* src) {
     ppl->line = 1;
     ppl->src = src->buf;
     ppl->at_bol = TRUE;
+    ppl->expect_header_name = FALSE;
     ppl->pp_tokens = calloc(1, sizeof(TokenArray));
     tokens_init(ppl->pp_tokens, 1024 * 16);
 
@@ -589,6 +594,7 @@ TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
     } else if (string_equals_cstr(&pp_directive_name, "ifndef")) {
         return TokenKind_pp_directive_ifndef;
     } else if (string_equals_cstr(&pp_directive_name, "include")) {
+        ppl->expect_header_name = TRUE;
         return TokenKind_pp_directive_include;
     } else if (string_equals_cstr(&pp_directive_name, "line")) {
         return TokenKind_pp_directive_line;
@@ -609,7 +615,38 @@ void pplexer_tokenize_all(PpLexer* ppl) {
         tok->loc.line = ppl->line;
         char c = ppl->src[ppl->pos];
         ++ppl->pos;
-        if (c == '(') {
+
+        if (ppl->expect_header_name && c == '"') {
+            int start = ppl->pos - 1;
+            while (1) {
+                char ch = ppl->src[ppl->pos];
+                if (ch == '\\') {
+                    ++ppl->pos;
+                } else if (ch == '"') {
+                    break;
+                }
+                ++ppl->pos;
+            }
+            ++ppl->pos;
+            tok->kind = TokenKind_header_name;
+            tok->raw.data = ppl->src + start;
+            tok->raw.len = ppl->pos - start;
+            ppl->expect_header_name = FALSE;
+        } else if (ppl->expect_header_name && c == '<') {
+            int start = ppl->pos - 1;
+            while (1) {
+                char ch = ppl->src[ppl->pos];
+                if (ch == '>') {
+                    break;
+                }
+                ++ppl->pos;
+            }
+            ++ppl->pos;
+            tok->kind = TokenKind_header_name;
+            tok->raw.data = ppl->src + start;
+            tok->raw.len = ppl->pos - start;
+            ppl->expect_header_name = FALSE;
+        } else if (c == '(') {
             tok->kind = TokenKind_paren_l;
         } else if (c == ')') {
             tok->kind = TokenKind_paren_r;
@@ -1086,29 +1123,11 @@ void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
 
 String* read_include_header_name(Preprocessor* pp) {
     Token* tok = next_pp_token(pp);
-    if (tok->kind == TokenKind_literal_str) {
-        return &tok->raw;
-    } else if (tok->kind == TokenKind_lt) {
-        char* include_name_start = peek_pp_token(pp)->raw.data;
-        int include_name_len = 0;
-        while (!pp_eof(pp)) {
-            if (peek_pp_token(pp)->kind == TokenKind_gt) {
-                break;
-            }
-            include_name_len += peek_pp_token(pp)->raw.len;
-            next_pp_token(pp);
-        }
-        if (pp_eof(pp)) {
-            fatal_error("invalid #include: <> not balanced");
-        }
-        next_pp_token(pp);
-        String* include_name = calloc(1, sizeof(String));
-        include_name->data = include_name_start;
-        include_name->len = include_name_len;
-        return include_name;
-    } else {
-        unreachable();
+    if (tok->kind != TokenKind_header_name) {
+        fatal_error("%s:%d: invalid #include", tok->loc.filename, tok->loc.line);
     }
+
+    return &tok->raw;
 }
 
 const char* resolve_include_name(Preprocessor* pp, String* include_name) {
@@ -1118,8 +1137,8 @@ const char* resolve_include_name(Preprocessor* pp, String* include_name) {
         return buf;
     } else {
         for (int i = 0; i < pp->n_include_paths; ++i) {
-            char* buf = calloc(include_name->len + 1 + pp->include_paths[i].len, sizeof(char));
-            sprintf(buf, "%s/%.*s", pp->include_paths[i].data, include_name->len, include_name->data);
+            char* buf = calloc(include_name->len - 2 + 1 + pp->include_paths[i].len, sizeof(char));
+            sprintf(buf, "%s/%.*s", pp->include_paths[i].data, include_name->len - 2, include_name->data + 1);
             if (access(buf, F_OK | R_OK) == 0) {
                 return buf;
             }
