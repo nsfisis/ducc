@@ -339,20 +339,32 @@ struct SourceLocation {
 };
 typedef struct SourceLocation SourceLocation;
 
+// TokenValue is externally tagged by Token's kind.
+union TokenValue {
+    String string;
+    int integer;
+};
+typedef union TokenValue TokenValue;
+
 struct Token {
     TokenKind kind;
-    String raw;
+    TokenValue value;
     SourceLocation loc;
 };
 typedef struct Token Token;
 
 const char* token_stringify(Token* t) {
     TokenKind k = t->kind;
-    if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_ident ||
-        k == TokenKind_literal_int || k == TokenKind_literal_str) {
+    if (k == TokenKind_literal_int) {
         const char* kind_str = token_kind_stringify(k);
-        char* buf = calloc(t->raw.len + strlen(kind_str) + 3 + 1, sizeof(char));
-        sprintf(buf, "%.*s (%s)", t->raw.len, t->raw.data, kind_str);
+        char* buf = calloc(10 + strlen(kind_str) + 3 + 1, sizeof(char));
+        sprintf(buf, "%d (%s)", t->value.integer, kind_str);
+        return buf;
+    } else if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_ident ||
+               k == TokenKind_literal_int || k == TokenKind_literal_str) {
+        const char* kind_str = token_kind_stringify(k);
+        char* buf = calloc(t->value.string.len + strlen(kind_str) + 3 + 1, sizeof(char));
+        sprintf(buf, "%.*s (%s)", t->value.string.len, t->value.string.data, kind_str);
         return buf;
     } else {
         return token_kind_stringify(k);
@@ -424,7 +436,7 @@ int macro_find_param(Macro* macro, Token* tok) {
         return -1;
 
     for (int i = 0; i < macro->parameters.len; ++i) {
-        if (string_equals(&macro->parameters.data[i].raw, &tok->raw)) {
+        if (string_equals(&macro->parameters.data[i].value.string, &tok->value.string)) {
             return i;
         }
     }
@@ -480,23 +492,19 @@ void add_predefined_macros(MacroArray* macros) {
 
     m = macros_push_new(macros);
     m->kind = MacroKind_obj;
-    m->name.len = strlen("__ducc__");
-    m->name.data = "__ducc__";
+    m->name = *cstr_to_new_string("__ducc__");
     tokens_init(&m->replacements, 1);
     Token* tok = tokens_push_new(&m->replacements);
     tok->kind = TokenKind_literal_int;
-    tok->raw.len = strlen("1");
-    tok->raw.data = "1";
+    tok->value.integer = 1;
 
     m = macros_push_new(macros);
     m->kind = MacroKind_builtin_file;
-    m->name.len = strlen("__FILE__");
-    m->name.data = "__FILE__";
+    m->name = *cstr_to_new_string("__FILE__");
 
     m = macros_push_new(macros);
     m->kind = MacroKind_builtin_line;
-    m->name.len = strlen("__LINE__");
-    m->name.data = "__LINE__";
+    m->name = *cstr_to_new_string("__LINE__");
 }
 
 struct MacroArg {
@@ -629,8 +637,8 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ++ppl->pos;
             tok->kind = TokenKind_header_name;
-            tok->raw.data = ppl->src + start;
-            tok->raw.len = ppl->pos - start;
+            tok->value.string.data = ppl->src + start;
+            tok->value.string.len = ppl->pos - start;
             ppl->expect_header_name = FALSE;
         } else if (ppl->expect_header_name && c == '<') {
             int start = ppl->pos - 1;
@@ -643,8 +651,8 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ++ppl->pos;
             tok->kind = TokenKind_header_name;
-            tok->raw.data = ppl->src + start;
-            tok->raw.len = ppl->pos - start;
+            tok->value.string.data = ppl->src + start;
+            tok->value.string.len = ppl->pos - start;
             ppl->expect_header_name = FALSE;
         } else if (c == '(') {
             tok->kind = TokenKind_paren_l;
@@ -768,13 +776,11 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                     tok->kind = TokenKind_ellipsis;
                 } else {
                     tok->kind = TokenKind_other;
-                    tok->raw.len = 2;
-                    tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
+                    tok->value.string.len = 2;
+                    tok->value.string.data = ppl->src + ppl->pos - tok->value.string.len;
                 }
             } else {
                 tok->kind = TokenKind_dot;
-                tok->raw.len = 1;
-                tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
             }
         } else if (c == '!') {
             if (ppl->src[ppl->pos] == '=') {
@@ -834,8 +840,8 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ppl->pos += 2;
             tok->kind = TokenKind_character_constant;
-            tok->raw.data = ppl->src + start;
-            tok->raw.len = ppl->pos - start;
+            tok->value.string.data = ppl->src + start;
+            tok->value.string.len = ppl->pos - start;
         } else if (c == '"') {
             int start = ppl->pos - 1;
             while (1) {
@@ -849,8 +855,8 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ++ppl->pos;
             tok->kind = TokenKind_literal_str;
-            tok->raw.data = ppl->src + start;
-            tok->raw.len = ppl->pos - start;
+            tok->value.string.data = ppl->src + start + 1;
+            tok->value.string.len = ppl->pos - start - 2;
         } else if (isdigit(c)) {
             --ppl->pos;
             int start = ppl->pos;
@@ -858,16 +864,18 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                 ++ppl->pos;
             }
             tok->kind = TokenKind_literal_int;
-            tok->raw.data = ppl->src + start;
-            tok->raw.len = ppl->pos - start;
+            String n;
+            n.data = ppl->src + start;
+            n.len = ppl->pos - start;
+            tok->value.integer = atoi(string_to_cstr(&n));
         } else if (isalpha(c) || c == '_') {
             --ppl->pos;
             int start = ppl->pos;
             while (isalnum(ppl->src[ppl->pos]) || ppl->src[ppl->pos] == '_') {
                 ++ppl->pos;
             }
-            tok->raw.data = ppl->src + start;
-            tok->raw.len = ppl->pos - start;
+            tok->value.string.data = ppl->src + start;
+            tok->value.string.len = ppl->pos - start;
             tok->kind = TokenKind_ident;
         } else if (c == '\n' || c == '\r') {
             ++ppl->line;
@@ -888,8 +896,8 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
         } else {
             tok->kind = TokenKind_other;
-            tok->raw.len = 1;
-            tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
+            tok->value.string.len = 1;
+            tok->value.string.data = ppl->src + ppl->pos - tok->value.string.len;
         }
         ppl->at_bol = tok->kind == TokenKind_newline;
     }
@@ -991,8 +999,8 @@ void seek_to_next_newline(Preprocessor* pp) {
 
 void make_token_whitespace(Token* tok) {
     tok->kind = TokenKind_whitespace;
-    tok->raw.len = 0;
-    tok->raw.data = NULL;
+    tok->value.string.len = 0;
+    tok->value.string.data = NULL;
 }
 
 void remove_directive_tokens(Preprocessor* pp, int start, int end) {
@@ -1027,7 +1035,7 @@ void process_ifdef_directive(Preprocessor* pp, int directive_token_pos) {
     Token* macro_name = peek_pp_token(pp);
     if (macro_name->kind == TokenKind_ident) {
         next_pp_token(pp);
-        pp->skip_pp_tokens = find_macro(pp, &macro_name->raw) == -1;
+        pp->skip_pp_tokens = find_macro(pp, &macro_name->value.string) == -1;
     }
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
@@ -1038,7 +1046,7 @@ void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
     Token* macro_name = peek_pp_token(pp);
     if (macro_name->kind == TokenKind_ident) {
         next_pp_token(pp);
-        pp->skip_pp_tokens = find_macro(pp, &macro_name->raw) != -1;
+        pp->skip_pp_tokens = find_macro(pp, &macro_name->value.string) != -1;
     }
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
@@ -1049,7 +1057,7 @@ String* read_include_header_name(Preprocessor* pp) {
         fatal_error("%s:%d: invalid #include", tok->loc.filename, tok->loc.line);
     }
 
-    return &tok->raw;
+    return &tok->value.string;
 }
 
 const char* resolve_include_name(Preprocessor* pp, String* include_name) {
@@ -1173,7 +1181,7 @@ void process_define_directive(Preprocessor* pp, int directive_token_pos) {
         }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_func;
-        macro->name = macro_name->raw;
+        macro->name = macro_name->value.string;
         macro->parameters = *parameters;
         int n_replacements = pp->pos - replacements_start_pos;
         tokens_init(&macro->replacements, n_replacements);
@@ -1188,7 +1196,7 @@ void process_define_directive(Preprocessor* pp, int directive_token_pos) {
         }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_obj;
-        macro->name = macro_name->raw;
+        macro->name = macro_name->value.string;
         int n_replacements = pp->pos - replacements_start_pos;
         tokens_init(&macro->replacements, n_replacements);
         for (int i = 0; i < n_replacements; ++i) {
@@ -1204,7 +1212,7 @@ void process_undef_directive(Preprocessor* pp, int directive_token_pos) {
     Token* macro_name = peek_pp_token(pp);
     if (macro_name->kind == TokenKind_ident) {
         next_pp_token(pp);
-        int macro_idx = find_macro(pp, &macro_name->raw);
+        int macro_idx = find_macro(pp, &macro_name->value.string);
         if (macro_idx != -1) {
             undef_macro(pp, macro_idx);
         }
@@ -1260,7 +1268,7 @@ MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
 BOOL expand_macro(Preprocessor* pp) {
     int macro_name_pos = pp->pos;
     Token* macro_name = next_pp_token(pp);
-    int macro_idx = find_macro(pp, &macro_name->raw);
+    int macro_idx = find_macro(pp, &macro_name->value.string);
     if (macro_idx == -1) {
         return FALSE;
     }
@@ -1290,18 +1298,14 @@ BOOL expand_macro(Preprocessor* pp) {
     } else if (macro->kind == MacroKind_builtin_file) {
         Token file_tok;
         file_tok.kind = TokenKind_literal_str;
-        file_tok.raw.len = strlen(macro_name->loc.filename) + 2;
-        file_tok.raw.data = calloc(file_tok.raw.len, sizeof(char));
-        sprintf(file_tok.raw.data, "\"%s\"", macro_name->loc.filename);
+        file_tok.value.string = *cstr_to_new_string(macro_name->loc.filename);
         file_tok.loc.filename = NULL;
         file_tok.loc.line = 0;
         replace_single_pp_token(pp, macro_name_pos, &file_tok);
     } else if (macro->kind == MacroKind_builtin_line) {
         Token line_tok;
         line_tok.kind = TokenKind_literal_int;
-        line_tok.raw.data = calloc(10, sizeof(char));
-        sprintf(line_tok.raw.data, "%d", macro_name->loc.line);
-        line_tok.raw.len = strlen(line_tok.raw.data);
+        line_tok.value.integer = macro_name->loc.line;
         line_tok.loc.filename = NULL;
         line_tok.loc.line = 0;
         replace_single_pp_token(pp, macro_name_pos, &line_tok);

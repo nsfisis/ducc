@@ -60,8 +60,7 @@ Parser* parser_new(TokenArray* tokens) {
     p->typedefs = calloc(64, sizeof(AstNode));
     p->str_literals = calloc(1024, sizeof(char*));
 
-    p->funcs[p->n_funcs].name.data = "va_start";
-    p->funcs[p->n_funcs].name.len = strlen("va_start");
+    p->funcs[p->n_funcs].name = *cstr_to_new_string("va_start");
     p->funcs[p->n_funcs].ty = calloc(1, sizeof(Type));
     p->funcs[p->n_funcs].ty->kind = TypeKind_void;
     ++p->n_funcs;
@@ -154,9 +153,10 @@ int add_lvar(Parser* p, String* name, Type* ty, BOOL is_param) {
 
 String* generate_temporary_lvar_name(Parser* p) {
     String* ret = calloc(1, sizeof(String));
-    ret->data = calloc(256, sizeof(char));
+    char* buf = calloc(256, sizeof(char));
     for (int i = 1;; ++i) {
-        ret->len = sprintf(ret->data, "__%d", i);
+        ret->len = sprintf(buf, "__%d", i);
+        ret->data = buf;
         if (find_lvar(p, ret) == -1) {
             return ret;
         }
@@ -265,7 +265,7 @@ AstNode* parse_expr(Parser* p);
 AstNode* parse_stmt(Parser* p);
 
 String* parse_ident(Parser* p) {
-    return &expect(p, TokenKind_ident)->raw;
+    return &expect(p, TokenKind_ident)->value.string;
 }
 
 int register_str_literal(Parser* p, char* s) {
@@ -277,18 +277,18 @@ int register_str_literal(Parser* p, char* s) {
 AstNode* parse_primary_expr(Parser* p) {
     Token* t = next_token(p);
     if (t->kind == TokenKind_literal_int) {
-        return ast_new_int(atoi(string_to_cstr(&t->raw)));
+        return ast_new_int(t->value.integer);
     } else if (t->kind == TokenKind_literal_str) {
         AstNode* e = ast_new(AstNodeKind_str_expr);
-        e->node_idx = register_str_literal(p, string_to_cstr(&t->raw));
-        e->ty = type_new_static_string(t->raw.len);
+        e->node_idx = register_str_literal(p, string_to_cstr(&t->value.string));
+        e->ty = type_new_static_string(t->value.string.len);
         return e;
     } else if (t->kind == TokenKind_paren_l) {
         AstNode* e = parse_expr(p);
         expect(p, TokenKind_paren_r);
         return e;
     } else if (t->kind == TokenKind_ident || t->kind == TokenKind_va_start) {
-        String* name = &t->raw;
+        String* name = &t->value.string;
 
         if (peek_token(p)->kind == TokenKind_paren_l) {
             AstNode* e = ast_new(AstNodeKind_func_call);
@@ -423,7 +423,7 @@ BOOL is_type_token(Parser* p, Token* token) {
     if (token->kind != TokenKind_ident) {
         return FALSE;
     }
-    return find_typedef(p, &token->raw) != -1;
+    return find_typedef(p, &token->value.string) != -1;
 }
 
 Type* parse_type(Parser* p) {
@@ -436,9 +436,9 @@ Type* parse_type(Parser* p) {
     }
     Type* ty;
     if (t->kind == TokenKind_ident) {
-        int typedef_idx = find_typedef(p, &t->raw);
+        int typedef_idx = find_typedef(p, &t->value.string);
         if (typedef_idx == -1) {
-            fatal_error("parse_type: unknown typedef, %.*s", t->raw.len, t->raw.data);
+            fatal_error("parse_type: unknown typedef, %.*s", t->value.string.len, t->value.string.data);
         }
         ty = p->typedefs[typedef_idx].ty;
     } else {
@@ -524,12 +524,12 @@ AstNode* parse_prefix_expr(Parser* p) {
         Token* next_tok = peek_token(p);
         Type* ty = NULL;
         if (next_tok->kind == TokenKind_ident) {
-            int lvar_idx = find_lvar(p, &next_tok->raw);
+            int lvar_idx = find_lvar(p, &next_tok->value.string);
             if (lvar_idx != -1) {
                 next_token(p);
                 ty = p->lvars[lvar_idx].ty;
             }
-            int gvar_idx = find_gvar(p, &next_tok->raw);
+            int gvar_idx = find_gvar(p, &next_tok->value.string);
             if (gvar_idx != -1) {
                 next_token(p);
                 ty = p->gvars[gvar_idx].ty;
