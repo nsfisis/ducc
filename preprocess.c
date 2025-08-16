@@ -637,7 +637,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ++ppl->pos;
             tok->kind = TokenKind_header_name;
-            tok->value.string.data = ppl->src + start;
+            tok->value.string.data = strndup(ppl->src + start, ppl->pos - start);
             tok->value.string.len = ppl->pos - start;
             ppl->expect_header_name = FALSE;
         } else if (ppl->expect_header_name && c == '<') {
@@ -651,7 +651,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ++ppl->pos;
             tok->kind = TokenKind_header_name;
-            tok->value.string.data = ppl->src + start;
+            tok->value.string.data = strndup(ppl->src + start, ppl->pos - start);
             tok->value.string.len = ppl->pos - start;
             ppl->expect_header_name = FALSE;
         } else if (c == '(') {
@@ -777,7 +777,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                 } else {
                     tok->kind = TokenKind_other;
                     tok->value.string.len = 2;
-                    tok->value.string.data = ppl->src + ppl->pos - tok->value.string.len;
+                    tok->value.string.data = strndup(ppl->src + ppl->pos - tok->value.string.len, tok->value.string.len);
                 }
             } else {
                 tok->kind = TokenKind_dot;
@@ -840,7 +840,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ppl->pos += 2;
             tok->kind = TokenKind_character_constant;
-            tok->value.string.data = ppl->src + start;
+            tok->value.string.data = strndup(ppl->src + start, ppl->pos - start);
             tok->value.string.len = ppl->pos - start;
         } else if (c == '"') {
             int start = ppl->pos - 1;
@@ -855,7 +855,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             }
             ++ppl->pos;
             tok->kind = TokenKind_literal_str;
-            tok->value.string.data = ppl->src + start + 1;
+            tok->value.string.data = strndup(ppl->src + start + 1, ppl->pos - start - 2);
             tok->value.string.len = ppl->pos - start - 2;
         } else if (isdigit(c)) {
             --ppl->pos;
@@ -874,7 +874,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
             while (isalnum(ppl->src[ppl->pos]) || ppl->src[ppl->pos] == '_') {
                 ++ppl->pos;
             }
-            tok->value.string.data = ppl->src + start;
+            tok->value.string.data = strndup(ppl->src + start, ppl->pos - start);
             tok->value.string.len = ppl->pos - start;
             tok->kind = TokenKind_ident;
         } else if (c == '\n' || c == '\r') {
@@ -897,7 +897,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
         } else {
             tok->kind = TokenKind_other;
             tok->value.string.len = 1;
-            tok->value.string.data = ppl->src + ppl->pos - tok->value.string.len;
+            tok->value.string.data = strndup(ppl->src + ppl->pos - tok->value.string.len, tok->value.string.len);
         }
         ppl->at_bol = tok->kind == TokenKind_newline;
     }
