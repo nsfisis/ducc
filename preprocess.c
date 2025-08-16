@@ -8,6 +8,18 @@ enum TokenKind {
     TokenKind_newline,
     TokenKind_other,
     TokenKind_character_constant,
+    TokenKind_pp_directive_define,
+    TokenKind_pp_directive_elif,
+    TokenKind_pp_directive_else,
+    TokenKind_pp_directive_endif,
+    TokenKind_pp_directive_error,
+    TokenKind_pp_directive_if,
+    TokenKind_pp_directive_ifdef,
+    TokenKind_pp_directive_ifndef,
+    TokenKind_pp_directive_include,
+    TokenKind_pp_directive_line,
+    TokenKind_pp_directive_pragma,
+    TokenKind_pp_directive_undef,
 
     TokenKind_and,
     TokenKind_andand,
@@ -116,6 +128,30 @@ const char* token_kind_stringify(TokenKind k) {
         return "<other>";
     else if (k == TokenKind_character_constant)
         return "<character-constant>";
+    else if (k == TokenKind_pp_directive_define)
+        return "#define";
+    else if (k == TokenKind_pp_directive_elif)
+        return "#elif";
+    else if (k == TokenKind_pp_directive_else)
+        return "#else";
+    else if (k == TokenKind_pp_directive_endif)
+        return "#endif";
+    else if (k == TokenKind_pp_directive_error)
+        return "#error";
+    else if (k == TokenKind_pp_directive_if)
+        return "#if";
+    else if (k == TokenKind_pp_directive_ifdef)
+        return "#ifdef";
+    else if (k == TokenKind_pp_directive_ifndef)
+        return "#ifndef";
+    else if (k == TokenKind_pp_directive_include)
+        return "#include";
+    else if (k == TokenKind_pp_directive_line)
+        return "#line";
+    else if (k == TokenKind_pp_directive_pragma)
+        return "#pragma";
+    else if (k == TokenKind_pp_directive_undef)
+        return "#undef";
     else if (k == TokenKind_and)
         return "&";
     else if (k == TokenKind_andand)
@@ -498,6 +534,7 @@ struct PpLexer {
     int line;
     char* src;
     int pos;
+    BOOL at_bol;
     TokenArray* pp_tokens;
 };
 typedef struct PpLexer PpLexer;
@@ -508,10 +545,61 @@ PpLexer* pplexer_new(InFile* src) {
     ppl->filename = src->filename;
     ppl->line = 1;
     ppl->src = src->buf;
+    ppl->at_bol = TRUE;
     ppl->pp_tokens = calloc(1, sizeof(TokenArray));
     tokens_init(ppl->pp_tokens, 1024 * 16);
 
     return ppl;
+}
+
+TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
+    // Skip whitespaces after '#'.
+    char c;
+    while (isspace((c = ppl->src[ppl->pos]))) {
+        if (c == '\n' || c == '\r') {
+            break;
+        }
+        ++ppl->pos;
+    }
+
+    int pp_directive_name_start = ppl->pos;
+    while (isalnum(ppl->src[ppl->pos])) {
+        ++ppl->pos;
+    }
+    String pp_directive_name;
+    pp_directive_name.len = ppl->pos - pp_directive_name_start;
+    pp_directive_name.data = &ppl->src[pp_directive_name_start];
+
+    if (pp_directive_name.len == 0) {
+        return TokenKind_hash;
+    } else if (string_equals_cstr(&pp_directive_name, "define")) {
+        return TokenKind_pp_directive_define;
+    } else if (string_equals_cstr(&pp_directive_name, "elif")) {
+        return TokenKind_pp_directive_elif;
+    } else if (string_equals_cstr(&pp_directive_name, "else")) {
+        return TokenKind_pp_directive_else;
+    } else if (string_equals_cstr(&pp_directive_name, "endif")) {
+        return TokenKind_pp_directive_endif;
+    } else if (string_equals_cstr(&pp_directive_name, "error")) {
+        return TokenKind_pp_directive_error;
+    } else if (string_equals_cstr(&pp_directive_name, "if")) {
+        return TokenKind_pp_directive_if;
+    } else if (string_equals_cstr(&pp_directive_name, "ifdef")) {
+        return TokenKind_pp_directive_ifdef;
+    } else if (string_equals_cstr(&pp_directive_name, "ifndef")) {
+        return TokenKind_pp_directive_ifndef;
+    } else if (string_equals_cstr(&pp_directive_name, "include")) {
+        return TokenKind_pp_directive_include;
+    } else if (string_equals_cstr(&pp_directive_name, "line")) {
+        return TokenKind_pp_directive_line;
+    } else if (string_equals_cstr(&pp_directive_name, "pragma")) {
+        return TokenKind_pp_directive_pragma;
+    } else if (string_equals_cstr(&pp_directive_name, "undef")) {
+        return TokenKind_pp_directive_undef;
+    } else {
+        fatal_error("%s:%d: unknown preprocessor directive (%.*s)", ppl->filename, ppl->line, pp_directive_name.len,
+                    pp_directive_name.data);
+    }
 }
 
 void pplexer_tokenize_all(PpLexer* ppl) {
@@ -700,7 +788,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                 ++ppl->pos;
                 tok->kind = TokenKind_hashhash;
             } else {
-                tok->kind = TokenKind_hash;
+                tok->kind = ppl->at_bol ? pplexer_tokenize_pp_directive(ppl) : TokenKind_hash;
             }
         } else if (c == '\'') {
             int start = ppl->pos - 1;
@@ -833,12 +921,18 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                 }
                 ++ppl->pos;
             }
-            tok->kind = TokenKind_whitespace;
+            if (ppl->at_bol && ppl->src[ppl->pos] == '#') {
+                ++ppl->pos;
+                tok->kind = pplexer_tokenize_pp_directive(ppl);
+            } else {
+                tok->kind = TokenKind_whitespace;
+            }
         } else {
             tok->kind = TokenKind_other;
             tok->raw.len = 1;
             tok->raw.data = ppl->src + ppl->pos - tok->raw.len;
         }
+        ppl->at_bol = tok->kind == TokenKind_newline;
     }
     Token* eof_tok = tokens_push_new(ppl->pp_tokens);
     eof_tok->loc.filename = ppl->filename;
@@ -948,27 +1042,27 @@ void remove_directive_tokens(Preprocessor* pp, int start, int end) {
     }
 }
 
-void process_endif_directive(Preprocessor* pp, int hash_pos) {
+void process_endif_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     pp->skip_pp_tokens = FALSE;
-    remove_directive_tokens(pp, hash_pos, pp->pos);
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_else_directive(Preprocessor* pp, int hash_pos) {
+void process_else_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     pp->skip_pp_tokens = !pp->skip_pp_tokens;
-    remove_directive_tokens(pp, hash_pos, pp->pos);
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_elif_directive(Preprocessor* pp, int hash_pos) {
+void process_elif_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
-void process_if_directive(Preprocessor* pp, int hash_pos) {
+void process_if_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
-void process_ifdef_directive(Preprocessor* pp, int hash_pos) {
+void process_ifdef_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = peek_pp_token(pp);
@@ -976,10 +1070,10 @@ void process_ifdef_directive(Preprocessor* pp, int hash_pos) {
         next_pp_token(pp);
         pp->skip_pp_tokens = find_macro(pp, &macro_name->raw) == -1;
     }
-    remove_directive_tokens(pp, hash_pos, pp->pos);
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_ifndef_directive(Preprocessor* pp, int hash_pos) {
+void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = peek_pp_token(pp);
@@ -987,7 +1081,7 @@ void process_ifndef_directive(Preprocessor* pp, int hash_pos) {
         next_pp_token(pp);
         pp->skip_pp_tokens = find_macro(pp, &macro_name->raw) != -1;
     }
-    remove_directive_tokens(pp, hash_pos, pp->pos);
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
 String* read_include_header_name(Preprocessor* pp) {
@@ -1067,7 +1161,7 @@ int replace_single_pp_token(Preprocessor* pp, int dest, Token* source_tok) {
     replace_pp_tokens(pp, dest, dest + 1, &tokens);
 }
 
-void expand_include_directive(Preprocessor* pp, int hash_pos, const char* include_name_buf) {
+void expand_include_directive(Preprocessor* pp, int directive_token_pos, const char* include_name_buf) {
     InFile* include_source = read_all(include_name_buf);
     if (!include_source) {
         fatal_error("cannot open include file: %s", include_name_buf);
@@ -1075,10 +1169,10 @@ void expand_include_directive(Preprocessor* pp, int hash_pos, const char* includ
 
     TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros);
     tokens_pop(include_pp_tokens); // pop EOF token
-    pp->pos = replace_pp_tokens(pp, hash_pos, pp->pos, include_pp_tokens);
+    pp->pos = replace_pp_tokens(pp, directive_token_pos, pp->pos, include_pp_tokens);
 }
 
-void process_include_directive(Preprocessor* pp, int hash_pos) {
+void process_include_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     String* include_name = read_include_header_name(pp);
@@ -1086,7 +1180,7 @@ void process_include_directive(Preprocessor* pp, int hash_pos) {
     if (include_name_buf == NULL) {
         fatal_error("cannot resolve include file name: %.*s", include_name->len, include_name->data);
     }
-    expand_include_directive(pp, hash_pos, include_name_buf);
+    expand_include_directive(pp, directive_token_pos, include_name_buf);
 }
 
 // ws ::= many0(<whitespace>)
@@ -1119,7 +1213,7 @@ TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
     return parameters;
 }
 
-void process_define_directive(Preprocessor* pp, int hash_pos) {
+void process_define_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = next_pp_token(pp);
@@ -1160,10 +1254,10 @@ void process_define_directive(Preprocessor* pp, int hash_pos) {
             *tokens_push_new(&macro->replacements) = *pp_token_at(pp, replacements_start_pos + i);
         }
     }
-    remove_directive_tokens(pp, hash_pos, pp->pos);
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_undef_directive(Preprocessor* pp, int hash_pos) {
+void process_undef_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = peek_pp_token(pp);
@@ -1174,18 +1268,18 @@ void process_undef_directive(Preprocessor* pp, int hash_pos) {
             undef_macro(pp, macro_idx);
         }
     }
-    remove_directive_tokens(pp, hash_pos, pp->pos);
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_line_directive(Preprocessor* pp, int hash_pos) {
+void process_line_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
-void process_error_directive(Preprocessor* pp, int hash_pos) {
+void process_error_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
-void process_pragma_directive(Preprocessor* pp, int hash_pos) {
+void process_pragma_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
@@ -1276,53 +1370,36 @@ BOOL expand_macro(Preprocessor* pp) {
     return TRUE;
 }
 
-BOOL is_pp_hash(Token* t) {
-    // TODO: '#' must be at the beginning of the line.
-    return t->kind == TokenKind_hash;
-}
-
 void process_pp_directive(Preprocessor* pp) {
     int first_token_pos = pp->pos;
-    Token* first_token = peek_pp_token(pp);
-    if (is_pp_hash(first_token)) {
-        next_pp_token(pp);
-        // TODO: don't skip newline after '#'.
-        skip_whitespaces(pp);
-        Token* next_tok = peek_pp_token(pp);
-        if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "endif")) {
-            process_endif_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_keyword_else) {
-            process_else_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "elif")) {
-            process_elif_directive(pp, first_token_pos);
-        } else if (skip_pp_tokens(pp)) {
-            make_token_whitespace(pp_token_at(pp, first_token_pos));
-            make_token_whitespace(next_pp_token(pp));
-        } else if (next_tok->kind == TokenKind_keyword_if) {
-            process_if_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "ifdef")) {
-            process_ifdef_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "ifndef")) {
-            process_ifndef_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "include")) {
-            process_include_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "define")) {
-            process_define_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "undef")) {
-            process_undef_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "line")) {
-            process_line_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "error")) {
-            process_error_directive(pp, first_token_pos);
-        } else if (next_tok->kind == TokenKind_ident && string_equals_cstr(&next_tok->raw, "pragma")) {
-            process_pragma_directive(pp, first_token_pos);
-        } else {
-            fatal_error("%s:%d: unknown preprocessor directive (%s)", next_tok->loc.filename, next_tok->loc.line,
-                        token_stringify(next_tok));
-        }
+    Token* tok = peek_pp_token(pp);
+    if (tok->kind == TokenKind_pp_directive_endif) {
+        process_endif_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_else) {
+        process_else_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_elif) {
+        process_elif_directive(pp, first_token_pos);
     } else if (skip_pp_tokens(pp)) {
         make_token_whitespace(next_pp_token(pp));
-    } else if (first_token->kind == TokenKind_ident) {
+    } else if (tok->kind == TokenKind_pp_directive_if) {
+        process_if_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_ifdef) {
+        process_ifdef_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_ifndef) {
+        process_ifndef_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_include) {
+        process_include_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_define) {
+        process_define_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_undef) {
+        process_undef_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_line) {
+        process_line_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_error) {
+        process_error_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_pragma) {
+        process_pragma_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_ident) {
         BOOL expanded = expand_macro(pp);
         if (expanded) {
             // A macro may expand to another macro. Re-scan the expanded tokens.
