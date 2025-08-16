@@ -24,9 +24,9 @@ void tokenize_all(Lexer* l) {
         tok->loc = pp_tok->loc;
         if (k == TokenKind_character_constant) {
             tok->kind = TokenKind_literal_int;
-            int ch = pp_tok->value.string.data[1];
+            int ch = pp_tok->value.string[1];
             if (ch == '\\') {
-                ch = pp_tok->value.string.data[2];
+                ch = pp_tok->value.string[2];
                 if (ch == 'a') {
                     ch = '\a';
                 } else if (ch == 'b') {
@@ -47,81 +47,81 @@ void tokenize_all(Lexer* l) {
             }
             tok->value.integer = ch;
         } else if (k == TokenKind_ident) {
-            if (string_equals_cstr(&pp_tok->value.string, "auto")) {
+            if (strcmp(pp_tok->value.string, "auto") == 0) {
                 tok->kind = TokenKind_keyword_auto;
-            } else if (string_equals_cstr(&pp_tok->value.string, "break")) {
+            } else if (strcmp(pp_tok->value.string, "break") == 0) {
                 tok->kind = TokenKind_keyword_break;
-            } else if (string_equals_cstr(&pp_tok->value.string, "case")) {
+            } else if (strcmp(pp_tok->value.string, "case") == 0) {
                 tok->kind = TokenKind_keyword_case;
-            } else if (string_equals_cstr(&pp_tok->value.string, "char")) {
+            } else if (strcmp(pp_tok->value.string, "char") == 0) {
                 tok->kind = TokenKind_keyword_char;
-            } else if (string_equals_cstr(&pp_tok->value.string, "const")) {
+            } else if (strcmp(pp_tok->value.string, "const") == 0) {
                 tok->kind = TokenKind_keyword_const;
-            } else if (string_equals_cstr(&pp_tok->value.string, "continue")) {
+            } else if (strcmp(pp_tok->value.string, "continue") == 0) {
                 tok->kind = TokenKind_keyword_continue;
-            } else if (string_equals_cstr(&pp_tok->value.string, "default")) {
+            } else if (strcmp(pp_tok->value.string, "default") == 0) {
                 tok->kind = TokenKind_keyword_default;
-            } else if (string_equals_cstr(&pp_tok->value.string, "do")) {
+            } else if (strcmp(pp_tok->value.string, "do") == 0) {
                 tok->kind = TokenKind_keyword_do;
-            } else if (string_equals_cstr(&pp_tok->value.string, "double")) {
+            } else if (strcmp(pp_tok->value.string, "double") == 0) {
                 tok->kind = TokenKind_keyword_double;
-            } else if (string_equals_cstr(&pp_tok->value.string, "else")) {
+            } else if (strcmp(pp_tok->value.string, "else") == 0) {
                 tok->kind = TokenKind_keyword_else;
-            } else if (string_equals_cstr(&pp_tok->value.string, "enum")) {
+            } else if (strcmp(pp_tok->value.string, "enum") == 0) {
                 tok->kind = TokenKind_keyword_enum;
-            } else if (string_equals_cstr(&pp_tok->value.string, "extern")) {
+            } else if (strcmp(pp_tok->value.string, "extern") == 0) {
                 tok->kind = TokenKind_keyword_extern;
-            } else if (string_equals_cstr(&pp_tok->value.string, "float")) {
+            } else if (strcmp(pp_tok->value.string, "float") == 0) {
                 tok->kind = TokenKind_keyword_float;
-            } else if (string_equals_cstr(&pp_tok->value.string, "for")) {
+            } else if (strcmp(pp_tok->value.string, "for") == 0) {
                 tok->kind = TokenKind_keyword_for;
-            } else if (string_equals_cstr(&pp_tok->value.string, "goto")) {
+            } else if (strcmp(pp_tok->value.string, "goto") == 0) {
                 tok->kind = TokenKind_keyword_goto;
-            } else if (string_equals_cstr(&pp_tok->value.string, "if")) {
+            } else if (strcmp(pp_tok->value.string, "if") == 0) {
                 tok->kind = TokenKind_keyword_if;
-            } else if (string_equals_cstr(&pp_tok->value.string, "inline")) {
+            } else if (strcmp(pp_tok->value.string, "inline") == 0) {
                 tok->kind = TokenKind_keyword_inline;
-            } else if (string_equals_cstr(&pp_tok->value.string, "int")) {
+            } else if (strcmp(pp_tok->value.string, "int") == 0) {
                 tok->kind = TokenKind_keyword_int;
-            } else if (string_equals_cstr(&pp_tok->value.string, "long")) {
+            } else if (strcmp(pp_tok->value.string, "long") == 0) {
                 tok->kind = TokenKind_keyword_long;
-            } else if (string_equals_cstr(&pp_tok->value.string, "register")) {
+            } else if (strcmp(pp_tok->value.string, "register") == 0) {
                 tok->kind = TokenKind_keyword_register;
-            } else if (string_equals_cstr(&pp_tok->value.string, "restrict")) {
+            } else if (strcmp(pp_tok->value.string, "restrict") == 0) {
                 tok->kind = TokenKind_keyword_restrict;
-            } else if (string_equals_cstr(&pp_tok->value.string, "return")) {
+            } else if (strcmp(pp_tok->value.string, "return") == 0) {
                 tok->kind = TokenKind_keyword_return;
-            } else if (string_equals_cstr(&pp_tok->value.string, "short")) {
+            } else if (strcmp(pp_tok->value.string, "short") == 0) {
                 tok->kind = TokenKind_keyword_short;
-            } else if (string_equals_cstr(&pp_tok->value.string, "signed")) {
+            } else if (strcmp(pp_tok->value.string, "signed") == 0) {
                 tok->kind = TokenKind_keyword_signed;
-            } else if (string_equals_cstr(&pp_tok->value.string, "sizeof")) {
+            } else if (strcmp(pp_tok->value.string, "sizeof") == 0) {
                 tok->kind = TokenKind_keyword_sizeof;
-            } else if (string_equals_cstr(&pp_tok->value.string, "static")) {
+            } else if (strcmp(pp_tok->value.string, "static") == 0) {
                 tok->kind = TokenKind_keyword_static;
-            } else if (string_equals_cstr(&pp_tok->value.string, "struct")) {
+            } else if (strcmp(pp_tok->value.string, "struct") == 0) {
                 tok->kind = TokenKind_keyword_struct;
-            } else if (string_equals_cstr(&pp_tok->value.string, "switch")) {
+            } else if (strcmp(pp_tok->value.string, "switch") == 0) {
                 tok->kind = TokenKind_keyword_switch;
-            } else if (string_equals_cstr(&pp_tok->value.string, "typedef")) {
+            } else if (strcmp(pp_tok->value.string, "typedef") == 0) {
                 tok->kind = TokenKind_keyword_typedef;
-            } else if (string_equals_cstr(&pp_tok->value.string, "union")) {
+            } else if (strcmp(pp_tok->value.string, "union") == 0) {
                 tok->kind = TokenKind_keyword_union;
-            } else if (string_equals_cstr(&pp_tok->value.string, "unsigned")) {
+            } else if (strcmp(pp_tok->value.string, "unsigned") == 0) {
                 tok->kind = TokenKind_keyword_unsigned;
-            } else if (string_equals_cstr(&pp_tok->value.string, "void")) {
+            } else if (strcmp(pp_tok->value.string, "void") == 0) {
                 tok->kind = TokenKind_keyword_void;
-            } else if (string_equals_cstr(&pp_tok->value.string, "volatile")) {
+            } else if (strcmp(pp_tok->value.string, "volatile") == 0) {
                 tok->kind = TokenKind_keyword_volatile;
-            } else if (string_equals_cstr(&pp_tok->value.string, "while")) {
+            } else if (strcmp(pp_tok->value.string, "while") == 0) {
                 tok->kind = TokenKind_keyword_while;
-            } else if (string_equals_cstr(&pp_tok->value.string, "_Bool")) {
+            } else if (strcmp(pp_tok->value.string, "_Bool") == 0) {
                 tok->kind = TokenKind_keyword__Bool;
-            } else if (string_equals_cstr(&pp_tok->value.string, "_Complex")) {
+            } else if (strcmp(pp_tok->value.string, "_Complex") == 0) {
                 tok->kind = TokenKind_keyword__Complex;
-            } else if (string_equals_cstr(&pp_tok->value.string, "_Imaginary")) {
+            } else if (strcmp(pp_tok->value.string, "_Imaginary") == 0) {
                 tok->kind = TokenKind_keyword__Imaginary;
-            } else if (string_equals_cstr(&pp_tok->value.string, "va_start")) {
+            } else if (strcmp(pp_tok->value.string, "va_start") == 0) {
                 tok->kind = TokenKind_va_start;
                 tok->value = pp_tok->value;
             } else {

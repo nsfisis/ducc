@@ -295,9 +295,9 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
 }
 
 void codegen_func_call(CodeGen* g, AstNode* ast) {
-    String* func_name = &ast->name;
+    const char* func_name = ast->name;
 
-    if (string_equals_cstr(func_name, "va_start")) {
+    if (strcmp(func_name, "va_start") == 0) {
         printf("  # va_start BEGIN\n");
         for (int i = 0; i < 6; ++i) {
             printf("  mov rax, %s\n", param_reg(i));
@@ -337,7 +337,7 @@ void codegen_func_call(CodeGen* g, AstNode* ast) {
 
     printf("  mov rax, 0\n");
     printf("  sub rsp, 8\n");
-    printf("  call %.*s\n", func_name->len, func_name->data);
+    printf("  call %s\n", func_name);
     printf("  add rsp, 8\n");
     printf("  push rax\n");
 
@@ -345,7 +345,7 @@ void codegen_func_call(CodeGen* g, AstNode* ast) {
     printf(".Laligned%d:\n", label);
 
     printf("  mov rax, 0\n");
-    printf("  call %.*s\n", func_name->len, func_name->data);
+    printf("  call %s\n", func_name);
     printf("  push rax\n");
 
     printf(".Lend%d:\n", label);
@@ -361,7 +361,7 @@ void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 }
 
 void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
-    printf("  lea rax, %.*s[rip]\n", ast->name.len, ast->name.data);
+    printf("  lea rax, %s[rip]\n", ast->name);
     printf("  push rax\n");
     if (gen_mode == GenMode_rval) {
         codegen_lval2rval(ast->ty);
@@ -536,11 +536,11 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
 }
 
 void codegen_func(CodeGen* g, AstNode* ast) {
-    printf("%.*s:\n", ast->name.len, ast->name.data);
+    printf("%s:\n", ast->name);
 
     codegen_func_prologue(g, ast);
     codegen_stmt(g, ast->node_body);
-    if (string_equals_cstr(&ast->name, "main")) {
+    if (strcmp(ast->name, "main") == 0) {
         // C99: 5.1.2.2.3
         printf("  mov rax, 0\n");
     }
@@ -569,15 +569,15 @@ void codegen(Program* prog) {
         AstNode* var = prog->vars->node_items + i;
         if (var->node_expr) {
             if (var->ty->kind == TypeKind_char)
-                printf("  %.*s: .byte %d\n", var->name.len, var->name.data, var->node_expr->node_int_value);
+                printf("  %s: .byte %d\n", var->name, var->node_expr->node_int_value);
             else if (var->ty->kind == TypeKind_short)
-                printf("  %.*s: .word %d\n", var->name.len, var->name.data, var->node_expr->node_int_value);
+                printf("  %s: .word %d\n", var->name, var->node_expr->node_int_value);
             else if (var->ty->kind == TypeKind_int)
-                printf("  %.*s: .int %d\n", var->name.len, var->name.data, var->node_expr->node_int_value);
+                printf("  %s: .int %d\n", var->name, var->node_expr->node_int_value);
             else
                 unimplemented();
         } else {
-            printf("  %.*s: .zero %d\n", var->name.len, var->name.data, type_sizeof(var->ty));
+            printf("  %s: .zero %d\n", var->name, type_sizeof(var->ty));
         }
     }
 

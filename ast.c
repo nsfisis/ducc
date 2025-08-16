@@ -95,8 +95,8 @@ int type_sizeof_struct(Type* ty);
 int type_sizeof_union(Type* ty);
 int type_alignof_struct(Type* ty);
 int type_alignof_union(Type* ty);
-int type_offsetof(Type* ty, const String* name);
-Type* type_member_typeof(Type* ty, const String* name);
+int type_offsetof(Type* ty, const char* name);
+Type* type_member_typeof(Type* ty, const char* name);
 
 int type_sizeof(Type* ty) {
     if (type_is_unsized(ty)) {
@@ -221,7 +221,7 @@ typedef enum AstNodeKind AstNodeKind;
 
 struct AstNode {
     AstNodeKind kind;
-    String name;
+    const char* name;
     Type* ty;
     struct AstNode* __n1;
     struct AstNode* __n2;
@@ -235,7 +235,7 @@ typedef struct AstNode AstNode;
 struct Program {
     AstNode* funcs;
     AstNode* vars;
-    char** str_literals;
+    const char** str_literals;
 };
 typedef struct Program Program;
 
@@ -356,7 +356,7 @@ AstNode* ast_new_deref_expr(AstNode* operand) {
     return e;
 }
 
-AstNode* ast_new_member_access_expr(AstNode* obj, const String* name) {
+AstNode* ast_new_member_access_expr(AstNode* obj, const char* name) {
     AstNode* e = ast_new(AstNodeKind_deref_expr);
     e->node_operand = ast_new_binary_expr(TokenKind_plus, obj, ast_new_int(type_offsetof(obj->ty->base, name)));
     e->ty = type_member_typeof(obj->ty->base, name);
@@ -430,7 +430,7 @@ int type_alignof_union(Type* ty) {
     return union_align;
 }
 
-int type_offsetof(Type* ty, const String* name) {
+int type_offsetof(Type* ty, const char* name) {
     if (ty->kind == TypeKind_union) {
         return 0;
     }
@@ -446,7 +446,7 @@ int type_offsetof(Type* ty, const String* name) {
         int align = type_alignof(member->ty);
 
         next_offset = to_aligned(next_offset, align);
-        if (string_equals(&member->name, name)) {
+        if (strcmp(member->name, name) == 0) {
             return next_offset;
         }
         next_offset += size;
@@ -455,14 +455,14 @@ int type_offsetof(Type* ty, const String* name) {
     fatal_error("type_offsetof: member not found");
 }
 
-Type* type_member_typeof(Type* ty, const String* name) {
+Type* type_member_typeof(Type* ty, const char* name) {
     if (ty->kind != TypeKind_struct && ty->kind != TypeKind_union) {
         fatal_error("type_member_typeof: type is neither a struct nor a union");
     }
 
     for (int i = 0; i < ty->def->node_members->node_len; ++i) {
         AstNode* member = ty->def->node_members->node_items + i;
-        if (string_equals(&member->name, name)) {
+        if (strcmp(member->name, name) == 0) {
             return member->ty;
         }
     }
