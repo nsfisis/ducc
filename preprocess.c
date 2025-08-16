@@ -1135,7 +1135,7 @@ void process_define_directive(Preprocessor* pp, int hash_pos) {
     Token* macro_name = next_pp_token(pp);
 
     if (macro_name->kind != TokenKind_ident) {
-        fatal_error("%s:%s: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
+        fatal_error("%s:%d: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
     }
 
     if (peek_pp_token(pp)->kind == TokenKind_paren_l) {
@@ -1144,7 +1144,7 @@ void process_define_directive(Preprocessor* pp, int hash_pos) {
         int replacements_start_pos = pp->pos;
         seek_to_next_newline(pp);
         if (pp_eof(pp)) {
-            fatal_error("%s:%s: invalid #define syntax");
+            fatal_error("%s:%d: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
         }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_func;
@@ -1159,7 +1159,7 @@ void process_define_directive(Preprocessor* pp, int hash_pos) {
         int replacements_start_pos = pp->pos;
         seek_to_next_newline(pp);
         if (pp_eof(pp)) {
-            fatal_error("%s:%s: invalid #define syntax");
+            fatal_error("%s:%d: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
         }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_obj;
