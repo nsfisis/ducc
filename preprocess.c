@@ -333,12 +333,6 @@ const char* token_kind_stringify(TokenKind k) {
         unreachable();
 }
 
-struct SourceLocation {
-    const char* filename;
-    int line;
-};
-typedef struct SourceLocation SourceLocation;
-
 // TokenValue is externally tagged by Token's kind.
 union TokenValue {
     const char* string;
@@ -544,10 +538,7 @@ MacroArg* macroargs_push_new(MacroArgArray* macroargs) {
 }
 
 struct PpLexer {
-    const char* filename;
-    int line;
-    char* src;
-    int pos;
+    InFile* src;
     BOOL at_bol;
     BOOL expect_header_name;
     TokenArray* pp_tokens;
@@ -557,9 +548,7 @@ typedef struct PpLexer PpLexer;
 PpLexer* pplexer_new(InFile* src) {
     PpLexer* ppl = calloc(1, sizeof(PpLexer));
 
-    ppl->filename = src->filename;
-    ppl->line = 1;
-    ppl->src = src->buf;
+    ppl->src = src;
     ppl->at_bol = TRUE;
     ppl->expect_header_name = FALSE;
     ppl->pp_tokens = calloc(1, sizeof(TokenArray));
@@ -571,21 +560,23 @@ PpLexer* pplexer_new(InFile* src) {
 TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
     // Skip whitespaces after '#'.
     char c;
-    while (isspace((c = ppl->src[ppl->pos]))) {
-        if (c == '\n' || c == '\r') {
+    while (isspace((c = infile_peek_char(ppl->src)))) {
+        if (c == '\n')
             break;
-        }
-        ++ppl->pos;
+        infile_next_char(ppl->src);
     }
 
-    int pp_directive_name_start = ppl->pos;
-    while (isalnum(ppl->src[ppl->pos])) {
-        ++ppl->pos;
-    }
-    int pp_directive_name_len = ppl->pos - pp_directive_name_start;
-    const char* pp_directive_name = strndup(&ppl->src[pp_directive_name_start], pp_directive_name_len);
+    SourceLocation pp_directive_name_start_loc = ppl->src->loc;
 
-    if (pp_directive_name_len == 0) {
+    StrBuilder builder;
+    strbuilder_init(&builder);
+    while (isalnum(infile_peek_char(ppl->src))) {
+        strbuilder_append_char(&builder, infile_peek_char(ppl->src));
+        infile_next_char(ppl->src);
+    }
+    const char* pp_directive_name = builder.buf;
+
+    if (builder.len == 0) {
         return TokenKind_hash;
     } else if (strcmp(pp_directive_name, "define") == 0) {
         return TokenKind_pp_directive_define;
@@ -613,195 +604,202 @@ TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
     } else if (strcmp(pp_directive_name, "undef") == 0) {
         return TokenKind_pp_directive_undef;
     } else {
-        fatal_error("%s:%d: unknown preprocessor directive (%s)", ppl->filename, ppl->line, pp_directive_name);
+        fatal_error("%s:%d: unknown preprocessor directive (%s)", pp_directive_name_start_loc.filename,
+                    pp_directive_name_start_loc.line, pp_directive_name);
     }
 }
 
 void pplexer_tokenize_all(PpLexer* ppl) {
-    while (ppl->src[ppl->pos]) {
+    while (!infile_eof(ppl->src)) {
         Token* tok = tokens_push_new(ppl->pp_tokens);
-        tok->loc.filename = ppl->filename;
-        tok->loc.line = ppl->line;
-        char c = ppl->src[ppl->pos];
-        ++ppl->pos;
+        tok->loc = ppl->src->loc;
+        char c = infile_peek_char(ppl->src);
 
         if (ppl->expect_header_name && c == '"') {
-            int start = ppl->pos - 1;
+            infile_next_char(ppl->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            strbuilder_append_char(&builder, '"');
             while (1) {
-                char ch = ppl->src[ppl->pos];
-                if (ch == '\\') {
-                    ++ppl->pos;
-                } else if (ch == '"') {
+                char ch = infile_peek_char(ppl->src);
+                if (ch == '"')
                     break;
+                strbuilder_append_char(&builder, ch);
+                if (ch == '\\') {
+                    infile_next_char(ppl->src);
+                    strbuilder_append_char(&builder, infile_peek_char(ppl->src));
                 }
-                ++ppl->pos;
+                infile_next_char(ppl->src);
             }
-            ++ppl->pos;
+            strbuilder_append_char(&builder, '"');
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_header_name;
-            tok->value.string = strndup(ppl->src + start, ppl->pos - start);
+            tok->value.string = builder.buf;
             ppl->expect_header_name = FALSE;
         } else if (ppl->expect_header_name && c == '<') {
-            int start = ppl->pos - 1;
+            infile_next_char(ppl->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            strbuilder_append_char(&builder, '<');
             while (1) {
-                char ch = ppl->src[ppl->pos];
-                if (ch == '>') {
+                char ch = infile_peek_char(ppl->src);
+                if (ch == '>')
                     break;
-                }
-                ++ppl->pos;
+                strbuilder_append_char(&builder, ch);
+                infile_next_char(ppl->src);
             }
-            ++ppl->pos;
+            strbuilder_append_char(&builder, '>');
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_header_name;
-            tok->value.string = strndup(ppl->src + start, ppl->pos - start);
+            tok->value.string = builder.buf;
             ppl->expect_header_name = FALSE;
         } else if (c == '(') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_paren_l;
         } else if (c == ')') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_paren_r;
         } else if (c == '{') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_brace_l;
         } else if (c == '}') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_brace_r;
         } else if (c == '[') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_bracket_l;
         } else if (c == ']') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_bracket_r;
         } else if (c == ',') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_comma;
         } else if (c == ':') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_colon;
         } else if (c == ';') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_semicolon;
         } else if (c == '^') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_xor;
             } else {
                 tok->kind = TokenKind_xor;
             }
         } else if (c == '?') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_question;
         } else if (c == '~') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_tilde;
         } else if (c == '+') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_add;
-            } else if (ppl->src[ppl->pos] == '+') {
-                ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '+')) {
                 tok->kind = TokenKind_plusplus;
             } else {
                 tok->kind = TokenKind_plus;
             }
         } else if (c == '|') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_or;
-            } else if (ppl->src[ppl->pos] == '|') {
-                ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '|')) {
                 tok->kind = TokenKind_oror;
             } else {
                 tok->kind = TokenKind_or;
             }
         } else if (c == '&') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_and;
-            } else if (ppl->src[ppl->pos] == '&') {
-                ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '&')) {
                 tok->kind = TokenKind_andand;
             } else {
                 tok->kind = TokenKind_and;
             }
         } else if (c == '-') {
-            if (ppl->src[ppl->pos] == '>') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '>')) {
                 tok->kind = TokenKind_arrow;
-            } else if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_sub;
-            } else if (ppl->src[ppl->pos] == '-') {
-                ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '-')) {
                 tok->kind = TokenKind_minusminus;
             } else {
                 tok->kind = TokenKind_minus;
             }
         } else if (c == '*') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_mul;
             } else {
                 tok->kind = TokenKind_star;
             }
         } else if (c == '/') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_div;
-            } else if (ppl->src[ppl->pos] == '/') {
-                int start = ppl->pos - 1;
-                ++ppl->pos;
-                while (ppl->src[ppl->pos] && ppl->src[ppl->pos] != '\n' && ppl->src[ppl->pos] != '\r') {
-                    ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '/')) {
+                while (!infile_eof(ppl->src) && infile_peek_char(ppl->src) != '\n') {
+                    infile_next_char(ppl->src);
                 }
                 tok->kind = TokenKind_whitespace;
-            } else if (ppl->src[ppl->pos] == '*') {
-                int start = ppl->pos - 1;
-                ++ppl->pos;
-                while (ppl->src[ppl->pos]) {
-                    if (ppl->src[ppl->pos] == '*' && ppl->src[ppl->pos + 1] == '/') {
-                        ppl->pos += 2;
-                        break;
+            } else if (infile_consume_if(ppl->src, '*')) {
+                while (infile_peek_char(ppl->src)) {
+                    if (infile_consume_if(ppl->src, '*')) {
+                        if (infile_consume_if(ppl->src, '/')) {
+                            break;
+                        }
+                        continue;
                     }
-                    if (ppl->src[ppl->pos] == '\n') {
-                        ++ppl->line;
-                    }
-                    ++ppl->pos;
+                    infile_next_char(ppl->src);
                 }
                 tok->kind = TokenKind_whitespace;
             } else {
                 tok->kind = TokenKind_slash;
             }
         } else if (c == '%') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_assign_mod;
             } else {
                 tok->kind = TokenKind_percent;
             }
         } else if (c == '.') {
-            if (ppl->src[ppl->pos] == '.') {
-                ++ppl->pos;
-                if (ppl->src[ppl->pos] == '.') {
-                    ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '.')) {
+                if (infile_consume_if(ppl->src, '.')) {
                     tok->kind = TokenKind_ellipsis;
                 } else {
                     tok->kind = TokenKind_other;
-                    tok->value.string = strndup(ppl->src + ppl->pos - 2, 2);
+                    tok->value.string = "..";
                 }
             } else {
                 tok->kind = TokenKind_dot;
             }
         } else if (c == '!') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_ne;
             } else {
                 tok->kind = TokenKind_not;
             }
         } else if (c == '=') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_eq;
             } else {
                 tok->kind = TokenKind_assign;
             }
         } else if (c == '<') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_le;
-            } else if (ppl->src[ppl->pos] == '<') {
-                ++ppl->pos;
-                if (ppl->src[ppl->pos] == '=') {
-                    ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '<')) {
+                if (infile_consume_if(ppl->src, '=')) {
                     tok->kind = TokenKind_assign_lshift;
                 } else {
                     tok->kind = TokenKind_lshift;
@@ -810,13 +808,11 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                 tok->kind = TokenKind_lt;
             }
         } else if (c == '>') {
-            if (ppl->src[ppl->pos] == '=') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '=')) {
                 tok->kind = TokenKind_ge;
-            } else if (ppl->src[ppl->pos] == '>') {
-                ++ppl->pos;
-                if (ppl->src[ppl->pos] == '=') {
-                    ++ppl->pos;
+            } else if (infile_consume_if(ppl->src, '>')) {
+                if (infile_consume_if(ppl->src, '=')) {
                     tok->kind = TokenKind_assign_rshift;
                 } else {
                     tok->kind = TokenKind_rshift;
@@ -825,76 +821,89 @@ void pplexer_tokenize_all(PpLexer* ppl) {
                 tok->kind = TokenKind_gt;
             }
         } else if (c == '#') {
-            if (ppl->src[ppl->pos] == '#') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            if (infile_consume_if(ppl->src, '#')) {
                 tok->kind = TokenKind_hashhash;
             } else {
                 tok->kind = ppl->at_bol ? pplexer_tokenize_pp_directive(ppl) : TokenKind_hash;
             }
         } else if (c == '\'') {
-            int start = ppl->pos - 1;
-            if (ppl->src[ppl->pos] == '\\') {
-                ++ppl->pos;
+            infile_next_char(ppl->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            strbuilder_append_char(&builder, '\'');
+            strbuilder_append_char(&builder, infile_peek_char(ppl->src));
+            if (infile_peek_char(ppl->src) == '\\') {
+                infile_next_char(ppl->src);
+                strbuilder_append_char(&builder, infile_peek_char(ppl->src));
             }
-            ppl->pos += 2;
+            strbuilder_append_char(&builder, '\'');
+            infile_next_char(ppl->src);
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_character_constant;
-            tok->value.string = strndup(ppl->src + start, ppl->pos - start);
+            tok->value.string = builder.buf;
         } else if (c == '"') {
-            int start = ppl->pos - 1;
+            infile_next_char(ppl->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
             while (1) {
-                char ch = ppl->src[ppl->pos];
-                if (ch == '\\') {
-                    ++ppl->pos;
-                } else if (ch == '"') {
+                char ch = infile_peek_char(ppl->src);
+                if (ch == '"')
                     break;
+                strbuilder_append_char(&builder, ch);
+                if (ch == '\\') {
+                    infile_next_char(ppl->src);
+                    strbuilder_append_char(&builder, infile_peek_char(ppl->src));
                 }
-                ++ppl->pos;
+                infile_next_char(ppl->src);
             }
-            ++ppl->pos;
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_literal_str;
-            tok->value.string = strndup(ppl->src + start + 1, ppl->pos - start - 2);
+            tok->value.string = builder.buf;
         } else if (isdigit(c)) {
-            --ppl->pos;
-            int start = ppl->pos;
-            while (isdigit(ppl->src[ppl->pos])) {
-                ++ppl->pos;
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            while (isdigit(infile_peek_char(ppl->src))) {
+                strbuilder_append_char(&builder, infile_peek_char(ppl->src));
+                infile_next_char(ppl->src);
             }
             tok->kind = TokenKind_literal_int;
-            tok->value.integer = atoi(ppl->src + start);
+            tok->value.integer = atoi(builder.buf);
         } else if (isalpha(c) || c == '_') {
-            --ppl->pos;
-            int start = ppl->pos;
-            while (isalnum(ppl->src[ppl->pos]) || ppl->src[ppl->pos] == '_') {
-                ++ppl->pos;
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            while (isalnum(infile_peek_char(ppl->src)) || infile_peek_char(ppl->src) == '_') {
+                strbuilder_append_char(&builder, infile_peek_char(ppl->src));
+                infile_next_char(ppl->src);
             }
-            tok->value.string = strndup(ppl->src + start, ppl->pos - start);
             tok->kind = TokenKind_ident;
-        } else if (c == '\n' || c == '\r') {
-            ++ppl->line;
+            tok->value.string = builder.buf;
+        } else if (c == '\n') {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_newline;
         } else if (isspace(c)) {
-            --ppl->pos;
-            while (isspace((c = ppl->src[ppl->pos]))) {
-                if (c == '\n' || c == '\r') {
+            while (isspace((c = infile_peek_char(ppl->src)))) {
+                if (c == '\n')
                     break;
-                }
-                ++ppl->pos;
+                infile_next_char(ppl->src);
             }
-            if (ppl->at_bol && ppl->src[ppl->pos] == '#') {
-                ++ppl->pos;
+            if (ppl->at_bol && infile_peek_char(ppl->src) == '#') {
+                infile_next_char(ppl->src);
                 tok->kind = pplexer_tokenize_pp_directive(ppl);
             } else {
                 tok->kind = TokenKind_whitespace;
             }
         } else {
+            infile_next_char(ppl->src);
             tok->kind = TokenKind_other;
-            tok->value.string = strndup(ppl->src + ppl->pos - 1, 1);
+            char* buf = calloc(2, sizeof(char));
+            buf[0] = c;
+            tok->value.string = buf;
         }
         ppl->at_bol = tok->kind == TokenKind_newline;
     }
     Token* eof_tok = tokens_push_new(ppl->pp_tokens);
-    eof_tok->loc.filename = ppl->filename;
-    eof_tok->loc.line = ppl->line;
+    eof_tok->loc = ppl->src->loc;
     eof_tok->kind = TokenKind_eof;
 }
 
@@ -1099,10 +1108,10 @@ int replace_single_pp_token(Preprocessor* pp, int dest, Token* source_tok) {
     replace_pp_tokens(pp, dest, dest + 1, &tokens);
 }
 
-void expand_include_directive(Preprocessor* pp, int directive_token_pos, const char* include_name_buf) {
-    InFile* include_source = read_all(include_name_buf);
+void expand_include_directive(Preprocessor* pp, int directive_token_pos, const char* include_name) {
+    InFile* include_source = infile_open(include_name);
     if (!include_source) {
-        fatal_error("cannot open include file: %s", include_name_buf);
+        fatal_error("cannot open include file: %s", include_name);
     }
 
     TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros);

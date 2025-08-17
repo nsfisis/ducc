@@ -1,10 +1,17 @@
-struct InFile {
+struct SourceLocation {
     const char* filename;
-    char* buf;
+    int line;
+};
+typedef struct SourceLocation SourceLocation;
+
+struct InFile {
+    const char* buf;
+    int pos;
+    SourceLocation loc;
 };
 typedef struct InFile InFile;
 
-InFile* read_all(const char* filename) {
+InFile* infile_open(const char* filename) {
     FILE* in;
     if (strcmp(filename, "-") == 0) {
         in = stdin;
@@ -38,7 +45,38 @@ InFile* read_all(const char* filename) {
     fclose(in);
 
     InFile* in_file = calloc(1, sizeof(InFile));
-    in_file->filename = filename;
     in_file->buf = buf;
+    in_file->loc.filename = filename;
+    in_file->loc.line = 1;
     return in_file;
+}
+
+BOOL infile_eof(InFile* f) {
+    return f->buf[f->pos] == '\0';
+}
+
+char infile_peek_char(InFile* f) {
+    char c = f->buf[f->pos];
+    // Normalize new-line.
+    // TODO: crlf
+    if (c == '\r')
+        c = '\n';
+    return c;
+}
+
+char infile_next_char(InFile* f) {
+    char c = infile_peek_char(f);
+    ++f->pos;
+    if (c == '\n')
+        ++f->loc.line;
+    return c;
+}
+
+BOOL infile_consume_if(InFile* f, char expected) {
+    if (infile_peek_char(f) == expected) {
+        infile_next_char(f);
+        return TRUE;
+    } else {
+        return FALSE;
+    }
 }

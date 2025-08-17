@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     if (argc == 1) {
         fatal_error("usage: ducc <FILE>");
     }
-    InFile* source = read_all(argv[1]);
+    InFile* source = infile_open(argv[1]);
     TokenArray* pp_tokens = preprocess(source);
     TokenArray* tokens = tokenize(pp_tokens);
     Program* prog = parse(tokens);

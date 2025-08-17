@@ -10,3 +10,30 @@ void fatal_error(const char* msg, ...) {
 #define unreachable() fatal_error("%s:%d: unreachable", __FILE__, __LINE__)
 
 #define unimplemented() fatal_error("%s:%d: unimplemented", __FILE__, __LINE__)
+
+struct StrBuilder {
+    size_t len;
+    size_t capacity;
+    char* buf;
+};
+typedef struct StrBuilder StrBuilder;
+
+void strbuilder_init(StrBuilder* b) {
+    b->len = 0;
+    b->capacity = 16;
+    b->buf = calloc(b->capacity, sizeof(char));
+}
+
+// `size` must include a trailing null byte.
+void strbuilder_reserve(StrBuilder* b, size_t size) {
+    if (size <= b->capacity)
+        return;
+    b->capacity *= 2;
+    b->buf = realloc(b->buf, b->capacity * sizeof(char));
+    memset(b->buf + b->len, 0, (b->capacity - b->len) * sizeof(char));
+}
+
+void strbuilder_append_char(StrBuilder* b, int c) {
+    strbuilder_reserve(b, b->len + 1 + 1);
+    b->buf[b->len++] = c;
+}
