@@ -7,6 +7,7 @@ typedef enum GenMode GenMode;
 struct CodeGen {
     int next_label;
     int* loop_labels;
+    AstNode* current_func;
 };
 typedef struct CodeGen CodeGen;
 
@@ -50,7 +51,7 @@ void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     for (int i = 0; i < ast->node_params->node_len; ++i) {
         printf("  push %s\n", param_reg(i));
     }
-    printf("  sub rsp, %d\n", 8 * LVAR_MAX);
+    printf("  sub rsp, %d\n", ast->node_stack_size);
 }
 
 void codegen_func_epilogue(CodeGen* g, AstNode* ast) {
@@ -298,22 +299,23 @@ void codegen_func_call(CodeGen* g, AstNode* ast) {
     const char* func_name = ast->name;
 
     if (strcmp(func_name, "__ducc_va_start") == 0) {
+        int stack_size = g->current_func->node_stack_size;
         printf("  # __ducc_va_start BEGIN\n");
         for (int i = 0; i < 6; ++i) {
             printf("  mov rax, %s\n", param_reg(i));
-            printf("  mov [rbp-%d], rax\n", 8 + (LVAR_MAX - 4 - i) * 8);
+            printf("  mov [rbp-%d], rax\n", 8 + (stack_size - 4 - i) * 8);
         }
         AstNode* va_list_args = ast->node_args->node_items;
         codegen_expr(g, va_list_args, GenMode_lval);
         printf("  pop rdi\n");
         printf("  mov rax, rbp\n");
-        printf("  sub rax, %d\n", 8 + (LVAR_MAX - 1) * 8);
+        printf("  sub rax, %d\n", 8 + (stack_size - 1) * 8);
         printf("  mov [rdi], rax\n");
         printf("  mov DWORD PTR [rax], 8\n");
         printf("  mov DWORD PTR [rax+4], 0\n");
         printf("  mov QWORD PTR [rax+8], 0\n");
         printf("  mov rdi, rbp\n");
-        printf("  sub rdi, %d\n", 8 + (LVAR_MAX - 4) * 8);
+        printf("  sub rdi, %d\n", 8 + (stack_size - 4) * 8);
         printf("  mov QWORD PTR [rax+16], rdi\n");
         printf("  # __ducc_va_start END\n");
         return;
@@ -536,6 +538,7 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
 }
 
 void codegen_func(CodeGen* g, AstNode* ast) {
+    g->current_func = ast;
     printf("%s:\n", ast->name);
 
     codegen_func_prologue(g, ast);
@@ -547,6 +550,7 @@ void codegen_func(CodeGen* g, AstNode* ast) {
     codegen_func_epilogue(g, ast);
 
     printf("\n");
+    g->current_func = NULL;
 }
 
 void codegen(Program* prog) {

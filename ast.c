@@ -218,6 +218,7 @@ typedef enum AstNodeKind AstNodeKind;
 #define node_idx __i1
 #define node_op __i1
 #define node_stack_offset __i1
+#define node_stack_size __i1
 
 struct AstNode {
     AstNodeKind kind;

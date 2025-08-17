@@ -1102,6 +1102,11 @@ AstNode* parse_func_decl_or_def(Parser* p) {
     func->name = name;
     func->node_params = params;
     func->node_body = body;
+    if (p->n_lvars == 0) {
+        func->node_stack_size = 0;
+    } else {
+        func->node_stack_size = p->lvars[p->n_lvars - 1].stack_offset + type_sizeof(p->lvars[p->n_lvars - 1].ty);
+    }
     return func;
 }
 
