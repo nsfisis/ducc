@@ -108,9 +108,6 @@ enum TokenKind {
     TokenKind_star,
     TokenKind_tilde,
     TokenKind_xor,
-
-    // va_start() is currently implemented as a special form due to the current limitation of #define macro.
-    TokenKind_va_start,
 };
 typedef enum TokenKind TokenKind;
 
@@ -327,8 +324,6 @@ const char* token_kind_stringify(TokenKind k) {
         return "~";
     else if (k == TokenKind_xor)
         return "^";
-    else if (k == TokenKind_va_start)
-        return "va_start";
     else
         unreachable();
 }

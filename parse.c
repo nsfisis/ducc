@@ -60,7 +60,7 @@ Parser* parser_new(TokenArray* tokens) {
     p->typedefs = calloc(64, sizeof(AstNode));
     p->str_literals = calloc(1024, sizeof(char*));
 
-    p->funcs[p->n_funcs].name = "va_start";
+    p->funcs[p->n_funcs].name = "__ducc_va_start";
     p->funcs[p->n_funcs].ty = calloc(1, sizeof(Type));
     p->funcs[p->n_funcs].ty->kind = TypeKind_void;
     ++p->n_funcs;
@@ -285,7 +285,7 @@ AstNode* parse_primary_expr(Parser* p) {
         AstNode* e = parse_expr(p);
         expect(p, TokenKind_paren_r);
         return e;
-    } else if (t->kind == TokenKind_ident || t->kind == TokenKind_va_start) {
+    } else if (t->kind == TokenKind_ident) {
         const char* name = t->value.string;
 
         if (peek_token(p)->kind == TokenKind_paren_l) {

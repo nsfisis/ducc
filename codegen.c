@@ -297,8 +297,8 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
 void codegen_func_call(CodeGen* g, AstNode* ast) {
     const char* func_name = ast->name;
 
-    if (strcmp(func_name, "va_start") == 0) {
-        printf("  # va_start BEGIN\n");
+    if (strcmp(func_name, "__ducc_va_start") == 0) {
+        printf("  # __ducc_va_start BEGIN\n");
         for (int i = 0; i < 6; ++i) {
             printf("  mov rax, %s\n", param_reg(i));
             printf("  mov [rbp-%d], rax\n", 8 + (LVAR_MAX - 4 - i) * 8);
@@ -315,7 +315,7 @@ void codegen_func_call(CodeGen* g, AstNode* ast) {
         printf("  mov rdi, rbp\n");
         printf("  sub rdi, %d\n", 8 + (LVAR_MAX - 4) * 8);
         printf("  mov QWORD PTR [rax+16], rdi\n");
-        printf("  # va_start END\n");
+        printf("  # __ducc_va_start END\n");
         return;
     }
 

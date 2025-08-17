@@ -121,9 +121,6 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword__Complex;
             } else if (strcmp(pp_tok->value.string, "_Imaginary") == 0) {
                 tok->kind = TokenKind_keyword__Imaginary;
-            } else if (strcmp(pp_tok->value.string, "va_start") == 0) {
-                tok->kind = TokenKind_va_start;
-                tok->value = pp_tok->value;
             } else {
                 tok->kind = TokenKind_ident;
                 tok->value = pp_tok->value;
