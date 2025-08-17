@@ -794,50 +794,132 @@ AstNode* parse_if_stmt(Parser* p) {
     return stmt;
 }
 
-AstNode* parse_var_decl(Parser* p) {
-    Type* ty = parse_type(p);
-    if (type_is_unsized(ty)) {
-        fatal_error("parse_var_decl: invalid type for variable");
-    }
-    const char* name = parse_ident(p);
-
-    if (peek_token(p)->kind == TokenKind_bracket_l) {
+// pointer:
+//     '*' TODO attribute-specifier-sequence_opt TODO type-qualifier-list_opt
+//     '*' TODO attribute-specifier-sequence_opt TODO type-qualifier-list_opt pointer
+Type* parse_pointer_opt(Parser* p, Type* ty) {
+    while (peek_token(p)->kind == TokenKind_star) {
         next_token(p);
-        AstNode* size_expr = parse_expr(p);
-        if (size_expr->kind != AstNodeKind_int_expr) {
-            fatal_error("parse_var_decl: invalid array size");
+        ty = type_new_ptr(ty);
+    }
+    return ty;
+}
+
+// array-declarator:
+//     direct-declarator '[' TODO type-qualifier-list_opt TODO assignment-expression_opt ']'
+//     TODO direct-declarator '[' 'static' type-qualifier-list_opt assignment-expression_opt ']'
+//     TODO direct-declarator '[' type-qualifier-list 'static' assignment-expression_opt ']'
+//     TODO direct-declarator '[' type-qualifier-list_opt '*' ']'
+Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
+    next_token(p); // skip '['
+
+    AstNode* size_expr = parse_expr(p);
+    if (size_expr->kind != AstNodeKind_int_expr) {
+        fatal_error("parse_var_decl: invalid array size");
+    }
+    int size = size_expr->node_int_value;
+    expect(p, TokenKind_bracket_r);
+
+    return type_new_array(ty, size);
+}
+
+// direct-declarator:
+//     identifier TODO attribute-specifier-sequence_opt
+//     TODO '(' declarator ')'
+//     array-declarator TODO attribute-specifier-sequence_opt
+//     TODO function-declarator TODO attribute-specifier-sequence_opt
+AstNode* parse_direct_declarator(Parser* p, Type* ty) {
+    const char* name = parse_ident(p);
+    while (1) {
+        if (peek_token(p)->kind == TokenKind_bracket_l) {
+            ty = parse_array_declarator_suffix(p, ty);
+        } else {
+            break;
         }
-        int size = size_expr->node_int_value;
-        expect(p, TokenKind_bracket_r);
-        ty = type_new_array(ty, size);
     }
 
+    AstNode* ret = ast_new(AstNodeKind_declarator);
+    ret->name = name;
+    ret->ty = ty;
+    return ret;
+}
+
+// declarator:
+//     pointer_opt direct-declarator
+AstNode* parse_declarator(Parser* p, Type* ty) {
+    ty = parse_pointer_opt(p, ty);
+    return parse_direct_declarator(p, ty);
+}
+
+// initializer:
+//     assignment-expression
+//     TODO braced-initializer
+AstNode* parse_initializer(Parser* p) {
+    return parse_assignment_expr(p);
+}
+
+// init-declarator:
+//     declarator
+//     declarator '=' initializer
+AstNode* parse_init_declarator(Parser* p, Type* ty) {
+    AstNode* decl = parse_declarator(p, ty);
     AstNode* init = NULL;
     if (peek_token(p)->kind == TokenKind_assign) {
         next_token(p);
-        init = parse_assignment_expr(p);
+        init = parse_initializer(p);
     }
+    decl->node_init = init;
+    return decl;
+}
+
+// init-declarator-list:
+//     init-declarator
+//     init-declarator-list ',' init-declarator
+AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
+    AstNode* list = ast_new_list(1);
+    while (1) {
+        AstNode* d = parse_init_declarator(p, ty);
+        ast_append(list, d);
+        if (peek_token(p)->kind == TokenKind_comma) {
+            next_token(p);
+        } else {
+            break;
+        }
+    }
+    return list;
+}
+
+AstNode* parse_var_decl(Parser* p) {
+    Type* base_ty = parse_type(p);
+    if (type_is_unsized(base_ty)) {
+        fatal_error("parse_var_decl: invalid type for variable");
+    }
+
+    AstNode* decls = parse_init_declarator_list(p, base_ty);
     expect(p, TokenKind_semicolon);
 
-    if (find_lvar_in_current_scope(p, name) != -1) {
-        // TODO: use name's location.
-        fatal_error("%s:%d: '%s' redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line, name);
-    }
-    int stack_offset = add_lvar(p, name, ty, FALSE);
+    for (int i = 0; i < decls->node_len; ++i) {
+        AstNode* decl = &decls->node_items[i];
 
-    AstNode* ret;
-    if (init) {
-        AstNode* lhs = ast_new(AstNodeKind_lvar);
-        lhs->name = name;
-        lhs->node_stack_offset = stack_offset;
-        lhs->ty = ty;
-        AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, init);
-        ret = ast_new(AstNodeKind_expr_stmt);
-        ret->node_expr = assign;
-    } else {
-        ret = ast_new(AstNodeKind_lvar_decl);
+        if (find_lvar_in_current_scope(p, decl->name) != -1) {
+            // TODO: use name's location.
+            fatal_error("%s:%d: '%s' redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line, decl->name);
+        }
+        int stack_offset = add_lvar(p, decl->name, decl->ty, FALSE);
+
+        if (decl->node_init) {
+            AstNode* lhs = ast_new(AstNodeKind_lvar);
+            lhs->name = decl->name;
+            lhs->node_stack_offset = stack_offset;
+            lhs->ty = decl->ty;
+            AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, decl->node_init);
+            decl->kind = AstNodeKind_expr_stmt;
+            decl->node_expr = assign;
+        } else {
+            decl->kind = AstNodeKind_nop;
+        }
     }
-    return ret;
+    return decls;
 }
 
 AstNode* parse_for_stmt(Parser* p) {
@@ -849,7 +931,7 @@ AstNode* parse_for_stmt(Parser* p) {
     enter_scope(p);
     if (peek_token(p)->kind != TokenKind_semicolon) {
         if (is_type_token(p, peek_token(p))) {
-            init = parse_var_decl(p)->node_expr;
+            init = parse_var_decl(p)->node_items[0].node_expr;
         } else {
             init = parse_expr(p);
             expect(p, TokenKind_semicolon);
