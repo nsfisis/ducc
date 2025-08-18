@@ -1110,50 +1110,42 @@ AstNode* parse_param_list(Parser* p) {
     return list;
 }
 
-AstNode* parse_global_var_decl(Parser* p, Type* ty, const char* name) {
-    if (type_is_unsized(ty)) {
+AstNode* parse_global_var_decl(Parser* p) {
+    Type* base_ty = parse_type(p);
+    if (type_is_unsized(base_ty)) {
         fatal_error("parse_global_var_decl: invalid type for variable");
     }
 
-    if (peek_token(p)->kind == TokenKind_bracket_l) {
-        next_token(p);
-        AstNode* size_expr = parse_expr(p);
-        if (size_expr->kind != AstNodeKind_int_expr) {
-            fatal_error("parse_global_var_decl: invalid array size");
-        }
-        int size = size_expr->node_int_value;
-        expect(p, TokenKind_bracket_r);
-        ty = type_new_array(ty, size);
-    }
-
-    AstNode* init = NULL;
-    if (peek_token(p)->kind == TokenKind_assign) {
-        next_token(p);
-        init = parse_assignment_expr(p);
-    }
+    AstNode* decls = parse_init_declarator_list(p, base_ty);
     expect(p, TokenKind_semicolon);
 
-    if (find_gvar(p, name) != -1) {
-        fatal_error("parse_global_var_decl: %s redeclared", name);
+    for (int i = 0; i < decls->node_len; ++i) {
+        AstNode* decl = &decls->node_items[i];
+
+        if (find_gvar(p, decl->name) != -1) {
+            fatal_error("parse_global_var_decl: %s redeclared", decl->name);
+        }
+        p->gvars[p->n_gvars].name = decl->name;
+        p->gvars[p->n_gvars].ty = decl->ty;
+        ++p->n_gvars;
+
+        decl->kind = AstNodeKind_gvar_decl;
+        decl->node_expr = decl->node_init;
     }
-
-    p->gvars[p->n_gvars].name = name;
-    p->gvars[p->n_gvars].ty = ty;
-    ++p->n_gvars;
-
-    AstNode* ret = ast_new(AstNodeKind_gvar_decl);
-    ret->name = name;
-    ret->ty = ty;
-    ret->node_expr = init;
-    return ret;
+    return decls;
 }
 
 AstNode* parse_func_decl_or_def(Parser* p) {
+    // TODO: remove it.
+    int start_pos = p->pos;
+
     Type* ty = parse_type(p);
     const char* name = parse_ident(p);
 
     if (peek_token(p)->kind != TokenKind_paren_l) {
-        return parse_global_var_decl(p, ty, name);
+        // TODO: avoid backtracking
+        p->pos = start_pos;
+        return parse_global_var_decl(p);
     }
 
     expect(p, TokenKind_paren_l);
@@ -1390,6 +1382,10 @@ Program* parse(TokenArray* tokens) {
             ast_append(funcs, n);
         } else if (n->kind == AstNodeKind_gvar_decl && n->ty) {
             ast_append(vars, n);
+        } else if (n->kind == AstNodeKind_list) {
+            for (int i = 0; i < n->node_len; ++i) {
+                ast_append(vars, &n->node_items[i]);
+            }
         }
     }
     Program* prog = calloc(1, sizeof(Program));
