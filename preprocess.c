@@ -22,6 +22,62 @@ enum TokenKind {
     TokenKind_pp_directive_pragma,
     TokenKind_pp_directive_undef,
 
+    // C23: 6.4.1
+    TokenKind_keyword_alignas,
+    TokenKind_keyword_alignof,
+    TokenKind_keyword_auto,
+    TokenKind_keyword_bool,
+    TokenKind_keyword_break,
+    TokenKind_keyword_case,
+    TokenKind_keyword_char,
+    TokenKind_keyword_const,
+    TokenKind_keyword_constexpr,
+    TokenKind_keyword_continue,
+    TokenKind_keyword_default,
+    TokenKind_keyword_do,
+    TokenKind_keyword_double,
+    TokenKind_keyword_else,
+    TokenKind_keyword_enum,
+    TokenKind_keyword_extern,
+    TokenKind_keyword_false,
+    TokenKind_keyword_float,
+    TokenKind_keyword_for,
+    TokenKind_keyword_goto,
+    TokenKind_keyword_if,
+    TokenKind_keyword_inline,
+    TokenKind_keyword_int,
+    TokenKind_keyword_long,
+    TokenKind_keyword_nullptr,
+    TokenKind_keyword_register,
+    TokenKind_keyword_restrict,
+    TokenKind_keyword_return,
+    TokenKind_keyword_short,
+    TokenKind_keyword_signed,
+    TokenKind_keyword_sizeof,
+    TokenKind_keyword_static,
+    TokenKind_keyword_static_assert,
+    TokenKind_keyword_struct,
+    TokenKind_keyword_switch,
+    TokenKind_keyword_thread_local,
+    TokenKind_keyword_true,
+    TokenKind_keyword_typedef,
+    TokenKind_keyword_typeof,
+    TokenKind_keyword_typeof_unqual,
+    TokenKind_keyword_union,
+    TokenKind_keyword_unsigned,
+    TokenKind_keyword_void,
+    TokenKind_keyword_volatile,
+    TokenKind_keyword_while,
+    TokenKind_keyword__Atomic,
+    TokenKind_keyword__BitInt,
+    TokenKind_keyword__Complex,
+    TokenKind_keyword__Decimal128,
+    TokenKind_keyword__Decimal32,
+    TokenKind_keyword__Decimal64,
+    TokenKind_keyword__Generic,
+    TokenKind_keyword__Imaginary,
+    TokenKind_keyword__Noreturn,
+
     TokenKind_and,
     TokenKind_andand,
     TokenKind_arrow,
@@ -48,43 +104,6 @@ enum TokenKind {
     TokenKind_ge,
     TokenKind_gt,
     TokenKind_ident,
-    TokenKind_keyword__Bool,
-    TokenKind_keyword__Complex,
-    TokenKind_keyword__Imaginary,
-    TokenKind_keyword_auto,
-    TokenKind_keyword_break,
-    TokenKind_keyword_case,
-    TokenKind_keyword_char,
-    TokenKind_keyword_const,
-    TokenKind_keyword_continue,
-    TokenKind_keyword_default,
-    TokenKind_keyword_do,
-    TokenKind_keyword_double,
-    TokenKind_keyword_else,
-    TokenKind_keyword_enum,
-    TokenKind_keyword_extern,
-    TokenKind_keyword_float,
-    TokenKind_keyword_for,
-    TokenKind_keyword_goto,
-    TokenKind_keyword_if,
-    TokenKind_keyword_inline,
-    TokenKind_keyword_int,
-    TokenKind_keyword_long,
-    TokenKind_keyword_register,
-    TokenKind_keyword_restrict,
-    TokenKind_keyword_return,
-    TokenKind_keyword_short,
-    TokenKind_keyword_signed,
-    TokenKind_keyword_sizeof,
-    TokenKind_keyword_static,
-    TokenKind_keyword_struct,
-    TokenKind_keyword_switch,
-    TokenKind_keyword_typedef,
-    TokenKind_keyword_union,
-    TokenKind_keyword_unsigned,
-    TokenKind_keyword_void,
-    TokenKind_keyword_volatile,
-    TokenKind_keyword_while,
     TokenKind_le,
     TokenKind_literal_int,
     TokenKind_literal_str,
@@ -152,6 +171,114 @@ const char* token_kind_stringify(TokenKind k) {
         return "#pragma";
     else if (k == TokenKind_pp_directive_undef)
         return "#undef";
+    else if (k == TokenKind_keyword_alignas)
+        return "alignas";
+    else if (k == TokenKind_keyword_alignof)
+        return "alignof";
+    else if (k == TokenKind_keyword_auto)
+        return "auto";
+    else if (k == TokenKind_keyword_bool)
+        return "bool";
+    else if (k == TokenKind_keyword_break)
+        return "break";
+    else if (k == TokenKind_keyword_case)
+        return "case";
+    else if (k == TokenKind_keyword_char)
+        return "char";
+    else if (k == TokenKind_keyword_const)
+        return "const";
+    else if (k == TokenKind_keyword_constexpr)
+        return "constexpr";
+    else if (k == TokenKind_keyword_continue)
+        return "continue";
+    else if (k == TokenKind_keyword_default)
+        return "default";
+    else if (k == TokenKind_keyword_do)
+        return "do";
+    else if (k == TokenKind_keyword_double)
+        return "double";
+    else if (k == TokenKind_keyword_else)
+        return "else";
+    else if (k == TokenKind_keyword_enum)
+        return "enum";
+    else if (k == TokenKind_keyword_extern)
+        return "extern";
+    else if (k == TokenKind_keyword_false)
+        return "false";
+    else if (k == TokenKind_keyword_float)
+        return "float";
+    else if (k == TokenKind_keyword_for)
+        return "for";
+    else if (k == TokenKind_keyword_goto)
+        return "goto";
+    else if (k == TokenKind_keyword_if)
+        return "if";
+    else if (k == TokenKind_keyword_inline)
+        return "inline";
+    else if (k == TokenKind_keyword_int)
+        return "int";
+    else if (k == TokenKind_keyword_long)
+        return "long";
+    else if (k == TokenKind_keyword_nullptr)
+        return "nullptr";
+    else if (k == TokenKind_keyword_register)
+        return "register";
+    else if (k == TokenKind_keyword_restrict)
+        return "restrict";
+    else if (k == TokenKind_keyword_return)
+        return "return";
+    else if (k == TokenKind_keyword_short)
+        return "short";
+    else if (k == TokenKind_keyword_signed)
+        return "signed";
+    else if (k == TokenKind_keyword_sizeof)
+        return "sizeof";
+    else if (k == TokenKind_keyword_static)
+        return "static";
+    else if (k == TokenKind_keyword_static_assert)
+        return "static_assert";
+    else if (k == TokenKind_keyword_struct)
+        return "struct";
+    else if (k == TokenKind_keyword_switch)
+        return "switch";
+    else if (k == TokenKind_keyword_thread_local)
+        return "thread_local";
+    else if (k == TokenKind_keyword_true)
+        return "true";
+    else if (k == TokenKind_keyword_typedef)
+        return "typedef";
+    else if (k == TokenKind_keyword_typeof)
+        return "typeof";
+    else if (k == TokenKind_keyword_typeof_unqual)
+        return "typeof_unqual";
+    else if (k == TokenKind_keyword_union)
+        return "union";
+    else if (k == TokenKind_keyword_unsigned)
+        return "unsigned";
+    else if (k == TokenKind_keyword_void)
+        return "void";
+    else if (k == TokenKind_keyword_volatile)
+        return "volatile";
+    else if (k == TokenKind_keyword_while)
+        return "while";
+    else if (k == TokenKind_keyword__Atomic)
+        return "_Atomic";
+    else if (k == TokenKind_keyword__BitInt)
+        return "_BitInt";
+    else if (k == TokenKind_keyword__Complex)
+        return "_Complex";
+    else if (k == TokenKind_keyword__Decimal128)
+        return "_Decimal128";
+    else if (k == TokenKind_keyword__Decimal32)
+        return "_Decimal32";
+    else if (k == TokenKind_keyword__Decimal64)
+        return "_Decimal64";
+    else if (k == TokenKind_keyword__Generic)
+        return "_Generic";
+    else if (k == TokenKind_keyword__Imaginary)
+        return "_Imaginary";
+    else if (k == TokenKind_keyword__Noreturn)
+        return "_Noreturn";
     else if (k == TokenKind_and)
         return "&";
     else if (k == TokenKind_andand)
@@ -204,80 +331,6 @@ const char* token_kind_stringify(TokenKind k) {
         return ">";
     else if (k == TokenKind_ident)
         return "<identifier>";
-    else if (k == TokenKind_keyword__Bool)
-        return "_Bool";
-    else if (k == TokenKind_keyword__Complex)
-        return "_Complex";
-    else if (k == TokenKind_keyword__Imaginary)
-        return "_Imaginary";
-    else if (k == TokenKind_keyword_auto)
-        return "auto";
-    else if (k == TokenKind_keyword_break)
-        return "break";
-    else if (k == TokenKind_keyword_case)
-        return "case";
-    else if (k == TokenKind_keyword_char)
-        return "char";
-    else if (k == TokenKind_keyword_const)
-        return "const";
-    else if (k == TokenKind_keyword_continue)
-        return "continue";
-    else if (k == TokenKind_keyword_default)
-        return "default";
-    else if (k == TokenKind_keyword_do)
-        return "do";
-    else if (k == TokenKind_keyword_double)
-        return "double";
-    else if (k == TokenKind_keyword_else)
-        return "else";
-    else if (k == TokenKind_keyword_enum)
-        return "enum";
-    else if (k == TokenKind_keyword_extern)
-        return "extern";
-    else if (k == TokenKind_keyword_float)
-        return "float";
-    else if (k == TokenKind_keyword_for)
-        return "for";
-    else if (k == TokenKind_keyword_goto)
-        return "goto";
-    else if (k == TokenKind_keyword_if)
-        return "if";
-    else if (k == TokenKind_keyword_inline)
-        return "inline";
-    else if (k == TokenKind_keyword_int)
-        return "int";
-    else if (k == TokenKind_keyword_long)
-        return "long";
-    else if (k == TokenKind_keyword_register)
-        return "register";
-    else if (k == TokenKind_keyword_restrict)
-        return "restrict";
-    else if (k == TokenKind_keyword_return)
-        return "return";
-    else if (k == TokenKind_keyword_short)
-        return "short";
-    else if (k == TokenKind_keyword_signed)
-        return "signed";
-    else if (k == TokenKind_keyword_sizeof)
-        return "sizeof";
-    else if (k == TokenKind_keyword_static)
-        return "static";
-    else if (k == TokenKind_keyword_struct)
-        return "struct";
-    else if (k == TokenKind_keyword_switch)
-        return "switch";
-    else if (k == TokenKind_keyword_typedef)
-        return "typedef";
-    else if (k == TokenKind_keyword_union)
-        return "union";
-    else if (k == TokenKind_keyword_unsigned)
-        return "unsigned";
-    else if (k == TokenKind_keyword_void)
-        return "void";
-    else if (k == TokenKind_keyword_volatile)
-        return "volatile";
-    else if (k == TokenKind_keyword_while)
-        return "while";
     else if (k == TokenKind_le)
         return "le";
     else if (k == TokenKind_literal_int)

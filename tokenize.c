@@ -47,8 +47,14 @@ void tokenize_all(Lexer* l) {
             }
             tok->value.integer = ch;
         } else if (k == TokenKind_ident) {
-            if (strcmp(pp_tok->value.string, "auto") == 0) {
+            if (strcmp(pp_tok->value.string, "alignas") == 0) {
+                tok->kind = TokenKind_keyword_alignas;
+            } else if (strcmp(pp_tok->value.string, "alignof") == 0) {
+                tok->kind = TokenKind_keyword_alignof;
+            } else if (strcmp(pp_tok->value.string, "auto") == 0) {
                 tok->kind = TokenKind_keyword_auto;
+            } else if (strcmp(pp_tok->value.string, "bool") == 0) {
+                tok->kind = TokenKind_keyword_bool;
             } else if (strcmp(pp_tok->value.string, "break") == 0) {
                 tok->kind = TokenKind_keyword_break;
             } else if (strcmp(pp_tok->value.string, "case") == 0) {
@@ -57,6 +63,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_char;
             } else if (strcmp(pp_tok->value.string, "const") == 0) {
                 tok->kind = TokenKind_keyword_const;
+            } else if (strcmp(pp_tok->value.string, "constexpr") == 0) {
+                tok->kind = TokenKind_keyword_constexpr;
             } else if (strcmp(pp_tok->value.string, "continue") == 0) {
                 tok->kind = TokenKind_keyword_continue;
             } else if (strcmp(pp_tok->value.string, "default") == 0) {
@@ -71,6 +79,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_enum;
             } else if (strcmp(pp_tok->value.string, "extern") == 0) {
                 tok->kind = TokenKind_keyword_extern;
+            } else if (strcmp(pp_tok->value.string, "false") == 0) {
+                tok->kind = TokenKind_keyword_false;
             } else if (strcmp(pp_tok->value.string, "float") == 0) {
                 tok->kind = TokenKind_keyword_float;
             } else if (strcmp(pp_tok->value.string, "for") == 0) {
@@ -85,6 +95,8 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_int;
             } else if (strcmp(pp_tok->value.string, "long") == 0) {
                 tok->kind = TokenKind_keyword_long;
+            } else if (strcmp(pp_tok->value.string, "nullptr") == 0) {
+                tok->kind = TokenKind_keyword_nullptr;
             } else if (strcmp(pp_tok->value.string, "register") == 0) {
                 tok->kind = TokenKind_keyword_register;
             } else if (strcmp(pp_tok->value.string, "restrict") == 0) {
@@ -99,12 +111,22 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_sizeof;
             } else if (strcmp(pp_tok->value.string, "static") == 0) {
                 tok->kind = TokenKind_keyword_static;
+            } else if (strcmp(pp_tok->value.string, "static_assert") == 0) {
+                tok->kind = TokenKind_keyword_static_assert;
             } else if (strcmp(pp_tok->value.string, "struct") == 0) {
                 tok->kind = TokenKind_keyword_struct;
             } else if (strcmp(pp_tok->value.string, "switch") == 0) {
                 tok->kind = TokenKind_keyword_switch;
+            } else if (strcmp(pp_tok->value.string, "thread_local") == 0) {
+                tok->kind = TokenKind_keyword_thread_local;
+            } else if (strcmp(pp_tok->value.string, "true") == 0) {
+                tok->kind = TokenKind_keyword_true;
             } else if (strcmp(pp_tok->value.string, "typedef") == 0) {
                 tok->kind = TokenKind_keyword_typedef;
+            } else if (strcmp(pp_tok->value.string, "typeof") == 0) {
+                tok->kind = TokenKind_keyword_typeof;
+            } else if (strcmp(pp_tok->value.string, "typeof_unqual") == 0) {
+                tok->kind = TokenKind_keyword_typeof_unqual;
             } else if (strcmp(pp_tok->value.string, "union") == 0) {
                 tok->kind = TokenKind_keyword_union;
             } else if (strcmp(pp_tok->value.string, "unsigned") == 0) {
@@ -115,12 +137,24 @@ void tokenize_all(Lexer* l) {
                 tok->kind = TokenKind_keyword_volatile;
             } else if (strcmp(pp_tok->value.string, "while") == 0) {
                 tok->kind = TokenKind_keyword_while;
-            } else if (strcmp(pp_tok->value.string, "_Bool") == 0) {
-                tok->kind = TokenKind_keyword__Bool;
+            } else if (strcmp(pp_tok->value.string, "_Atomic") == 0) {
+                tok->kind = TokenKind_keyword__Atomic;
+            } else if (strcmp(pp_tok->value.string, "_BitInt") == 0) {
+                tok->kind = TokenKind_keyword__BitInt;
             } else if (strcmp(pp_tok->value.string, "_Complex") == 0) {
                 tok->kind = TokenKind_keyword__Complex;
+            } else if (strcmp(pp_tok->value.string, "_Decimal128") == 0) {
+                tok->kind = TokenKind_keyword__Decimal128;
+            } else if (strcmp(pp_tok->value.string, "_Decimal32") == 0) {
+                tok->kind = TokenKind_keyword__Decimal32;
+            } else if (strcmp(pp_tok->value.string, "_Decimal64") == 0) {
+                tok->kind = TokenKind_keyword__Decimal64;
+            } else if (strcmp(pp_tok->value.string, "_Generic") == 0) {
+                tok->kind = TokenKind_keyword__Generic;
             } else if (strcmp(pp_tok->value.string, "_Imaginary") == 0) {
                 tok->kind = TokenKind_keyword__Imaginary;
+            } else if (strcmp(pp_tok->value.string, "_Noreturn") == 0) {
+                tok->kind = TokenKind_keyword__Noreturn;
             } else {
                 tok->kind = TokenKind_ident;
                 tok->value = pp_tok->value;
