@@ -353,7 +353,7 @@ const char* token_stringify(Token* t) {
                k == TokenKind_literal_int || k == TokenKind_literal_str) {
         const char* kind_str = token_kind_stringify(k);
         char* buf = calloc(strlen(t->value.string) + strlen(kind_str) + 3 + 1, sizeof(char));
-        sprintf(buf, "%s (%s)", strlen(t->value.string), kind_str);
+        sprintf(buf, "%s (%s)", t->value.string, kind_str);
         return buf;
     } else {
         return token_kind_stringify(k);
