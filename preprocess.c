@@ -11,7 +11,10 @@ enum TokenKind {
     TokenKind_header_name,
     TokenKind_pp_directive_define,
     TokenKind_pp_directive_elif,
+    TokenKind_pp_directive_elifdef,
+    TokenKind_pp_directive_elifndef,
     TokenKind_pp_directive_else,
+    TokenKind_pp_directive_embed,
     TokenKind_pp_directive_endif,
     TokenKind_pp_directive_error,
     TokenKind_pp_directive_if,
@@ -21,6 +24,7 @@ enum TokenKind {
     TokenKind_pp_directive_line,
     TokenKind_pp_directive_pragma,
     TokenKind_pp_directive_undef,
+    TokenKind_pp_directive_warning,
 
     // C23: 6.4.1
     TokenKind_keyword_alignas,
@@ -151,8 +155,14 @@ const char* token_kind_stringify(TokenKind k) {
         return "#define";
     else if (k == TokenKind_pp_directive_elif)
         return "#elif";
+    else if (k == TokenKind_pp_directive_elifdef)
+        return "#elifdef";
+    else if (k == TokenKind_pp_directive_elifndef)
+        return "#elifndef";
     else if (k == TokenKind_pp_directive_else)
         return "#else";
+    else if (k == TokenKind_pp_directive_embed)
+        return "#embed";
     else if (k == TokenKind_pp_directive_endif)
         return "#endif";
     else if (k == TokenKind_pp_directive_error)
@@ -171,6 +181,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "#pragma";
     else if (k == TokenKind_pp_directive_undef)
         return "#undef";
+    else if (k == TokenKind_pp_directive_warning)
+        return "#warning";
     else if (k == TokenKind_keyword_alignas)
         return "alignas";
     else if (k == TokenKind_keyword_alignof)
@@ -630,8 +642,14 @@ TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
         return TokenKind_pp_directive_define;
     } else if (strcmp(pp_directive_name, "elif") == 0) {
         return TokenKind_pp_directive_elif;
+    } else if (strcmp(pp_directive_name, "elifdef") == 0) {
+        return TokenKind_pp_directive_elifdef;
+    } else if (strcmp(pp_directive_name, "elifndef") == 0) {
+        return TokenKind_pp_directive_elifndef;
     } else if (strcmp(pp_directive_name, "else") == 0) {
         return TokenKind_pp_directive_else;
+    } else if (strcmp(pp_directive_name, "embed") == 0) {
+        return TokenKind_pp_directive_embed;
     } else if (strcmp(pp_directive_name, "endif") == 0) {
         return TokenKind_pp_directive_endif;
     } else if (strcmp(pp_directive_name, "error") == 0) {
@@ -651,6 +669,8 @@ TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
         return TokenKind_pp_directive_pragma;
     } else if (strcmp(pp_directive_name, "undef") == 0) {
         return TokenKind_pp_directive_undef;
+    } else if (strcmp(pp_directive_name, "warning") == 0) {
+        return TokenKind_pp_directive_warning;
     } else {
         fatal_error("%s:%d: unknown preprocessor directive (%s)", pp_directive_name_start_loc.filename,
                     pp_directive_name_start_loc.line, pp_directive_name);
