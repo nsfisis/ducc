@@ -151,21 +151,10 @@ int add_lvar(Parser* p, const char* name, Type* ty, BOOL is_param) {
     return stack_offset;
 }
 
-char* generate_temporary_lvar_name(Parser* p) {
-    char* buf = calloc(256, sizeof(char));
-    for (int i = 1;; ++i) {
-        sprintf(buf, "__%d", i);
-        if (find_lvar(p, buf) == -1) {
-            return buf;
-        }
-    }
-}
-
 AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
-    const char* name = generate_temporary_lvar_name(p);
-    int stack_offset = add_lvar(p, name, ty, FALSE);
+    int stack_offset = add_lvar(p, NULL, ty, FALSE);
     AstNode* lvar = ast_new(AstNodeKind_lvar);
-    lvar->name = name;
+    lvar->name = NULL;
     lvar->node_stack_offset = stack_offset;
     lvar->ty = ty;
     return lvar;
