@@ -62,9 +62,8 @@ char infile_peek_char(InFile* f) {
     if (c == '\\') {
         char c2 = f->buf[f->pos + 1];
         // C23: 5.1.1.2
-        // A source file that is not empty shall end in a new-line character,
-        // which shall not be immediately preceded by a backslash character
-        // before any such splicing takes place.
+        // A source file that is not empty shall end in a new-line character, which shall not be immediately preceded by
+        // a backslash character before any such splicing takes place.
         if (c2 == '\0') {
             fatal_error("%s:%d: <new-line> expected, but got <eof>", f->loc.filename, f->loc.line);
         }
