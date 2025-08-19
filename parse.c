@@ -544,10 +544,12 @@ AstNode* parse_additive_expr(Parser* p) {
             AstNode* rhs = parse_multiplicative_expr(p);
             if (lhs->ty->base) {
                 lhs = ast_new_binary_expr(
-                    TokenKind_plus, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base))));
+                    TokenKind_plus, lhs,
+                    ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base))));
             } else if (rhs->ty->base) {
                 lhs = ast_new_binary_expr(
-                    TokenKind_plus, ast_new_binary_expr(TokenKind_star, lhs, ast_new_int(type_sizeof(rhs->ty->base))), rhs);
+                    TokenKind_plus, ast_new_binary_expr(TokenKind_star, lhs, ast_new_int(type_sizeof(rhs->ty->base))),
+                    rhs);
             } else {
                 lhs = ast_new_binary_expr(TokenKind_plus, lhs, rhs);
             }
@@ -561,7 +563,8 @@ AstNode* parse_additive_expr(Parser* p) {
                 } else {
                     // a - b*sizeof(a)
                     lhs = ast_new_binary_expr(
-                        TokenKind_minus, lhs, ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base))));
+                        TokenKind_minus, lhs,
+                        ast_new_binary_expr(TokenKind_star, rhs, ast_new_int(type_sizeof(lhs->ty->base))));
                 }
             } else {
                 lhs = ast_new_binary_expr(TokenKind_minus, lhs, rhs);
