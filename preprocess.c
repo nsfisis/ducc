@@ -25,6 +25,10 @@ enum TokenKind {
     TokenKind_pp_directive_pragma,
     TokenKind_pp_directive_undef,
     TokenKind_pp_directive_warning,
+    TokenKind_pp_operator_defined,
+    TokenKind_pp_operator___has_c_attribute,
+    TokenKind_pp_operator___has_embed,
+    TokenKind_pp_operator___has_include,
 
     // C23: 6.4.1
     TokenKind_keyword_alignas,
@@ -183,6 +187,14 @@ const char* token_kind_stringify(TokenKind k) {
         return "#undef";
     else if (k == TokenKind_pp_directive_warning)
         return "#warning";
+    else if (k == TokenKind_pp_operator_defined)
+        return "defined";
+    else if (k == TokenKind_pp_operator___has_c_attribute)
+        return "__has_c_attribute";
+    else if (k == TokenKind_pp_operator___has_embed)
+        return "__has_embed";
+    else if (k == TokenKind_pp_operator___has_include)
+        return "__has_include";
     else if (k == TokenKind_keyword_alignas)
         return "alignas";
     else if (k == TokenKind_keyword_alignof)
@@ -1093,8 +1105,91 @@ void process_elif_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
+BOOL pp_eval_constant_expression(TokenArray*);
+int replace_pp_tokens(Preprocessor*, int, int, TokenArray*);
+BOOL expand_macro(Preprocessor*);
+
 void process_if_directive(Preprocessor* pp, int directive_token_pos) {
-    unimplemented();
+    next_pp_token(pp);
+    int condition_expression_start_pos = pp->pos;
+
+    while (!pp_eof(pp)) {
+        Token* tok = peek_pp_token(pp);
+        if (tok->kind == TokenKind_newline) {
+            break;
+        } else if (tok->kind == TokenKind_ident) {
+            if (strcmp(tok->value.string, "defined") == 0) {
+                int defined_pos = pp->pos;
+                // 'defined' <ws>* '(' <ws>* <ident> <ws>* ')'
+                // 'defined' <ws>* <ident>
+                next_pp_token(pp);
+                skip_whitespaces(pp);
+                Token* macro_name;
+                if (peek_pp_token(pp)->kind == TokenKind_paren_l) {
+                    next_pp_token(pp);
+                    skip_whitespaces(pp);
+                    macro_name = next_pp_token(pp);
+                    if (macro_name->kind != TokenKind_ident) {
+                        fatal_error("invalid defined");
+                    }
+                    skip_whitespaces(pp);
+                    if (next_pp_token(pp)->kind != TokenKind_paren_r) {
+                        fatal_error("invalid defined");
+                    }
+                } else {
+                    macro_name = next_pp_token(pp);
+                    if (macro_name->kind != TokenKind_ident) {
+                        fatal_error("invalid defined");
+                    }
+                }
+                BOOL is_defined = find_macro(pp, macro_name->value.string) != -1;
+                TokenArray defined_results;
+                tokens_init(&defined_results, 1);
+                Token* defined_result = tokens_push_new(&defined_results);
+                defined_result->kind = TokenKind_literal_int;
+                defined_result->value.integer = is_defined;
+                pp->pos = replace_pp_tokens(pp, defined_pos, pp->pos, &defined_results);
+            } else {
+                BOOL expanded = expand_macro(pp);
+                if (expanded) {
+                    // A macro may expand to another macro. Re-scan the expanded tokens.
+                    // TODO: if the macro is defined recursively, it causes infinite loop.
+                } else {
+                    next_pp_token(pp);
+                }
+            }
+        } else {
+            next_pp_token(pp);
+        }
+    }
+
+    // all remaining identifiers other than true (including those lexically identical to keywords such as false) are
+    // replaced with the pp-number 0, true is replaced with pp-number 1, and then each preprocessing token is converted
+    // into a token.
+    for (int pos = condition_expression_start_pos; pos < pp->pos; ++pos) {
+        Token* tok = pp_token_at(pp, pos);
+        if (tok->kind == TokenKind_ident) {
+            BOOL is_true = strcmp(tok->value.string, "true") == 0;
+            tok->kind = TokenKind_literal_int;
+            tok->value.integer = is_true;
+        }
+    }
+
+    int condition_expression_tokens_len = pp->pos - condition_expression_start_pos;
+    TokenArray condition_expression_tokens;
+    // +1 to add EOF token at the end.
+    tokens_init(&condition_expression_tokens, condition_expression_tokens_len + 1);
+    for (int i = 0; i < condition_expression_tokens_len; ++i) {
+        *tokens_push_new(&condition_expression_tokens) = *pp_token_at(pp, condition_expression_start_pos + i);
+    }
+    Token* eof_tok = tokens_push_new(&condition_expression_tokens);
+    eof_tok->kind = TokenKind_eof;
+
+    BOOL result = pp_eval_constant_expression(&condition_expression_tokens);
+
+    pp->skip_pp_tokens = !result;
+
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
 void process_ifdef_directive(Preprocessor* pp, int directive_token_pos) {

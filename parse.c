@@ -697,6 +697,12 @@ AstNode* parse_conditional_expr(Parser* p) {
     }
 }
 
+// constant-expression:
+//     conditional-expression
+AstNode* parse_constant_expression(Parser* p) {
+    return parse_conditional_expr(p);
+}
+
 AstNode* parse_assignment_expr(Parser* p) {
     AstNode* lhs = parse_conditional_expr(p);
     while (1) {
@@ -1363,4 +1369,36 @@ Program* parse(TokenArray* tokens) {
     prog->vars = vars;
     prog->str_literals = p->str_literals;
     return prog;
+}
+
+int eval(AstNode* e) {
+    if (e->kind == AstNodeKind_int_expr) {
+        return e->node_int_value;
+    } else if (e->kind == AstNodeKind_unary_expr) {
+        int v = eval(e->node_operand);
+        if (e->node_op == TokenKind_not) {
+            return !v;
+        } else {
+            unimplemented();
+        }
+    } else if (e->kind == AstNodeKind_binary_expr || e->kind == AstNodeKind_logical_expr) {
+        int v1 = eval(e->node_lhs);
+        int v2 = eval(e->node_rhs);
+        if (e->node_op == TokenKind_andand) {
+            return v1 && v2;
+        } else if (e->node_op == TokenKind_oror) {
+            return v1 || v2;
+        } else {
+            unimplemented();
+        }
+    } else {
+        unimplemented();
+    }
+}
+
+BOOL pp_eval_constant_expression(TokenArray* pp_tokens) {
+    TokenArray* tokens = tokenize(pp_tokens);
+    Parser* p = parser_new(tokens);
+    AstNode* e = parse_constant_expression(p);
+    return eval(e) != 0;
 }
