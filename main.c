@@ -1,14 +1,14 @@
 // Currently the source code depends on the #include order.
 // clang-format off
-#include "std.h"
-#include "common.c"
-#include "io.c"
-#include "sys.c"
-#include "preprocess.c"
-#include "tokenize.c"
-#include "ast.c"
-#include "parse.c"
-#include "codegen.c"
+#include "src/std.h"
+#include "src/common.c"
+#include "src/io.c"
+#include "src/sys.c"
+#include "src/preprocess.c"
+#include "src/tokenize.c"
+#include "src/ast.c"
+#include "src/parse.c"
+#include "src/codegen.c"
 // clang-format on
 
 int main(int argc, char** argv) {
