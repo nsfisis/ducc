@@ -7,10 +7,67 @@ struct LocalVar {
 };
 typedef struct LocalVar LocalVar;
 
+struct LocalVarArray {
+    size_t len;
+    size_t capacity;
+    LocalVar* data;
+};
+typedef struct LocalVarArray LocalVarArray;
+
+void lvars_init(LocalVarArray* lvars) {
+    lvars->len = 0;
+    lvars->capacity = 4;
+    lvars->data = calloc(lvars->capacity, sizeof(LocalVar));
+}
+
+void lvars_reserve(LocalVarArray* lvars, size_t size) {
+    if (size <= lvars->capacity)
+        return;
+    lvars->capacity *= 2;
+    lvars->data = realloc(lvars->data, lvars->capacity * sizeof(LocalVar));
+    memset(lvars->data + lvars->len, 0, (lvars->capacity - lvars->len) * sizeof(LocalVar));
+}
+
+LocalVar* lvars_push_new(LocalVarArray* lvars) {
+    lvars_reserve(lvars, lvars->len + 1);
+    return &lvars->data[lvars->len++];
+}
+
+struct ScopedSymbol {
+    const char* name;
+    int index;
+};
+typedef struct ScopedSymbol ScopedSymbol;
+
+struct ScopedSymbolArray {
+    size_t len;
+    size_t capacity;
+    ScopedSymbol* data;
+};
+typedef struct ScopedSymbolArray ScopedSymbolArray;
+
+void scopedsymbols_init(ScopedSymbolArray* syms) {
+    syms->len = 0;
+    syms->capacity = 4;
+    syms->data = calloc(syms->capacity, sizeof(ScopedSymbol));
+}
+
+void scopedsymbols_reserve(ScopedSymbolArray* syms, size_t size) {
+    if (size <= syms->capacity)
+        return;
+    syms->capacity *= 2;
+    syms->data = realloc(syms->data, syms->capacity * sizeof(ScopedSymbol));
+    memset(syms->data + syms->len, 0, (syms->capacity - syms->len) * sizeof(ScopedSymbol));
+}
+
+ScopedSymbol* scopedsymbols_push_new(ScopedSymbolArray* syms) {
+    scopedsymbols_reserve(syms, syms->len + 1);
+    return &syms->data[syms->len++];
+}
+
 struct Scope {
     struct Scope* outer;
-    const char** lvar_names;
-    int* lvar_indices;
+    ScopedSymbolArray syms;
 };
 typedef struct Scope Scope;
 
@@ -20,50 +77,94 @@ struct GlobalVar {
 };
 typedef struct GlobalVar GlobalVar;
 
+struct GlobalVarArray {
+    size_t len;
+    size_t capacity;
+    GlobalVar* data;
+};
+typedef struct GlobalVarArray GlobalVarArray;
+
+void gvars_init(GlobalVarArray* gvars) {
+    gvars->len = 0;
+    gvars->capacity = 4;
+    gvars->data = calloc(gvars->capacity, sizeof(GlobalVar));
+}
+
+void gvars_reserve(GlobalVarArray* gvars, size_t size) {
+    if (size <= gvars->capacity)
+        return;
+    gvars->capacity *= 2;
+    gvars->data = realloc(gvars->data, gvars->capacity * sizeof(GlobalVar));
+    memset(gvars->data + gvars->len, 0, (gvars->capacity - gvars->len) * sizeof(GlobalVar));
+}
+
+GlobalVar* gvars_push_new(GlobalVarArray* gvars) {
+    gvars_reserve(gvars, gvars->len + 1);
+    return &gvars->data[gvars->len++];
+}
+
 struct Func {
     const char* name;
     Type* ty;
 };
 typedef struct Func Func;
 
+struct FuncArray {
+    size_t len;
+    size_t capacity;
+    Func* data;
+};
+typedef struct FuncArray FuncArray;
+
+void funcs_init(FuncArray* funcs) {
+    funcs->len = 0;
+    funcs->capacity = 32;
+    funcs->data = calloc(funcs->capacity, sizeof(Func));
+}
+
+void funcs_reserve(FuncArray* funcs, size_t size) {
+    if (size <= funcs->capacity)
+        return;
+    funcs->capacity *= 2;
+    funcs->data = realloc(funcs->data, funcs->capacity * sizeof(Func));
+    memset(funcs->data + funcs->len, 0, (funcs->capacity - funcs->len) * sizeof(Func));
+}
+
+Func* funcs_push_new(FuncArray* funcs) {
+    funcs_reserve(funcs, funcs->len + 1);
+    return &funcs->data[funcs->len++];
+}
+
 struct Parser {
     TokenArray* tokens;
     int pos;
-    LocalVar* lvars;
-    int n_lvars;
+    LocalVarArray lvars;
     Scope* scope;
-    GlobalVar* gvars;
-    int n_gvars;
-    Func* funcs;
-    int n_funcs;
+    GlobalVarArray gvars;
+    FuncArray funcs;
     AstNode* structs;
-    int n_structs;
     AstNode* unions;
-    int n_unions;
     AstNode* enums;
-    int n_enums;
     AstNode* typedefs;
-    int n_typedefs;
-    const char** str_literals;
-    int n_str_literals;
+    StrArray str_literals;
 };
 typedef struct Parser Parser;
 
 Parser* parser_new(TokenArray* tokens) {
     Parser* p = calloc(1, sizeof(Parser));
     p->tokens = tokens;
-    p->gvars = calloc(128, sizeof(GlobalVar));
-    p->funcs = calloc(256, sizeof(Func));
-    p->structs = calloc(64, sizeof(AstNode));
-    p->unions = calloc(64, sizeof(AstNode));
-    p->enums = calloc(16, sizeof(AstNode));
-    p->typedefs = calloc(64, sizeof(AstNode));
-    p->str_literals = calloc(1024, sizeof(char*));
+    gvars_init(&p->gvars);
+    funcs_init(&p->funcs);
+    p->structs = ast_new_list(4);
+    p->unions = ast_new_list(4);
+    p->enums = ast_new_list(4);
+    p->typedefs = ast_new_list(16);
+    strings_init(&p->str_literals);
 
-    p->funcs[p->n_funcs].name = "__ducc_va_start";
-    p->funcs[p->n_funcs].ty = calloc(1, sizeof(Type));
-    p->funcs[p->n_funcs].ty->kind = TypeKind_void;
-    ++p->n_funcs;
+    Func* va_start_func = funcs_push_new(&p->funcs);
+    va_start_func->name = "__ducc_va_start";
+    va_start_func->ty = calloc(1, sizeof(Type));
+    va_start_func->ty->kind = TypeKind_void;
 
     return p;
 }
@@ -98,9 +199,10 @@ Token* expect(Parser* p, TokenKind expected) {
 }
 
 int find_lvar_in_scope(Parser* p, Scope* scope, const char* name) {
-    for (int i = 0; i < LVAR_MAX; ++i) {
-        if (scope->lvar_names[i] && strcmp(scope->lvar_names[i], name) == 0) {
-            return scope->lvar_indices[i];
+    for (int i = 0; i < scope->syms.len; ++i) {
+        ScopedSymbol* sym = &scope->syms.data[i];
+        if (sym->name && strcmp(sym->name, name) == 0) {
+            return sym->index;
         }
     }
     return -1;
@@ -133,10 +235,10 @@ int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
     }
 
     int offset;
-    if (p->n_lvars == 0) {
+    if (p->lvars.len == 0) {
         offset = 0;
     } else {
-        offset = p->lvars[p->n_lvars - 1].stack_offset;
+        offset = p->lvars.data[p->lvars.len - 1].stack_offset;
     }
 
     offset += type_sizeof(ty);
@@ -145,17 +247,13 @@ int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
 
 int add_lvar(Parser* p, const char* name, Type* ty, BOOL is_param) {
     int stack_offset = calc_stack_offset(p, ty, is_param);
-    p->lvars[p->n_lvars].name = name;
-    p->lvars[p->n_lvars].ty = ty;
-    p->lvars[p->n_lvars].stack_offset = stack_offset;
-    for (int i = 0; i < LVAR_MAX; ++i) {
-        if (p->scope->lvar_names[i] == NULL) {
-            p->scope->lvar_names[i] = name;
-            p->scope->lvar_indices[i] = p->n_lvars;
-            break;
-        }
-    }
-    ++p->n_lvars;
+    LocalVar* lvar = lvars_push_new(&p->lvars);
+    lvar->name = name;
+    lvar->ty = ty;
+    lvar->stack_offset = stack_offset;
+    ScopedSymbol* sym = scopedsymbols_push_new(&p->scope->syms);
+    sym->name = name;
+    sym->index = p->lvars.len - 1;
     return stack_offset;
 }
 
@@ -169,8 +267,8 @@ AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
 }
 
 int find_gvar(Parser* p, const char* name) {
-    for (int i = 0; i < p->n_gvars; ++i) {
-        if (strcmp(p->gvars[i].name, name) == 0) {
+    for (int i = 0; i < p->gvars.len; ++i) {
+        if (strcmp(p->gvars.data[i].name, name) == 0) {
             return i;
         }
     }
@@ -178,8 +276,8 @@ int find_gvar(Parser* p, const char* name) {
 }
 
 int find_func(Parser* p, const char* name) {
-    for (int i = 0; i < p->n_funcs; ++i) {
-        if (strcmp(p->funcs[i].name, name) == 0) {
+    for (int i = 0; i < p->funcs.len; ++i) {
+        if (strcmp(p->funcs.data[i].name, name) == 0) {
             return i;
         }
     }
@@ -187,8 +285,8 @@ int find_func(Parser* p, const char* name) {
 }
 
 int find_struct(Parser* p, const char* name) {
-    for (int i = 0; i < p->n_structs; ++i) {
-        if (strcmp(p->structs[i].name, name) == 0) {
+    for (int i = 0; i < p->structs->node_len; ++i) {
+        if (strcmp(p->structs->node_items[i].name, name) == 0) {
             return i;
         }
     }
@@ -196,8 +294,8 @@ int find_struct(Parser* p, const char* name) {
 }
 
 int find_union(Parser* p, const char* name) {
-    for (int i = 0; i < p->n_unions; ++i) {
-        if (strcmp(p->unions[i].name, name) == 0) {
+    for (int i = 0; i < p->unions->node_len; ++i) {
+        if (strcmp(p->unions->node_items[i].name, name) == 0) {
             return i;
         }
     }
@@ -205,8 +303,8 @@ int find_union(Parser* p, const char* name) {
 }
 
 int find_enum(Parser* p, const char* name) {
-    for (int i = 0; i < p->n_enums; ++i) {
-        if (strcmp(p->enums[i].name, name) == 0) {
+    for (int i = 0; i < p->enums->node_len; ++i) {
+        if (strcmp(p->enums->node_items[i].name, name) == 0) {
             return i;
         }
     }
@@ -214,9 +312,9 @@ int find_enum(Parser* p, const char* name) {
 }
 
 int find_enum_member(Parser* p, const char* name) {
-    for (int i = 0; i < p->n_enums; ++i) {
-        for (int j = 0; j < p->enums[i].node_members->node_len; ++j) {
-            if (strcmp(p->enums[i].node_members->node_items[j].name, name) == 0) {
+    for (int i = 0; i < p->enums->node_len; ++i) {
+        for (int j = 0; j < p->enums->node_items[i].node_members->node_len; ++j) {
+            if (strcmp(p->enums->node_items[i].node_members->node_items[j].name, name) == 0) {
                 return i * 1000 + j;
             }
         }
@@ -225,8 +323,8 @@ int find_enum_member(Parser* p, const char* name) {
 }
 
 int find_typedef(Parser* p, const char* name) {
-    for (int i = 0; i < p->n_typedefs; ++i) {
-        if (strcmp(p->typedefs[i].name, name) == 0) {
+    for (int i = 0; i < p->typedefs->node_len; ++i) {
+        if (strcmp(p->typedefs->node_items[i].name, name) == 0) {
             return i;
         }
     }
@@ -237,8 +335,7 @@ void enter_scope(Parser* p) {
     Scope* outer_scope = p->scope;
     p->scope = calloc(1, sizeof(Scope));
     p->scope->outer = outer_scope;
-    p->scope->lvar_names = calloc(LVAR_MAX, sizeof(char*));
-    p->scope->lvar_indices = calloc(LVAR_MAX, sizeof(int));
+    scopedsymbols_init(&p->scope->syms);
 }
 
 void leave_scope(Parser* p) {
@@ -246,8 +343,7 @@ void leave_scope(Parser* p) {
 }
 
 void enter_func(Parser* p) {
-    p->lvars = calloc(LVAR_MAX, sizeof(LocalVar));
-    p->n_lvars = 0;
+    lvars_init(&p->lvars);
     enter_scope(p);
 }
 
@@ -264,9 +360,7 @@ const char* parse_ident(Parser* p) {
 }
 
 int register_str_literal(Parser* p, const char* s) {
-    p->str_literals[p->n_str_literals] = s;
-    ++p->n_str_literals;
-    return p->n_str_literals;
+    return strings_push(&p->str_literals, s);
 }
 
 AstNode* parse_primary_expr(Parser* p) {
@@ -292,7 +386,7 @@ AstNode* parse_primary_expr(Parser* p) {
                 fatal_error("undefined function: %s", name);
             }
             e->name = name;
-            e->ty = p->funcs[func_idx].ty;
+            e->ty = p->funcs.data[func_idx].ty;
             return e;
         }
 
@@ -306,21 +400,21 @@ AstNode* parse_primary_expr(Parser* p) {
                 }
                 int enum_idx = enum_member_idx / 1000;
                 int n = enum_member_idx % 1000;
-                AstNode* e = ast_new_int(p->enums[enum_idx].node_members->node_items[n].node_int_value);
+                AstNode* e = ast_new_int(p->enums->node_items[enum_idx].node_members->node_items[n].node_int_value);
                 e->ty = type_new(TypeKind_enum);
-                e->ty->def = p->enums + enum_idx;
+                e->ty->def = &p->enums->node_items[enum_idx];
                 return e;
             }
             AstNode* e = ast_new(AstNodeKind_gvar);
             e->name = name;
-            e->ty = p->gvars[gvar_idx].ty;
+            e->ty = p->gvars.data[gvar_idx].ty;
             return e;
         }
 
         AstNode* e = ast_new(AstNodeKind_lvar);
         e->name = name;
-        e->node_stack_offset = p->lvars[lvar_idx].stack_offset;
-        e->ty = p->lvars[lvar_idx].ty;
+        e->node_stack_offset = p->lvars.data[lvar_idx].stack_offset;
+        e->ty = p->lvars.data[lvar_idx].ty;
         return e;
     } else {
         fatal_error("%s:%d: expected an expression, but got '%s'", t->loc.filename, t->loc.line, token_stringify(t));
@@ -427,7 +521,7 @@ Type* parse_type(Parser* p) {
         if (typedef_idx == -1) {
             fatal_error("parse_type: unknown typedef, %s", t->value.string);
         }
-        ty = p->typedefs[typedef_idx].ty;
+        ty = p->typedefs->node_items[typedef_idx].ty;
     } else {
         ty = type_new(TypeKind_unknown);
         if (t->kind == TokenKind_keyword_char) {
@@ -447,7 +541,7 @@ Type* parse_type(Parser* p) {
             if (enum_idx == -1) {
                 fatal_error("parse_type: unknown enum, %s", name);
             }
-            ty->def = p->enums + enum_idx;
+            ty->def = &p->enums->node_items[enum_idx];
         } else if (t->kind == TokenKind_keyword_struct) {
             ty->kind = TypeKind_struct;
             const char* name = parse_ident(p);
@@ -455,7 +549,7 @@ Type* parse_type(Parser* p) {
             if (struct_idx == -1) {
                 fatal_error("parse_type: unknown struct, %s", name);
             }
-            ty->def = p->structs + struct_idx;
+            ty->def = &p->structs->node_items[struct_idx];
         } else if (t->kind == TokenKind_keyword_union) {
             ty->kind = TypeKind_union;
             const char* name = parse_ident(p);
@@ -463,7 +557,7 @@ Type* parse_type(Parser* p) {
             if (union_idx == -1) {
                 fatal_error("parse_type: unknown union, %s", name);
             }
-            ty->def = p->unions + union_idx;
+            ty->def = &p->unions->node_items[union_idx];
         } else {
             unreachable();
         }
@@ -505,12 +599,12 @@ AstNode* parse_prefix_expr(Parser* p) {
             int lvar_idx = find_lvar(p, next_tok->value.string);
             if (lvar_idx != -1) {
                 next_token(p);
-                ty = p->lvars[lvar_idx].ty;
+                ty = p->lvars.data[lvar_idx].ty;
             }
             int gvar_idx = find_gvar(p, next_tok->value.string);
             if (gvar_idx != -1) {
                 next_token(p);
-                ty = p->gvars[gvar_idx].ty;
+                ty = p->gvars.data[gvar_idx].ty;
             }
         }
         if (!ty) {
@@ -1044,9 +1138,9 @@ void register_params(Parser* p, AstNode* params) {
 }
 
 void register_func(Parser* p, const char* name, Type* ty) {
-    p->funcs[p->n_funcs].name = name;
-    p->funcs[p->n_funcs].ty = ty;
-    ++p->n_funcs;
+    Func* func = funcs_push_new(&p->funcs);
+    func->name = name;
+    func->ty = ty;
 }
 
 AstNode* parse_param(Parser* p) {
@@ -1105,9 +1199,9 @@ AstNode* parse_global_var_decl(Parser* p) {
         if (find_gvar(p, decl->name) != -1) {
             fatal_error("parse_global_var_decl: %s redeclared", decl->name);
         }
-        p->gvars[p->n_gvars].name = decl->name;
-        p->gvars[p->n_gvars].ty = decl->ty;
-        ++p->n_gvars;
+        GlobalVar* gvar = gvars_push_new(&p->gvars);
+        gvar->name = decl->name;
+        gvar->ty = decl->ty;
 
         decl->kind = AstNodeKind_gvar_decl;
         decl->node_expr = decl->node_init;
@@ -1144,10 +1238,11 @@ AstNode* parse_func_decl_or_def(Parser* p) {
     func->name = name;
     func->node_params = params;
     func->node_body = body;
-    if (p->n_lvars == 0) {
+    if (p->lvars.len == 0) {
         func->node_stack_size = 0;
     } else {
-        func->node_stack_size = p->lvars[p->n_lvars - 1].stack_offset + type_sizeof(p->lvars[p->n_lvars - 1].ty);
+        func->node_stack_size =
+            p->lvars.data[p->lvars.len - 1].stack_offset + type_sizeof(p->lvars.data[p->lvars.len - 1].ty);
     }
     return func;
 }
@@ -1182,23 +1277,23 @@ AstNode* parse_struct_decl_or_def(Parser* p) {
 
     int struct_idx = find_struct(p, name);
     if (struct_idx == -1) {
-        struct_idx = p->n_structs;
-        p->structs[struct_idx].kind = AstNodeKind_struct_def;
-        p->structs[struct_idx].name = name;
-        ++p->n_structs;
+        AstNode* new_struct = ast_new(AstNodeKind_struct_def);
+        new_struct->name = name;
+        ast_append(p->structs, new_struct);
+        struct_idx = p->structs->node_len - 1;
     }
     if (consume_token_if(p, TokenKind_semicolon)) {
         return ast_new(AstNodeKind_struct_decl);
     }
-    if (p->structs[struct_idx].node_members) {
+    if (p->structs->node_items[struct_idx].node_members) {
         fatal_error("parse_struct_decl_or_def: struct %s redefined", name);
     }
     expect(p, TokenKind_brace_l);
     AstNode* members = parse_struct_members(p);
     expect(p, TokenKind_brace_r);
     expect(p, TokenKind_semicolon);
-    p->structs[struct_idx].node_members = members;
-    return p->structs + struct_idx;
+    p->structs->node_items[struct_idx].node_members = members;
+    return &p->structs->node_items[struct_idx];
 }
 
 AstNode* parse_union_member(Parser* p) {
@@ -1231,23 +1326,23 @@ AstNode* parse_union_decl_or_def(Parser* p) {
 
     int union_idx = find_union(p, name);
     if (union_idx == -1) {
-        union_idx = p->n_unions;
-        p->unions[union_idx].kind = AstNodeKind_union_def;
-        p->unions[union_idx].name = name;
-        ++p->n_unions;
+        AstNode* new_union = ast_new(AstNodeKind_union_def);
+        new_union->name = name;
+        ast_append(p->unions, new_union);
+        union_idx = p->unions->node_len - 1;
     }
     if (consume_token_if(p, TokenKind_semicolon)) {
         return ast_new(AstNodeKind_union_decl);
     }
-    if (p->unions[union_idx].node_members) {
+    if (p->unions->node_items[union_idx].node_members) {
         fatal_error("parse_union_decl_or_def: union %s redefined", name);
     }
     expect(p, TokenKind_brace_l);
     AstNode* members = parse_union_members(p);
     expect(p, TokenKind_brace_r);
     expect(p, TokenKind_semicolon);
-    p->unions[union_idx].node_members = members;
-    return p->unions + union_idx;
+    p->unions->node_items[union_idx].node_members = members;
+    return &p->unions->node_items[union_idx];
 }
 
 AstNode* parse_enum_member(Parser* p) {
@@ -1283,10 +1378,10 @@ AstNode* parse_enum_def(Parser* p) {
 
     int enum_idx = find_enum(p, name);
     if (enum_idx == -1) {
-        enum_idx = p->n_enums;
-        p->enums[enum_idx].kind = AstNodeKind_enum_def;
-        p->enums[enum_idx].name = name;
-        ++p->n_enums;
+        AstNode* new_enum = ast_new(AstNodeKind_enum_def);
+        new_enum->name = name;
+        ast_append(p->enums, new_enum);
+        enum_idx = p->enums->node_len - 1;
     } else {
         fatal_error("parse_enum_def: enum %s redefined", name);
     }
@@ -1294,8 +1389,8 @@ AstNode* parse_enum_def(Parser* p) {
     AstNode* members = parse_enum_members(p);
     expect(p, TokenKind_brace_r);
     expect(p, TokenKind_semicolon);
-    p->enums[enum_idx].node_members = members;
-    return p->enums + enum_idx;
+    p->enums->node_items[enum_idx].node_members = members;
+    return &p->enums->node_items[enum_idx];
 }
 
 AstNode* parse_typedef_decl(Parser* p) {
@@ -1306,9 +1401,7 @@ AstNode* parse_typedef_decl(Parser* p) {
     AstNode* decl = ast_new(AstNodeKind_typedef_decl);
     decl->name = name;
     decl->ty = ty;
-    p->typedefs[p->n_typedefs].name = name;
-    p->typedefs[p->n_typedefs].ty = ty;
-    ++p->n_typedefs;
+    ast_append(p->typedefs, decl);
     return decl;
 }
 
@@ -1324,9 +1417,9 @@ AstNode* parse_extern_var_decl(Parser* p) {
     if (find_lvar(p, name) != -1 || find_gvar(p, name) != -1) {
         fatal_error("parse_extern_var_decl: %s redeclared", name);
     }
-    p->gvars[p->n_gvars].name = name;
-    p->gvars[p->n_gvars].ty = ty;
-    ++p->n_gvars;
+    GlobalVar* gvar = gvars_push_new(&p->gvars);
+    gvar->name = name;
+    gvar->ty = ty;
 
     return ast_new(AstNodeKind_gvar_decl);
 }
@@ -1367,7 +1460,7 @@ Program* parse(TokenArray* tokens) {
     Program* prog = calloc(1, sizeof(Program));
     prog->funcs = funcs;
     prog->vars = vars;
-    prog->str_literals = p->str_literals;
+    prog->str_literals = p->str_literals.data;
     return prog;
 }
 

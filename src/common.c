@@ -37,3 +37,30 @@ void strbuilder_append_char(StrBuilder* b, int c) {
     strbuilder_reserve(b, b->len + 1 + 1);
     b->buf[b->len++] = c;
 }
+
+struct StrArray {
+    size_t len;
+    size_t capacity;
+    const char** data;
+};
+typedef struct StrArray StrArray;
+
+void strings_init(StrArray* strings) {
+    strings->len = 0;
+    strings->capacity = 32;
+    strings->data = calloc(strings->capacity, sizeof(const char*));
+}
+
+void strings_reserve(StrArray* strings, size_t size) {
+    if (size <= strings->capacity)
+        return;
+    strings->capacity *= 2;
+    strings->data = realloc(strings->data, strings->capacity * sizeof(const char*));
+    memset(strings->data + strings->len, 0, (strings->capacity - strings->len) * sizeof(const char*));
+}
+
+int strings_push(StrArray* strings, const char* str) {
+    strings_reserve(strings, strings->len + 1);
+    strings->data[strings->len] = str;
+    return ++strings->len;
+}
