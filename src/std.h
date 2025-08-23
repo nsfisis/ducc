@@ -22,14 +22,16 @@ int isspace(int);
 void* memcpy(void*, const void*, size_t);
 void* memmove(void*, const void*, size_t);
 void* memset(void*, int, size_t);
-int printf(const char*, ...);
+int mkstemps(char*, int);
 void* realloc(void*, size_t);
 int sprintf(char*, const char*, ...);
 int strcmp(const char*, const char*);
 size_t strlen(const char*);
 int strncmp(const char*, const char*, size_t);
+char* strdup(const char*);
 char* strndup(const char*, size_t);
 char* strstr(const char*, const char*);
+int system(const char*);
 
 #include <stdarg.h>
 

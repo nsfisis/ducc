@@ -4,16 +4,16 @@ build N="1":
     #!/usr/bin/env bash
     set -e
     if [[ {{N}} = 1 ]]; then
-        gcc -g -O0 -o ducc main.c
+        cc=gcc
+        target=ducc
+    elif [[ {{N}} = 2 ]]; then
+        cc=./ducc
+        target=ducc{{N}}
     else
-        if [[ {{N}} = 2 ]]; then
-            prev=""
-        else
-            prev=$(({{N}} - 1))
-        fi
-        "./ducc${prev}" main.c > main{{N}}.s
-        gcc -s -o ducc{{N}} main{{N}}.s
+        cc="./ducc$(({{N}} - 1))"
+        target=ducc{{N}}
     fi
+    "$cc" -g -O0 -o "$target" main.c
 
 build-upto-5-gen:
     just build 1

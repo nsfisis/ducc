@@ -11,6 +11,14 @@ void fatal_error(const char* msg, ...) {
 
 #define unimplemented() fatal_error("%s:%d: unimplemented", __FILE__, __LINE__)
 
+BOOL str_ends_with(const char* s, const char* suffix) {
+    size_t l1 = strlen(s);
+    size_t l2 = strlen(suffix);
+    if (l1 < l2)
+        return FALSE;
+    return strcmp(s + l1 - l2, suffix) == 0;
+}
+
 struct StrBuilder {
     size_t len;
     size_t capacity;

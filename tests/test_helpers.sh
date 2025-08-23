@@ -2,12 +2,7 @@ function test_exit_code() {
     set +e
     cat > main.c
 
-    "$ducc" main.c > main.s
-    if [[ $? -ne 0 ]]; then
-        set -e
-        exit 1
-    fi
-    gcc -o a.out main.s
+    "$ducc" -o a.out main.c
     ./a.out
     exit_code=$?
 
@@ -24,11 +19,7 @@ function test_exit_code() {
 function test_diff() {
     cat > main.c
 
-    "$ducc" main.c > main.s
-    if [[ $? -ne 0 ]]; then
-        exit 1
-    fi
-    gcc -o a.out main.s
+    "$ducc" -o a.out main.c
     if [[ ! -f input ]]; then
         touch input
     fi
@@ -61,11 +52,7 @@ function test_compile_error() {
 function test_example() {
     filename="../../../examples/$1.c"
 
-    "$ducc" "$filename" > main.s
-    if [[ $? -ne 0 ]]; then
-        exit 1
-    fi
-    gcc -o a.out main.s
+    "$ducc" -o a.out "$filename"
     if [[ ! -f input ]]; then
         touch input
     fi
