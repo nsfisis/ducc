@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 body 0
 foo 1
@@ -12,7 +10,7 @@ foo 4
 body 4
 foo 5
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int foo(int i) {
@@ -38,7 +36,7 @@ body 1
 foo 2
 body 2
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int foo(int i) {
@@ -70,7 +68,7 @@ foo 4
 body 5
 foo 5
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int foo(int i) {

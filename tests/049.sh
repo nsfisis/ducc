@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > input
 foo
 bar
@@ -13,7 +11,7 @@ bar
 baz
 baz
 EOF
-bash ../../test_diff.sh hoge piyo fuga<<'EOF'
+test_diff hoge piyo fuga<<'EOF'
 struct FILE;
 typedef struct FILE FILE;
 extern FILE* stdin;

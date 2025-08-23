@@ -1,8 +1,6 @@
-set -e
-
 cat <<'EOF' > expected
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 struct S {
     int a;
 };

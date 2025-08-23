@@ -1,7 +1,5 @@
-set -e
-
 touch expected
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int main() {
     "";
     return 0;
@@ -9,7 +7,7 @@ int main() {
 EOF
 
 touch expected
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int main() {
     "abc";
     return 0;
@@ -17,7 +15,7 @@ int main() {
 EOF
 
 touch expected
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int main() {
     "\"foo\"bar\\\n\"";
     return 0;

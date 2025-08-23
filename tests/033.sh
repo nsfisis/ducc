@@ -1,9 +1,7 @@
-set -e
-
 cat <<'EOF' > expected
 42
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 void* calloc();
 
@@ -28,7 +26,7 @@ cat <<'EOF' > expected
 8 8
 9 9
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 void* calloc();
 

@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 42
 EOF
@@ -8,7 +6,7 @@ cat <<'EOF' > header.h
 #define A 42
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #include "header.h"
 
 int printf();

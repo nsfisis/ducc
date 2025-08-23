@@ -11,7 +11,7 @@ for filename in tests/*.sh; do
         all|run|test_*)
             ;;
         *)
-            bash tests/run.sh "$testcase"
+            source tests/run.sh "$testcase"
             ;;
     esac
 done

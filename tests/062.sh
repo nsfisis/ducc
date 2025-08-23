@@ -1,12 +1,10 @@
-set -e
-
 cat <<'EOF' > expected
 __ducc__ is defined.
 A is defined.
 B is undefined.
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 #define A 123

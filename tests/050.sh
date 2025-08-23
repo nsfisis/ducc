@@ -1,9 +1,7 @@
-set -e
-
 cat <<'EOF' > expected
 hello, world
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 int main() {
     printf("hello, world\n");

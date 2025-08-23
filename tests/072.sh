@@ -1,12 +1,10 @@
-set -e
-
 cat <<'EOF' > expected
 123 456
 0 0
 123 456
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 struct S {
     int a;
     int b;
@@ -34,7 +32,7 @@ cat <<'EOF' > expected
 123 456
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 struct S {
     long a;
     long b;
@@ -62,7 +60,7 @@ cat <<'EOF' > expected
 123 456
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 struct S {
     long a;
     long b;

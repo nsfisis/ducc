@@ -103,4 +103,4 @@ Fizz
 Buzz
 EOF
 
-bash ../../test_example.sh fizzbuzz
+test_example fizzbuzz

@@ -1,6 +1,4 @@
-set -e
-
-bash ../../test_exit_code.sh 10 <<'EOF'
+test_exit_code 10 <<'EOF'
 int f(int a, int b, int c, int d, int e, int f) {
     return a;
 }
@@ -10,7 +8,7 @@ int main() {
 }
 EOF
 
-bash ../../test_exit_code.sh 20 <<'EOF'
+test_exit_code 20 <<'EOF'
 int f(int a, int b, int c, int d, int e, int f) {
     return b;
 }
@@ -20,7 +18,7 @@ int main() {
 }
 EOF
 
-bash ../../test_exit_code.sh 30 <<'EOF'
+test_exit_code 30 <<'EOF'
 int f(int a, int b, int c, int d, int e, int f) {
     return c;
 }
@@ -30,7 +28,7 @@ int main() {
 }
 EOF
 
-bash ../../test_exit_code.sh 40 <<'EOF'
+test_exit_code 40 <<'EOF'
 int f(int a, int b, int c, int d, int e, int f) {
     return d;
 }
@@ -40,7 +38,7 @@ int main() {
 }
 EOF
 
-bash ../../test_exit_code.sh 50 <<'EOF'
+test_exit_code 50 <<'EOF'
 int f(int a, int b, int c, int d, int e, int f) {
     return e;
 }
@@ -50,7 +48,7 @@ int main() {
 }
 EOF
 
-bash ../../test_exit_code.sh 60 <<'EOF'
+test_exit_code 60 <<'EOF'
 int f(int a, int b, int c, int d, int e, int f) {
     return f;
 }

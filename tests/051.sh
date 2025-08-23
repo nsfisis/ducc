@@ -1,9 +1,7 @@
-set -e
-
 cat <<'EOF' > expected
 undefined function: f
 EOF
-bash ../../test_compile_error.sh <<'EOF'
+test_compile_error <<'EOF'
 int main() {
     f();
 }

@@ -1,12 +1,10 @@
-set -e
-
 cat <<'EOF' > expected
 argc = 4
 argv[1] = hoge
 argv[2] = piyo
 argv[3] = fuga
 EOF
-bash ../../test_diff.sh hoge piyo fuga<<'EOF'
+test_diff hoge piyo fuga<<'EOF'
 int printf();
 
 int main(int argc, char** argv) {

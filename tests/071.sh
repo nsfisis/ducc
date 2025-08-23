@@ -1,11 +1,9 @@
-set -e
-
 cat <<'EOF' > expected
 579
 975
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #define foo 123 + 456
 #define bar() 321 + 654
 

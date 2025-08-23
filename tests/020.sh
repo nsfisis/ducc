@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 1
 2
@@ -102,7 +100,7 @@ Fizz
 Fizz
 Buzz
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {

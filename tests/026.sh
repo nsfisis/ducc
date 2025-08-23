@@ -1,8 +1,6 @@
-set -e
-
 cat <<'EOF' > expected
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #define A 1
 int main() {
     return 0;
@@ -12,7 +10,7 @@ EOF
 cat <<'EOF' > expected
 1,2,3
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 #define A 1
@@ -28,7 +26,7 @@ EOF
 cat <<'EOF' > expected
 0,0,0,0
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 #define NULL 0

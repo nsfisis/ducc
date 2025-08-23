@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 main.c
 main.c
@@ -10,7 +8,7 @@ cat <<'EOF' > header.h
 #define A __FILE__
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #define B __FILE__
 #include "header.h"
 int printf();

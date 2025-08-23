@@ -1,12 +1,10 @@
-set -e
-
 cat <<'EOF' > expected
 h
 l
 ,
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {

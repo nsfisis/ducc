@@ -1,6 +1,4 @@
-set -e
-
-bash ../../test_exit_code.sh 30 <<'EOF'
+test_exit_code 30 <<'EOF'
 int main() {
     return (-10 + 20 * -3) + 100;
 }

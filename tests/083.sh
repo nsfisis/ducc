@@ -1,10 +1,8 @@
-set -e
-
 cat <<'EOF' > expected
 main.c:1: unknown preprocessor directive (foo)
 EOF
 
-bash ../../test_compile_error.sh <<'EOF'
+test_compile_error <<'EOF'
 #foo
 
 int main() {}
@@ -14,7 +12,7 @@ cat <<'EOF' > expected
 main.c:1: unknown preprocessor directive (bar)
 EOF
 
-bash ../../test_compile_error.sh <<'EOF'
+test_compile_error <<'EOF'
 # bar 1 2 3
 
 int main() {}

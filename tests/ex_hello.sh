@@ -4,4 +4,4 @@ cat <<'EOF' > expected
 Hello, World!
 EOF
 
-bash ../../test_example.sh hello
+test_example hello

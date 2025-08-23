@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 sizeof(a) = 4
 sizeof(b) = 8
@@ -8,7 +6,7 @@ sizeof(d) = 16
 sizeof(e) = 8
 sizeof(f) = 1968
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 struct S {

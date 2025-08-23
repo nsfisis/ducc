@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 42
 EOF
@@ -13,7 +11,7 @@ int f() { return 42; }
 #endif
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #include "header.h"
 #include "header.h"
 #include "header.h"

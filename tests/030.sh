@@ -1,9 +1,7 @@
-set -e
-
 cat <<'EOF' > expected
 foo
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int foo() {
@@ -30,7 +28,7 @@ foo
 bar
 baz
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int foo() {

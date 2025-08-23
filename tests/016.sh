@@ -1,6 +1,4 @@
-set -e
-
-bash ../../test_exit_code.sh 89 <<'EOF'
+test_exit_code 89 <<'EOF'
 int fib(int n) {
     if (n <= 1) {
         return 1;

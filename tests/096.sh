@@ -1,11 +1,9 @@
-set -e
-
 cat <<'EOF' > expected
 10 20
 100 300 500
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 in\
 t ma\
@@ -38,4 +36,4 @@ cat <<'EOF' > expected
 main.c:1: <new-line> expected, but got <eof>
 EOF
 
-echo -n 'int main() {}\' | bash ../../test_compile_error.sh
+echo -n 'int main() {}\' | test_compile_error

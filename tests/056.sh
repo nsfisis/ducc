@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 12
 EOF
@@ -20,7 +18,7 @@ int calculate(int x) {
 int printf(const char*, ...);
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #include "calc.h"
 
 int main() {

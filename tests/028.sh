@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 sizeof(struct Token) = 16
 sizeof(struct Define) = 16
@@ -10,7 +8,7 @@ sizeof(struct Func) = 16
 sizeof(struct Parser) = 64
 sizeof(struct CodeGen) = 16
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 struct Token {
     int kind;
     char* value;

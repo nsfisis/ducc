@@ -1,12 +1,10 @@
-set -e
-
 cat <<'EOF' > expected
 42
 246
 221
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 #define A(x) x

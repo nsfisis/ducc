@@ -1,10 +1,8 @@
-set -e
-
 cat <<'EOF' > expected
 123
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #define foo() 123
 
 int printf();

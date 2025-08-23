@@ -1,12 +1,10 @@
-set -e
-
 cat <<'EOF' > expected
 8
 42
 42
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 union U {

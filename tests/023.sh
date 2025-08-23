@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 sizeof(int) = 4
 sizeof(int*) = 8
@@ -17,7 +15,7 @@ sizeof(char***) = 8
 sizeof(long***) = 8
 sizeof(void***) = 8
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {

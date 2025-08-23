@@ -1,6 +1,4 @@
-set -e
-
-bash ../../test_exit_code.sh 42 <<'EOF'
+test_exit_code 42 <<'EOF'
 int main() {
     int foo;
     foo = 42;

@@ -1,4 +1,4 @@
-bash ../../test_exit_code.sh 26 <<'EOF'
+test_exit_code 26 <<'EOF'
 int main() {
     return 2*3+4*5;
 }

@@ -1,10 +1,8 @@
-set -e
-
 cat <<'EOF' > expected
 42 123 999
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 char a = 42;

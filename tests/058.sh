@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 include depth limit exceeded
 EOF
@@ -15,7 +13,7 @@ cat <<'EOF' > b.h
 int b() { return 2; }
 EOF
 
-bash ../../test_compile_error.sh <<'EOF'
+test_compile_error <<'EOF'
 #include "a.h"
 
 int main() {

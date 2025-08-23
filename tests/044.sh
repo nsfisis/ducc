@@ -1,10 +1,8 @@
-set -e
-
 cat <<'EOF' > expected
 4
 0,1,2
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 enum E {

@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > input
 abc
 EOF
@@ -7,7 +5,7 @@ cat <<'EOF' > expected
 4
 abc
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 void* calloc();
 int getchar();
 int printf();

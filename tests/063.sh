@@ -1,11 +1,9 @@
-set -e
-
 cat <<'EOF' > expected
 123
 456 789
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #include <stdarg.h>
 
 int fprintf();

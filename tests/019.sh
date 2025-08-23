@@ -1,7 +1,5 @@
-set -e
-
 touch expected
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {
@@ -13,7 +11,7 @@ EOF
 cat <<'EOF' > expected
 Hello, World!
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {
@@ -25,7 +23,7 @@ EOF
 cat <<'EOF' > expected
 "Hello, World!"
 EOF
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {

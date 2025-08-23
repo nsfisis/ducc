@@ -1,10 +1,8 @@
-set -e
-
 cat <<'EOF' > expected
 2 5
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {

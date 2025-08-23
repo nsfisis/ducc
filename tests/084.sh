@@ -1,11 +1,9 @@
-set -e
-
 cat <<'EOF' > expected
 A is defined
 A is undefined
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 int printf();
 
 int main() {

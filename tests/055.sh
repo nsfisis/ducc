@@ -1,5 +1,3 @@
-set -e
-
 cat <<'EOF' > expected
 8
 EOF
@@ -12,7 +10,7 @@ int add(int a, int b) {
 int printf(const char*, ...);
 EOF
 
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 #include "header.h"
 
 int main() {

@@ -1,7 +1,5 @@
-set -e
-
 touch expected
-bash ../../test_diff.sh <<'EOF'
+test_diff <<'EOF'
 // A keyword is treated as a normal identifier in preprocessing phase.
 #define auto int
 
