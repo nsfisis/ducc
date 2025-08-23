@@ -6,7 +6,8 @@ Ducc is a toy C compiler, based on [my another tiny C compiler](https://github.c
 ## Dependencies
 
 * gcc
-* [just](https://github.com/casey/just), a general-purpose task runner
+* make
+* [just](https://github.com/casey/just)
 
 
 ## Build
@@ -15,11 +16,19 @@ Ducc is a toy C compiler, based on [my another tiny C compiler](https://github.c
 $ just build
 ```
 
+```
+$ just build-upto-5-gen
+```
+
 
 ## Test
 
 ```
 $ just test
+```
+
+```
+$ just test-self-hosted
 ```
 
 

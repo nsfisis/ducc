@@ -19,12 +19,16 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             // ignore
         } else if (c == 'O') {
             // ignore
+        } else if (c == 'M') {
+            // ignore
         } else if (c == 'o') {
             if (argc <= i + 1) {
                 fatal_error("-o requires filename");
             }
             output_filename = argv[i + 1];
             ++i;
+        } else {
+            fatal_error("unknown option: %s", argv[i]);
         }
     }
     if (positional_arguments_start == -1) {

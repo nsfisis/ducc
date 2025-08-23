@@ -7,13 +7,14 @@ build N="1":
         cc=gcc
         target=ducc
     elif [[ {{N}} = 2 ]]; then
-        cc=./ducc
+        cc=./build/ducc
         target=ducc{{N}}
     else
-        cc="./ducc$(({{N}} - 1))"
+        cc="./build/ducc$(({{N}} - 1))"
         target=ducc{{N}}
     fi
-    "$cc" -g -O0 -o "$target" main.c
+    # TODO: Remove --always-make once ducc supports -MD.
+    CC="$cc" TARGET="$target" make --always-make
 
 build-upto-5-gen:
     just build 1
@@ -23,9 +24,9 @@ build-upto-5-gen:
     just build 5
 
 test-self-hosted: build-upto-5-gen
-    diff -u ./ducc2 ./ducc3
-    diff -u ./ducc3 ./ducc4
-    diff -u ./ducc4 ./ducc5
+    diff -u ./build/ducc2 ./build/ducc3
+    diff -u ./build/ducc3 ./build/ducc4
+    diff -u ./build/ducc4 ./build/ducc5
 
 test TESTCASE="all" $BIN="ducc": build
     #!/usr/bin/env bash
@@ -37,11 +38,10 @@ test TESTCASE="all" $BIN="ducc": build
     fi
 
 test-all:
-    just test-self-hosted
     just test all ducc
+    just test-self-hosted
     just test all ducc2
 
 clean:
-    rm -f main*.s
-    rm -f ducc*
+    rm -rf build
     rm -rf tests/tmp

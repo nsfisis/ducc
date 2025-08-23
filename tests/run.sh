@@ -1,6 +1,6 @@
 set -e
 
-export ducc="../../../$BIN"
+export ducc="../../../build/$BIN"
 
 export testcase=$1
 export tmp_dir="tests/tmp/$testcase"

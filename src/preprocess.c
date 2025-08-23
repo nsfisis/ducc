@@ -1535,8 +1535,8 @@ void pp_dump(Token* t, BOOL include_whitespace) {
 
 char* get_ducc_include_path() {
     const char* self_dir = get_self_dir();
-    char* buf = calloc(strlen(self_dir) + strlen("/include") + 1, sizeof(char));
-    sprintf(buf, "%s/include", self_dir);
+    char* buf = calloc(strlen(self_dir) + strlen("/../include") + 1, sizeof(char));
+    sprintf(buf, "%s/../include", self_dir);
     return buf;
 }
 
