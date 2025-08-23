@@ -1,5 +1,7 @@
 # Ducc
 
+![Ducc logo](./assets/logo.svg)
+
 Ducc is a toy C compiler, based on [my another tiny C compiler](https://github.com/nsfisis/P4Dcc).
 
 
