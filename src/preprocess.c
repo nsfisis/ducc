@@ -1220,18 +1220,22 @@ void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-const char* read_include_header_name(Preprocessor* pp) {
+Token* read_include_header_name(Preprocessor* pp) {
     Token* tok = next_pp_token(pp);
     if (tok->kind != TokenKind_header_name) {
         fatal_error("%s:%d: invalid #include", tok->loc.filename, tok->loc.line);
     }
-
-    return tok->value.string;
+    return tok;
 }
 
-const char* resolve_include_name(Preprocessor* pp, const char* include_name) {
+const char* resolve_include_name(Preprocessor* pp, const Token* include_name_token) {
+    const char* include_name = include_name_token->value.string;
     if (include_name[0] == '"') {
-        return strndup(include_name + 1, strlen(include_name) - 2);
+        char* current_filename = strdup(include_name_token->loc.filename);
+        const char* current_dir = dirname(current_filename);
+        char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(current_dir) + 1, sizeof(char));
+        sprintf(buf, "%s/%.*s", current_dir, strlen(include_name) - 2, include_name + 1);
+        return buf;
     } else {
         for (int i = 0; i < pp->n_include_paths; ++i) {
             char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths[i]) + 1, sizeof(char));
@@ -1291,7 +1295,7 @@ void expand_include_directive(Preprocessor* pp, int directive_token_pos, const c
 void process_include_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
-    const char* include_name = read_include_header_name(pp);
+    Token* include_name = read_include_header_name(pp);
     const char* include_name_resolved = resolve_include_name(pp, include_name);
     if (include_name_resolved == NULL) {
         fatal_error("cannot resolve include file name: %s", include_name);
