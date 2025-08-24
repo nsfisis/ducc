@@ -1,3 +1,6 @@
+#ifndef __DUCC_BUILTIN___STDARG_H__
+#define __DUCC_BUILTIN___STDARG_H__
+
 // System V Application Binary Interface
 // AMD64 Architecture Processor Supplement
 // (With LP64 and ILP32 Programming Models)
@@ -19,3 +22,5 @@ typedef struct __ducc_va_list* va_list;
 
 void va_end(va_list args) {
 }
+
+#endif

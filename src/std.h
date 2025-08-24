@@ -1,3 +1,6 @@
+#ifndef DUCC_STD_H
+#define DUCC_STD_H
+
 #include <stddef.h>
 
 struct FILE;
@@ -50,3 +53,5 @@ char* dirname(char*);
 #define BOOL int
 #define TRUE 1
 #define FALSE 0
+
+#endif
