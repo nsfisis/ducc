@@ -29,6 +29,7 @@ struct Type {
     struct Type* base;
     int array_size;
     struct AstNode* def;
+    BOOL is_static;
 };
 typedef struct Type Type;
 
@@ -118,6 +119,7 @@ typedef enum AstNodeKind AstNodeKind;
 #define node_op __i1
 #define node_stack_offset __i1
 #define node_stack_size __i1
+#define node_function_is_static __i2
 
 struct AstNode {
     AstNodeKind kind;

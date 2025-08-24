@@ -519,8 +519,16 @@ BOOL is_type_token(Parser* p, Token* token) {
 
 Type* parse_type(Parser* p) {
     Token* t = next_token(p);
-    if (t->kind == TokenKind_keyword_const || t->kind == TokenKind_keyword_static) {
-        t = next_token(p);
+    BOOL has_static = FALSE;
+    while (1) {
+        if (t->kind == TokenKind_keyword_const) {
+            t = next_token(p);
+        } else if (t->kind == TokenKind_keyword_static) {
+            t = next_token(p);
+            has_static = TRUE;
+        } else {
+            break;
+        }
     }
     if (!is_type_token(p, t)) {
         fatal_error("%s:%d: parse_type: expected type, but got '%s'", t->loc.filename, t->loc.line, token_stringify(t));
@@ -578,6 +586,7 @@ Type* parse_type(Parser* p) {
         }
         ty = type_new_ptr(ty);
     }
+    ty->is_static = has_static;
     return ty;
 }
 
@@ -1254,6 +1263,7 @@ AstNode* parse_func_decl_or_def(Parser* p) {
         func->node_stack_size =
             p->lvars.data[p->lvars.len - 1].stack_offset + type_sizeof(p->lvars.data[p->lvars.len - 1].ty);
     }
+    func->node_function_is_static = ty->is_static;
     return func;
 }
 

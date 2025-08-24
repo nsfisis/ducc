@@ -546,7 +546,9 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
 void codegen_func(CodeGen* g, AstNode* ast) {
     g->current_func = ast;
 
-    fprintf(g->out, ".globl %s\n", ast->name);
+    if (!ast->node_function_is_static) {
+        fprintf(g->out, ".globl %s\n", ast->name);
+    }
     fprintf(g->out, "%s:\n", ast->name);
 
     codegen_func_prologue(g, ast);
