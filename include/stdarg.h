@@ -19,8 +19,6 @@ struct __ducc_va_list {
 typedef struct __ducc_va_list* va_list;
 
 #define va_start(args, start) __ducc_va_start(args, start)
-
-void va_end(va_list args) {
-}
+#define va_end(args)
 
 #endif
