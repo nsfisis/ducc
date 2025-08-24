@@ -506,7 +506,7 @@ BOOL is_type_token(Parser* p, Token* token) {
         token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
         token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_enum ||
         token->kind == TokenKind_keyword_struct || token->kind == TokenKind_keyword_union ||
-        token->kind == TokenKind_keyword_const) {
+        token->kind == TokenKind_keyword_const || token->kind == TokenKind_keyword_static) {
         return TRUE;
     }
     if (token->kind != TokenKind_ident) {
@@ -517,7 +517,7 @@ BOOL is_type_token(Parser* p, Token* token) {
 
 Type* parse_type(Parser* p) {
     Token* t = next_token(p);
-    if (t->kind == TokenKind_keyword_const) {
+    if (t->kind == TokenKind_keyword_const || t->kind == TokenKind_keyword_static) {
         t = next_token(p);
     }
     if (!is_type_token(p, t)) {
