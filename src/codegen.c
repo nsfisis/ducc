@@ -541,6 +541,8 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
 
 void codegen_func(CodeGen* g, AstNode* ast) {
     g->current_func = ast;
+
+    fprintf(g->out, ".globl %s\n", ast->name);
     fprintf(g->out, "%s:\n", ast->name);
 
     codegen_func_prologue(g, ast);
@@ -586,8 +588,6 @@ void codegen(Program* prog, FILE* out) {
             fprintf(g->out, "  %s: .zero %d\n", var->name, type_sizeof(var->ty));
         }
     }
-
-    fprintf(g->out, ".globl main\n\n");
 
     fprintf(g->out, ".text\n\n");
     for (int i = 0; i < prog->funcs->node_len; ++i) {
