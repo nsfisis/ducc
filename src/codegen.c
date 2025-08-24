@@ -16,7 +16,7 @@ struct CodeGen {
 };
 typedef struct CodeGen CodeGen;
 
-CodeGen* codegen_new(FILE* out) {
+static CodeGen* codegen_new(FILE* out) {
     CodeGen* g = calloc(1, sizeof(CodeGen));
     g->out = out;
     g->next_label = 1;
@@ -24,16 +24,16 @@ CodeGen* codegen_new(FILE* out) {
     return g;
 }
 
-int codegen_new_label(CodeGen* g) {
+static int codegen_new_label(CodeGen* g) {
     int new_label = g->next_label;
     ++g->next_label;
     return new_label;
 }
 
-void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode);
-void codegen_stmt(CodeGen* g, AstNode* ast);
+static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode);
+static void codegen_stmt(CodeGen* g, AstNode* ast);
 
-const char* param_reg(int n) {
+static const char* param_reg(int n) {
     if (n == 0) {
         return "rdi";
     } else if (n == 1) {
@@ -51,7 +51,7 @@ const char* param_reg(int n) {
     }
 }
 
-void codegen_func_prologue(CodeGen* g, AstNode* ast) {
+static void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  push rbp\n");
     fprintf(g->out, "  mov rbp, rsp\n");
     for (int i = 0; i < ast->node_params->node_len; ++i) {
@@ -60,22 +60,22 @@ void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  sub rsp, %d\n", ast->node_stack_size);
 }
 
-void codegen_func_epilogue(CodeGen* g, AstNode* ast) {
+static void codegen_func_epilogue(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  mov rsp, rbp\n");
     fprintf(g->out, "  pop rbp\n");
     fprintf(g->out, "  ret\n");
 }
 
-void codegen_int_expr(CodeGen* g, AstNode* ast) {
+static void codegen_int_expr(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  push %d\n", ast->node_int_value);
 }
 
-void codegen_str_expr(CodeGen* g, AstNode* ast) {
+static void codegen_str_expr(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  mov rax, OFFSET FLAG:.Lstr__%d\n", ast->node_idx);
     fprintf(g->out, "  push rax\n");
 }
 
-void codegen_unary_expr(CodeGen* g, AstNode* ast) {
+static void codegen_unary_expr(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_operand, GenMode_rval);
     if (ast->node_op == TokenKind_not) {
         fprintf(g->out, "  pop rax\n");
@@ -89,12 +89,12 @@ void codegen_unary_expr(CodeGen* g, AstNode* ast) {
     }
 }
 
-void codegen_ref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_ref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     codegen_expr(g, ast->node_operand, GenMode_lval);
 }
 
 // "reg" stores the address of the expression to be pushed.
-void codegen_push_expr(CodeGen* g, const char* reg, int size) {
+static void codegen_push_expr(CodeGen* g, const char* reg, int size) {
     if (size == 1) {
         fprintf(g->out, "  movsx %s, BYTE PTR [%s]\n", reg, reg);
         fprintf(g->out, "  push %s\n", reg);
@@ -119,7 +119,7 @@ void codegen_push_expr(CodeGen* g, const char* reg, int size) {
     }
 }
 
-void codegen_lval2rval(CodeGen* g, Type* ty) {
+static void codegen_lval2rval(CodeGen* g, Type* ty) {
     if (ty->kind == TypeKind_array) {
         return;
     }
@@ -128,14 +128,14 @@ void codegen_lval2rval(CodeGen* g, Type* ty) {
     codegen_push_expr(g, "rax", type_sizeof(ty));
 }
 
-void codegen_deref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_deref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     codegen_expr(g, ast->node_operand, GenMode_rval);
     if (gen_mode == GenMode_rval) {
         codegen_lval2rval(g, ast->node_operand->ty->base);
     }
 }
 
-void codegen_logical_expr(CodeGen* g, AstNode* ast) {
+static void codegen_logical_expr(CodeGen* g, AstNode* ast) {
     int label = codegen_new_label(g);
 
     if (ast->node_op == TokenKind_andand) {
@@ -161,7 +161,7 @@ void codegen_logical_expr(CodeGen* g, AstNode* ast) {
     }
 }
 
-void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     codegen_expr(g, ast->node_lhs, gen_mode);
     codegen_expr(g, ast->node_rhs, gen_mode);
     fprintf(g->out, "  pop rdi\n");
@@ -210,7 +210,7 @@ void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     fprintf(g->out, "  push rax\n");
 }
 
-void codegen_cond_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_cond_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     int label = codegen_new_label(g);
 
     codegen_expr(g, ast->node_cond, GenMode_rval);
@@ -224,7 +224,7 @@ void codegen_cond_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     fprintf(g->out, ".Lend%d:\n", label);
 }
 
-void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
+static void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
     if (ast->node_op == TokenKind_assign) {
         return;
     }
@@ -254,7 +254,7 @@ void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  push rax\n");
 }
 
-void codegen_assign_expr(CodeGen* g, AstNode* ast) {
+static void codegen_assign_expr(CodeGen* g, AstNode* ast) {
     int sizeof_lhs = type_sizeof(ast->node_lhs->ty);
     int sizeof_rhs = type_sizeof(ast->node_rhs->ty);
 
@@ -301,7 +301,7 @@ void codegen_assign_expr(CodeGen* g, AstNode* ast) {
     }
 }
 
-void codegen_func_call(CodeGen* g, AstNode* ast) {
+static void codegen_func_call(CodeGen* g, AstNode* ast) {
     const char* func_name = ast->name;
 
     if (strcmp(func_name, "__ducc_va_start") == 0) {
@@ -359,7 +359,7 @@ void codegen_func_call(CodeGen* g, AstNode* ast) {
     fprintf(g->out, ".Lend%d:\n", label);
 }
 
-void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     fprintf(g->out, "  mov rax, rbp\n");
     fprintf(g->out, "  sub rax, %d\n", ast->node_stack_offset);
     fprintf(g->out, "  push rax\n");
@@ -368,7 +368,7 @@ void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     }
 }
 
-void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     fprintf(g->out, "  lea rax, %s[rip]\n", ast->name);
     fprintf(g->out, "  push rax\n");
     if (gen_mode == GenMode_rval) {
@@ -376,7 +376,7 @@ void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     }
 }
 
-void codegen_composite_expr(CodeGen* g, AstNode* ast) {
+static void codegen_composite_expr(CodeGen* g, AstNode* ast) {
     // Standard C does not have composite expression, but ducc internally has.
     for (int i = 0; i < ast->node_len; ++i) {
         AstNode* expr = ast->node_items + i;
@@ -388,7 +388,7 @@ void codegen_composite_expr(CodeGen* g, AstNode* ast) {
     }
 }
 
-void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     if (ast->kind == AstNodeKind_int_expr) {
         codegen_int_expr(g, ast);
     } else if (ast->kind == AstNodeKind_str_expr) {
@@ -420,7 +420,7 @@ void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     }
 }
 
-void codegen_return_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_return_stmt(CodeGen* g, AstNode* ast) {
     if (ast->node_expr) {
         codegen_expr(g, ast->node_expr, GenMode_rval);
         fprintf(g->out, "  pop rax\n");
@@ -428,7 +428,7 @@ void codegen_return_stmt(CodeGen* g, AstNode* ast) {
     codegen_func_epilogue(g, ast);
 }
 
-void codegen_if_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_if_stmt(CodeGen* g, AstNode* ast) {
     int label = codegen_new_label(g);
 
     codegen_expr(g, ast->node_cond, GenMode_rval);
@@ -444,7 +444,7 @@ void codegen_if_stmt(CodeGen* g, AstNode* ast) {
     fprintf(g->out, ".Lend%d:\n", label);
 }
 
-void codegen_for_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_for_stmt(CodeGen* g, AstNode* ast) {
     int label = codegen_new_label(g);
     ++g->loop_labels;
     *g->loop_labels = label;
@@ -470,7 +470,7 @@ void codegen_for_stmt(CodeGen* g, AstNode* ast) {
     --g->loop_labels;
 }
 
-void codegen_do_while_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_do_while_stmt(CodeGen* g, AstNode* ast) {
     int label = codegen_new_label(g);
     ++g->loop_labels;
     *g->loop_labels = label;
@@ -488,36 +488,36 @@ void codegen_do_while_stmt(CodeGen* g, AstNode* ast) {
     --g->loop_labels;
 }
 
-void codegen_break_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_break_stmt(CodeGen* g, AstNode* ast) {
     int label = *g->loop_labels;
     fprintf(g->out, "  jmp .Lend%d\n", label);
 }
 
-void codegen_continue_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_continue_stmt(CodeGen* g, AstNode* ast) {
     int label = *g->loop_labels;
     fprintf(g->out, "  jmp .Lcontinue%d\n", label);
 }
 
-void codegen_expr_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_expr_stmt(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_expr, GenMode_rval);
     // TODO: the expression on the stack can be more than 8 bytes.
     fprintf(g->out, "  pop rax\n");
 }
 
-void codegen_var_decl(CodeGen* g, AstNode* ast) {
+static void codegen_var_decl(CodeGen* g, AstNode* ast) {
 }
 
-void codegen_nop(CodeGen* g, AstNode* ast) {
+static void codegen_nop(CodeGen* g, AstNode* ast) {
 }
 
-void codegen_block_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_block_stmt(CodeGen* g, AstNode* ast) {
     for (int i = 0; i < ast->node_len; ++i) {
         AstNode* stmt = ast->node_items + i;
         codegen_stmt(g, stmt);
     }
 }
 
-void codegen_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_stmt(CodeGen* g, AstNode* ast) {
     if (ast->kind == AstNodeKind_list) {
         codegen_block_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_return_stmt) {
@@ -543,7 +543,7 @@ void codegen_stmt(CodeGen* g, AstNode* ast) {
     }
 }
 
-void codegen_func(CodeGen* g, AstNode* ast) {
+static void codegen_func(CodeGen* g, AstNode* ast) {
     g->current_func = ast;
 
     if (!ast->node_function_is_static) {

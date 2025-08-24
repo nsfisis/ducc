@@ -7,7 +7,7 @@ struct Lexer {
 };
 typedef struct Lexer Lexer;
 
-Lexer* lexer_new(TokenArray* pp_tokens) {
+static Lexer* lexer_new(TokenArray* pp_tokens) {
     Lexer* l = calloc(1, sizeof(Lexer));
     l->src = pp_tokens;
     l->tokens = calloc(1, sizeof(TokenArray));
@@ -16,7 +16,7 @@ Lexer* lexer_new(TokenArray* pp_tokens) {
     return l;
 }
 
-void tokenize_all(Lexer* l) {
+static void tokenize_all(Lexer* l) {
     for (int pos = 0; pos < l->src->len; ++pos) {
         Token* pp_tok = &l->src->data[pos];
         TokenKind k = pp_tok->kind;

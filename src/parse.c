@@ -16,13 +16,13 @@ struct LocalVarArray {
 };
 typedef struct LocalVarArray LocalVarArray;
 
-void lvars_init(LocalVarArray* lvars) {
+static void lvars_init(LocalVarArray* lvars) {
     lvars->len = 0;
     lvars->capacity = 4;
     lvars->data = calloc(lvars->capacity, sizeof(LocalVar));
 }
 
-void lvars_reserve(LocalVarArray* lvars, size_t size) {
+static void lvars_reserve(LocalVarArray* lvars, size_t size) {
     if (size <= lvars->capacity)
         return;
     while (lvars->capacity < size) {
@@ -32,7 +32,7 @@ void lvars_reserve(LocalVarArray* lvars, size_t size) {
     memset(lvars->data + lvars->len, 0, (lvars->capacity - lvars->len) * sizeof(LocalVar));
 }
 
-LocalVar* lvars_push_new(LocalVarArray* lvars) {
+static LocalVar* lvars_push_new(LocalVarArray* lvars) {
     lvars_reserve(lvars, lvars->len + 1);
     return &lvars->data[lvars->len++];
 }
@@ -50,13 +50,13 @@ struct ScopedSymbolArray {
 };
 typedef struct ScopedSymbolArray ScopedSymbolArray;
 
-void scopedsymbols_init(ScopedSymbolArray* syms) {
+static void scopedsymbols_init(ScopedSymbolArray* syms) {
     syms->len = 0;
     syms->capacity = 4;
     syms->data = calloc(syms->capacity, sizeof(ScopedSymbol));
 }
 
-void scopedsymbols_reserve(ScopedSymbolArray* syms, size_t size) {
+static void scopedsymbols_reserve(ScopedSymbolArray* syms, size_t size) {
     if (size <= syms->capacity)
         return;
     while (syms->capacity < size) {
@@ -66,7 +66,7 @@ void scopedsymbols_reserve(ScopedSymbolArray* syms, size_t size) {
     memset(syms->data + syms->len, 0, (syms->capacity - syms->len) * sizeof(ScopedSymbol));
 }
 
-ScopedSymbol* scopedsymbols_push_new(ScopedSymbolArray* syms) {
+static ScopedSymbol* scopedsymbols_push_new(ScopedSymbolArray* syms) {
     scopedsymbols_reserve(syms, syms->len + 1);
     return &syms->data[syms->len++];
 }
@@ -90,13 +90,13 @@ struct GlobalVarArray {
 };
 typedef struct GlobalVarArray GlobalVarArray;
 
-void gvars_init(GlobalVarArray* gvars) {
+static void gvars_init(GlobalVarArray* gvars) {
     gvars->len = 0;
     gvars->capacity = 4;
     gvars->data = calloc(gvars->capacity, sizeof(GlobalVar));
 }
 
-void gvars_reserve(GlobalVarArray* gvars, size_t size) {
+static void gvars_reserve(GlobalVarArray* gvars, size_t size) {
     if (size <= gvars->capacity)
         return;
     while (gvars->capacity < size) {
@@ -106,7 +106,7 @@ void gvars_reserve(GlobalVarArray* gvars, size_t size) {
     memset(gvars->data + gvars->len, 0, (gvars->capacity - gvars->len) * sizeof(GlobalVar));
 }
 
-GlobalVar* gvars_push_new(GlobalVarArray* gvars) {
+static GlobalVar* gvars_push_new(GlobalVarArray* gvars) {
     gvars_reserve(gvars, gvars->len + 1);
     return &gvars->data[gvars->len++];
 }
@@ -124,13 +124,13 @@ struct FuncArray {
 };
 typedef struct FuncArray FuncArray;
 
-void funcs_init(FuncArray* funcs) {
+static void funcs_init(FuncArray* funcs) {
     funcs->len = 0;
     funcs->capacity = 32;
     funcs->data = calloc(funcs->capacity, sizeof(Func));
 }
 
-void funcs_reserve(FuncArray* funcs, size_t size) {
+static void funcs_reserve(FuncArray* funcs, size_t size) {
     if (size <= funcs->capacity)
         return;
     while (funcs->capacity < size) {
@@ -140,7 +140,7 @@ void funcs_reserve(FuncArray* funcs, size_t size) {
     memset(funcs->data + funcs->len, 0, (funcs->capacity - funcs->len) * sizeof(Func));
 }
 
-Func* funcs_push_new(FuncArray* funcs) {
+static Func* funcs_push_new(FuncArray* funcs) {
     funcs_reserve(funcs, funcs->len + 1);
     return &funcs->data[funcs->len++];
 }
@@ -160,7 +160,7 @@ struct Parser {
 };
 typedef struct Parser Parser;
 
-Parser* parser_new(TokenArray* tokens) {
+static Parser* parser_new(TokenArray* tokens) {
     Parser* p = calloc(1, sizeof(Parser));
     p->tokens = tokens;
     gvars_init(&p->gvars);
@@ -179,15 +179,15 @@ Parser* parser_new(TokenArray* tokens) {
     return p;
 }
 
-Token* peek_token(Parser* p) {
+static Token* peek_token(Parser* p) {
     return &p->tokens->data[p->pos];
 }
 
-Token* next_token(Parser* p) {
+static Token* next_token(Parser* p) {
     return &p->tokens->data[p->pos++];
 }
 
-Token* consume_token_if(Parser* p, TokenKind expected) {
+static Token* consume_token_if(Parser* p, TokenKind expected) {
     if (peek_token(p)->kind == expected) {
         return next_token(p);
     } else {
@@ -195,11 +195,11 @@ Token* consume_token_if(Parser* p, TokenKind expected) {
     }
 }
 
-BOOL eof(Parser* p) {
+static BOOL eof(Parser* p) {
     return peek_token(p)->kind != TokenKind_eof;
 }
 
-Token* expect(Parser* p, TokenKind expected) {
+static Token* expect(Parser* p, TokenKind expected) {
     Token* t = next_token(p);
     if (t->kind == expected) {
         return t;
@@ -208,7 +208,7 @@ Token* expect(Parser* p, TokenKind expected) {
                 token_stringify(t));
 }
 
-int find_lvar_in_scope(Parser* p, Scope* scope, const char* name) {
+static int find_lvar_in_scope(Parser* p, Scope* scope, const char* name) {
     for (int i = 0; i < scope->syms.len; ++i) {
         ScopedSymbol* sym = &scope->syms.data[i];
         if (sym->name && strcmp(sym->name, name) == 0) {
@@ -218,11 +218,11 @@ int find_lvar_in_scope(Parser* p, Scope* scope, const char* name) {
     return -1;
 }
 
-int find_lvar_in_current_scope(Parser* p, const char* name) {
+static int find_lvar_in_current_scope(Parser* p, const char* name) {
     return find_lvar_in_scope(p, p->scope, name);
 }
 
-int find_lvar(Parser* p, const char* name) {
+static int find_lvar(Parser* p, const char* name) {
     Scope* scope = p->scope;
     while (scope) {
         int idx = find_lvar_in_scope(p, scope, name);
@@ -233,7 +233,7 @@ int find_lvar(Parser* p, const char* name) {
     return -1;
 }
 
-int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
+static int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
     int align;
     if (is_param) {
         if (8 < type_sizeof(ty) || 8 < type_alignof(ty)) {
@@ -255,7 +255,7 @@ int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
     return to_aligned(offset, align);
 }
 
-int add_lvar(Parser* p, const char* name, Type* ty, BOOL is_param) {
+static int add_lvar(Parser* p, const char* name, Type* ty, BOOL is_param) {
     int stack_offset = calc_stack_offset(p, ty, is_param);
     LocalVar* lvar = lvars_push_new(&p->lvars);
     lvar->name = name;
@@ -267,7 +267,7 @@ int add_lvar(Parser* p, const char* name, Type* ty, BOOL is_param) {
     return stack_offset;
 }
 
-AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
+static AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
     int stack_offset = add_lvar(p, NULL, ty, FALSE);
     AstNode* lvar = ast_new(AstNodeKind_lvar);
     lvar->name = NULL;
@@ -276,7 +276,7 @@ AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
     return lvar;
 }
 
-int find_gvar(Parser* p, const char* name) {
+static int find_gvar(Parser* p, const char* name) {
     for (int i = 0; i < p->gvars.len; ++i) {
         if (strcmp(p->gvars.data[i].name, name) == 0) {
             return i;
@@ -285,7 +285,7 @@ int find_gvar(Parser* p, const char* name) {
     return -1;
 }
 
-int find_func(Parser* p, const char* name) {
+static int find_func(Parser* p, const char* name) {
     for (int i = 0; i < p->funcs.len; ++i) {
         if (strcmp(p->funcs.data[i].name, name) == 0) {
             return i;
@@ -294,7 +294,7 @@ int find_func(Parser* p, const char* name) {
     return -1;
 }
 
-int find_struct(Parser* p, const char* name) {
+static int find_struct(Parser* p, const char* name) {
     for (int i = 0; i < p->structs->node_len; ++i) {
         if (strcmp(p->structs->node_items[i].name, name) == 0) {
             return i;
@@ -303,7 +303,7 @@ int find_struct(Parser* p, const char* name) {
     return -1;
 }
 
-int find_union(Parser* p, const char* name) {
+static int find_union(Parser* p, const char* name) {
     for (int i = 0; i < p->unions->node_len; ++i) {
         if (strcmp(p->unions->node_items[i].name, name) == 0) {
             return i;
@@ -312,7 +312,7 @@ int find_union(Parser* p, const char* name) {
     return -1;
 }
 
-int find_enum(Parser* p, const char* name) {
+static int find_enum(Parser* p, const char* name) {
     for (int i = 0; i < p->enums->node_len; ++i) {
         if (strcmp(p->enums->node_items[i].name, name) == 0) {
             return i;
@@ -321,7 +321,7 @@ int find_enum(Parser* p, const char* name) {
     return -1;
 }
 
-int find_enum_member(Parser* p, const char* name) {
+static int find_enum_member(Parser* p, const char* name) {
     for (int i = 0; i < p->enums->node_len; ++i) {
         for (int j = 0; j < p->enums->node_items[i].node_members->node_len; ++j) {
             if (strcmp(p->enums->node_items[i].node_members->node_items[j].name, name) == 0) {
@@ -332,7 +332,7 @@ int find_enum_member(Parser* p, const char* name) {
     return -1;
 }
 
-int find_typedef(Parser* p, const char* name) {
+static int find_typedef(Parser* p, const char* name) {
     for (int i = 0; i < p->typedefs->node_len; ++i) {
         if (strcmp(p->typedefs->node_items[i].name, name) == 0) {
             return i;
@@ -341,39 +341,39 @@ int find_typedef(Parser* p, const char* name) {
     return -1;
 }
 
-void enter_scope(Parser* p) {
+static void enter_scope(Parser* p) {
     Scope* outer_scope = p->scope;
     p->scope = calloc(1, sizeof(Scope));
     p->scope->outer = outer_scope;
     scopedsymbols_init(&p->scope->syms);
 }
 
-void leave_scope(Parser* p) {
+static void leave_scope(Parser* p) {
     p->scope = p->scope->outer;
 }
 
-void enter_func(Parser* p) {
+static void enter_func(Parser* p) {
     lvars_init(&p->lvars);
     enter_scope(p);
 }
 
-void leave_func(Parser* p) {
+static void leave_func(Parser* p) {
     leave_scope(p);
 }
 
-AstNode* parse_assignment_expr(Parser* p);
-AstNode* parse_expr(Parser* p);
-AstNode* parse_stmt(Parser* p);
+static AstNode* parse_assignment_expr(Parser* p);
+static AstNode* parse_expr(Parser* p);
+static AstNode* parse_stmt(Parser* p);
 
-const char* parse_ident(Parser* p) {
+static const char* parse_ident(Parser* p) {
     return expect(p, TokenKind_ident)->value.string;
 }
 
-int register_str_literal(Parser* p, const char* s) {
+static int register_str_literal(Parser* p, const char* s) {
     return strings_push(&p->str_literals, s);
 }
 
-AstNode* parse_primary_expr(Parser* p) {
+static AstNode* parse_primary_expr(Parser* p) {
     Token* t = next_token(p);
     if (t->kind == TokenKind_literal_int) {
         return ast_new_int(t->value.integer);
@@ -431,7 +431,7 @@ AstNode* parse_primary_expr(Parser* p) {
     }
 }
 
-AstNode* parse_arg_list(Parser* p) {
+static AstNode* parse_arg_list(Parser* p) {
     AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TokenKind_paren_r) {
         AstNode* arg = parse_assignment_expr(p);
@@ -450,7 +450,7 @@ AstNode* parse_arg_list(Parser* p) {
 // tmp1 = &e; tmp2 = *tmp1; *tmp1 += 1; tmp2
 // e--
 // tmp1 = &e; tmp2 = *tmp1; *tmp1 -= 1; tmp2
-AstNode* create_new_postfix_inc_or_dec(Parser* p, AstNode* e, TokenKind op) {
+static AstNode* create_new_postfix_inc_or_dec(Parser* p, AstNode* e, TokenKind op) {
     AstNode* tmp1_lvar = generate_temporary_lvar(p, type_new_ptr(e->ty));
     AstNode* tmp2_lvar = generate_temporary_lvar(p, e->ty);
 
@@ -473,7 +473,7 @@ AstNode* create_new_postfix_inc_or_dec(Parser* p, AstNode* e, TokenKind op) {
     return ret;
 }
 
-AstNode* parse_postfix_expr(Parser* p) {
+static AstNode* parse_postfix_expr(Parser* p) {
     AstNode* ret = parse_primary_expr(p);
     while (1) {
         TokenKind tk = peek_token(p)->kind;
@@ -503,7 +503,7 @@ AstNode* parse_postfix_expr(Parser* p) {
     return ret;
 }
 
-BOOL is_type_token(Parser* p, Token* token) {
+static BOOL is_type_token(Parser* p, Token* token) {
     if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_short ||
         token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
         token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_enum ||
@@ -517,7 +517,7 @@ BOOL is_type_token(Parser* p, Token* token) {
     return find_typedef(p, token->value.string) != -1;
 }
 
-Type* parse_type(Parser* p) {
+static Type* parse_type(Parser* p) {
     Token* t = next_token(p);
     BOOL has_static = FALSE;
     while (1) {
@@ -590,7 +590,7 @@ Type* parse_type(Parser* p) {
     return ty;
 }
 
-AstNode* parse_prefix_expr(Parser* p) {
+static AstNode* parse_prefix_expr(Parser* p) {
     TokenKind op = peek_token(p)->kind;
     if (consume_token_if(p, TokenKind_minus)) {
         AstNode* operand = parse_prefix_expr(p);
@@ -635,7 +635,7 @@ AstNode* parse_prefix_expr(Parser* p) {
     return parse_postfix_expr(p);
 }
 
-AstNode* parse_multiplicative_expr(Parser* p) {
+static AstNode* parse_multiplicative_expr(Parser* p) {
     AstNode* lhs = parse_prefix_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -650,7 +650,7 @@ AstNode* parse_multiplicative_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_additive_expr(Parser* p) {
+static AstNode* parse_additive_expr(Parser* p) {
     AstNode* lhs = parse_multiplicative_expr(p);
     while (1) {
         if (consume_token_if(p, TokenKind_plus)) {
@@ -689,7 +689,7 @@ AstNode* parse_additive_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_shift_expr(Parser* p) {
+static AstNode* parse_shift_expr(Parser* p) {
     AstNode* lhs = parse_additive_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -704,7 +704,7 @@ AstNode* parse_shift_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_relational_expr(Parser* p) {
+static AstNode* parse_relational_expr(Parser* p) {
     AstNode* lhs = parse_shift_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -725,7 +725,7 @@ AstNode* parse_relational_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_equality_expr(Parser* p) {
+static AstNode* parse_equality_expr(Parser* p) {
     AstNode* lhs = parse_relational_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -740,7 +740,7 @@ AstNode* parse_equality_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_bitwise_or_expr(Parser* p) {
+static AstNode* parse_bitwise_or_expr(Parser* p) {
     AstNode* lhs = parse_equality_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -755,7 +755,7 @@ AstNode* parse_bitwise_or_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_logical_and_expr(Parser* p) {
+static AstNode* parse_logical_and_expr(Parser* p) {
     AstNode* lhs = parse_bitwise_or_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -774,7 +774,7 @@ AstNode* parse_logical_and_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_logical_or_expr(Parser* p) {
+static AstNode* parse_logical_or_expr(Parser* p) {
     AstNode* lhs = parse_logical_and_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -793,7 +793,7 @@ AstNode* parse_logical_or_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_conditional_expr(Parser* p) {
+static AstNode* parse_conditional_expr(Parser* p) {
     AstNode* e = parse_logical_or_expr(p);
     if (consume_token_if(p, TokenKind_question)) {
         AstNode* then_expr = parse_expr(p);
@@ -812,11 +812,11 @@ AstNode* parse_conditional_expr(Parser* p) {
 
 // constant-expression:
 //     conditional-expression
-AstNode* parse_constant_expression(Parser* p) {
+static AstNode* parse_constant_expression(Parser* p) {
     return parse_conditional_expr(p);
 }
 
-AstNode* parse_assignment_expr(Parser* p) {
+static AstNode* parse_assignment_expr(Parser* p) {
     AstNode* lhs = parse_conditional_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -839,7 +839,7 @@ AstNode* parse_assignment_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_comma_expr(Parser* p) {
+static AstNode* parse_comma_expr(Parser* p) {
     AstNode* lhs = parse_assignment_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
@@ -857,11 +857,11 @@ AstNode* parse_comma_expr(Parser* p) {
     return lhs;
 }
 
-AstNode* parse_expr(Parser* p) {
+static AstNode* parse_expr(Parser* p) {
     return parse_comma_expr(p);
 }
 
-AstNode* parse_return_stmt(Parser* p) {
+static AstNode* parse_return_stmt(Parser* p) {
     expect(p, TokenKind_keyword_return);
     if (consume_token_if(p, TokenKind_semicolon)) {
         return ast_new(AstNodeKind_return_stmt);
@@ -875,7 +875,7 @@ AstNode* parse_return_stmt(Parser* p) {
     return ret;
 }
 
-AstNode* parse_if_stmt(Parser* p) {
+static AstNode* parse_if_stmt(Parser* p) {
     expect(p, TokenKind_keyword_if);
     expect(p, TokenKind_paren_l);
     AstNode* cond = parse_expr(p);
@@ -896,7 +896,7 @@ AstNode* parse_if_stmt(Parser* p) {
 // pointer:
 //     '*' TODO attribute-specifier-sequence_opt TODO type-qualifier-list_opt
 //     '*' TODO attribute-specifier-sequence_opt TODO type-qualifier-list_opt pointer
-Type* parse_pointer_opt(Parser* p, Type* ty) {
+static Type* parse_pointer_opt(Parser* p, Type* ty) {
     while (peek_token(p)->kind == TokenKind_star) {
         next_token(p);
         ty = type_new_ptr(ty);
@@ -909,7 +909,7 @@ Type* parse_pointer_opt(Parser* p, Type* ty) {
 //     TODO direct-declarator '[' 'static' type-qualifier-list_opt assignment-expression_opt ']'
 //     TODO direct-declarator '[' type-qualifier-list 'static' assignment-expression_opt ']'
 //     TODO direct-declarator '[' type-qualifier-list_opt '*' ']'
-Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
+static Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
     next_token(p); // skip '['
 
     AstNode* size_expr = parse_expr(p);
@@ -927,7 +927,7 @@ Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
 //     TODO '(' declarator ')'
 //     array-declarator TODO attribute-specifier-sequence_opt
 //     TODO function-declarator TODO attribute-specifier-sequence_opt
-AstNode* parse_direct_declarator(Parser* p, Type* ty) {
+static AstNode* parse_direct_declarator(Parser* p, Type* ty) {
     const char* name = parse_ident(p);
     while (1) {
         if (peek_token(p)->kind == TokenKind_bracket_l) {
@@ -945,7 +945,7 @@ AstNode* parse_direct_declarator(Parser* p, Type* ty) {
 
 // declarator:
 //     pointer_opt direct-declarator
-AstNode* parse_declarator(Parser* p, Type* ty) {
+static AstNode* parse_declarator(Parser* p, Type* ty) {
     ty = parse_pointer_opt(p, ty);
     return parse_direct_declarator(p, ty);
 }
@@ -953,14 +953,14 @@ AstNode* parse_declarator(Parser* p, Type* ty) {
 // initializer:
 //     assignment-expression
 //     TODO braced-initializer
-AstNode* parse_initializer(Parser* p) {
+static AstNode* parse_initializer(Parser* p) {
     return parse_assignment_expr(p);
 }
 
 // init-declarator:
 //     declarator
 //     declarator '=' initializer
-AstNode* parse_init_declarator(Parser* p, Type* ty) {
+static AstNode* parse_init_declarator(Parser* p, Type* ty) {
     AstNode* decl = parse_declarator(p, ty);
     AstNode* init = NULL;
     if (consume_token_if(p, TokenKind_assign)) {
@@ -973,7 +973,7 @@ AstNode* parse_init_declarator(Parser* p, Type* ty) {
 // init-declarator-list:
 //     init-declarator
 //     init-declarator-list ',' init-declarator
-AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
+static AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
     AstNode* list = ast_new_list(1);
     while (1) {
         AstNode* d = parse_init_declarator(p, ty);
@@ -985,7 +985,7 @@ AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
     return list;
 }
 
-AstNode* parse_var_decl(Parser* p) {
+static AstNode* parse_var_decl(Parser* p) {
     Type* base_ty = parse_type(p);
     if (type_is_unsized(base_ty)) {
         fatal_error("parse_var_decl: invalid type for variable");
@@ -1018,7 +1018,7 @@ AstNode* parse_var_decl(Parser* p) {
     return decls;
 }
 
-AstNode* parse_for_stmt(Parser* p) {
+static AstNode* parse_for_stmt(Parser* p) {
     expect(p, TokenKind_keyword_for);
     expect(p, TokenKind_paren_l);
     AstNode* init = NULL;
@@ -1056,7 +1056,7 @@ AstNode* parse_for_stmt(Parser* p) {
     return stmt;
 }
 
-AstNode* parse_while_stmt(Parser* p) {
+static AstNode* parse_while_stmt(Parser* p) {
     expect(p, TokenKind_keyword_while);
     expect(p, TokenKind_paren_l);
     AstNode* cond = parse_expr(p);
@@ -1069,7 +1069,7 @@ AstNode* parse_while_stmt(Parser* p) {
     return stmt;
 }
 
-AstNode* parse_do_while_stmt(Parser* p) {
+static AstNode* parse_do_while_stmt(Parser* p) {
     expect(p, TokenKind_keyword_do);
     AstNode* body = parse_stmt(p);
     expect(p, TokenKind_keyword_while);
@@ -1084,19 +1084,19 @@ AstNode* parse_do_while_stmt(Parser* p) {
     return stmt;
 }
 
-AstNode* parse_break_stmt(Parser* p) {
+static AstNode* parse_break_stmt(Parser* p) {
     expect(p, TokenKind_keyword_break);
     expect(p, TokenKind_semicolon);
     return ast_new(AstNodeKind_break_stmt);
 }
 
-AstNode* parse_continue_stmt(Parser* p) {
+static AstNode* parse_continue_stmt(Parser* p) {
     expect(p, TokenKind_keyword_continue);
     expect(p, TokenKind_semicolon);
     return ast_new(AstNodeKind_continue_stmt);
 }
 
-AstNode* parse_expr_stmt(Parser* p) {
+static AstNode* parse_expr_stmt(Parser* p) {
     AstNode* e = parse_expr(p);
     expect(p, TokenKind_semicolon);
     AstNode* stmt = ast_new(AstNodeKind_expr_stmt);
@@ -1104,7 +1104,7 @@ AstNode* parse_expr_stmt(Parser* p) {
     return stmt;
 }
 
-AstNode* parse_block_stmt(Parser* p) {
+static AstNode* parse_block_stmt(Parser* p) {
     AstNode* list = ast_new_list(4);
     expect(p, TokenKind_brace_l);
     enter_scope(p);
@@ -1117,12 +1117,12 @@ AstNode* parse_block_stmt(Parser* p) {
     return list;
 }
 
-AstNode* parse_empty_stmt(Parser* p) {
+static AstNode* parse_empty_stmt(Parser* p) {
     consume_token_if(p, TokenKind_semicolon);
     return ast_new(AstNodeKind_nop);
 }
 
-AstNode* parse_stmt(Parser* p) {
+static AstNode* parse_stmt(Parser* p) {
     Token* t = peek_token(p);
     if (t->kind == TokenKind_keyword_return) {
         return parse_return_stmt(p);
@@ -1149,20 +1149,20 @@ AstNode* parse_stmt(Parser* p) {
     }
 }
 
-void register_params(Parser* p, AstNode* params) {
+static void register_params(Parser* p, AstNode* params) {
     for (int i = 0; i < params->node_len; ++i) {
         AstNode* param = params->node_items + i;
         add_lvar(p, param->name, param->ty, TRUE);
     }
 }
 
-void register_func(Parser* p, const char* name, Type* ty) {
+static void register_func(Parser* p, const char* name, Type* ty) {
     Func* func = funcs_push_new(&p->funcs);
     func->name = name;
     func->ty = ty;
 }
 
-AstNode* parse_param(Parser* p) {
+static AstNode* parse_param(Parser* p) {
     Type* ty = parse_type(p);
     const char* name = NULL;
     TokenKind tk = peek_token(p)->kind;
@@ -1177,7 +1177,7 @@ AstNode* parse_param(Parser* p) {
     return param;
 }
 
-AstNode* parse_param_list(Parser* p) {
+static AstNode* parse_param_list(Parser* p) {
     BOOL has_void = FALSE;
     AstNode* list = ast_new_list(6);
     while (peek_token(p)->kind != TokenKind_paren_r) {
@@ -1203,7 +1203,7 @@ AstNode* parse_param_list(Parser* p) {
     return list;
 }
 
-AstNode* parse_global_var_decl(Parser* p) {
+static AstNode* parse_global_var_decl(Parser* p) {
     Type* base_ty = parse_type(p);
     if (type_is_unsized(base_ty)) {
         fatal_error("parse_global_var_decl: invalid type for variable");
@@ -1228,7 +1228,7 @@ AstNode* parse_global_var_decl(Parser* p) {
     return decls;
 }
 
-AstNode* parse_func_decl_or_def(Parser* p) {
+static AstNode* parse_func_decl_or_def(Parser* p) {
     // TODO: remove it.
     int start_pos = p->pos;
 
@@ -1267,7 +1267,7 @@ AstNode* parse_func_decl_or_def(Parser* p) {
     return func;
 }
 
-AstNode* parse_struct_member(Parser* p) {
+static AstNode* parse_struct_member(Parser* p) {
     Type* ty = parse_type(p);
     const char* name = parse_ident(p);
     expect(p, TokenKind_semicolon);
@@ -1277,7 +1277,7 @@ AstNode* parse_struct_member(Parser* p) {
     return member;
 }
 
-AstNode* parse_struct_members(Parser* p) {
+static AstNode* parse_struct_members(Parser* p) {
     AstNode* list = ast_new_list(4);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_struct_member(p);
@@ -1286,7 +1286,7 @@ AstNode* parse_struct_members(Parser* p) {
     return list;
 }
 
-AstNode* parse_struct_decl_or_def(Parser* p) {
+static AstNode* parse_struct_decl_or_def(Parser* p) {
     expect(p, TokenKind_keyword_struct);
     const char* name = parse_ident(p);
 
@@ -1316,7 +1316,7 @@ AstNode* parse_struct_decl_or_def(Parser* p) {
     return &p->structs->node_items[struct_idx];
 }
 
-AstNode* parse_union_member(Parser* p) {
+static AstNode* parse_union_member(Parser* p) {
     Type* ty = parse_type(p);
     const char* name = parse_ident(p);
     expect(p, TokenKind_semicolon);
@@ -1326,7 +1326,7 @@ AstNode* parse_union_member(Parser* p) {
     return member;
 }
 
-AstNode* parse_union_members(Parser* p) {
+static AstNode* parse_union_members(Parser* p) {
     AstNode* list = ast_new_list(4);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_union_member(p);
@@ -1335,7 +1335,7 @@ AstNode* parse_union_members(Parser* p) {
     return list;
 }
 
-AstNode* parse_union_decl_or_def(Parser* p) {
+static AstNode* parse_union_decl_or_def(Parser* p) {
     expect(p, TokenKind_keyword_union);
     const char* name = parse_ident(p);
 
@@ -1365,14 +1365,14 @@ AstNode* parse_union_decl_or_def(Parser* p) {
     return &p->unions->node_items[union_idx];
 }
 
-AstNode* parse_enum_member(Parser* p) {
+static AstNode* parse_enum_member(Parser* p) {
     const char* name = parse_ident(p);
     AstNode* member = ast_new(AstNodeKind_enum_member);
     member->name = name;
     return member;
 }
 
-AstNode* parse_enum_members(Parser* p) {
+static AstNode* parse_enum_members(Parser* p) {
     int next_value = 0;
     AstNode* list = ast_new_list(16);
     while (peek_token(p)->kind != TokenKind_brace_r) {
@@ -1387,7 +1387,7 @@ AstNode* parse_enum_members(Parser* p) {
     return list;
 }
 
-AstNode* parse_enum_def(Parser* p) {
+static AstNode* parse_enum_def(Parser* p) {
     expect(p, TokenKind_keyword_enum);
     const char* name = parse_ident(p);
 
@@ -1413,7 +1413,7 @@ AstNode* parse_enum_def(Parser* p) {
     return &p->enums->node_items[enum_idx];
 }
 
-AstNode* parse_typedef_decl(Parser* p) {
+static AstNode* parse_typedef_decl(Parser* p) {
     expect(p, TokenKind_keyword_typedef);
     Type* ty = parse_type(p);
     const char* name = parse_ident(p);
@@ -1425,7 +1425,7 @@ AstNode* parse_typedef_decl(Parser* p) {
     return decl;
 }
 
-AstNode* parse_extern_var_decl(Parser* p) {
+static AstNode* parse_extern_var_decl(Parser* p) {
     expect(p, TokenKind_keyword_extern);
     Type* ty = parse_type(p);
     if (type_is_unsized(ty)) {
@@ -1444,7 +1444,7 @@ AstNode* parse_extern_var_decl(Parser* p) {
     return ast_new(AstNodeKind_gvar_decl);
 }
 
-AstNode* parse_toplevel(Parser* p) {
+static AstNode* parse_toplevel(Parser* p) {
     TokenKind tk = peek_token(p)->kind;
     if (tk == TokenKind_keyword_struct) {
         return parse_struct_decl_or_def(p);
@@ -1484,7 +1484,7 @@ Program* parse(TokenArray* tokens) {
     return prog;
 }
 
-int eval(AstNode* e) {
+static int eval(AstNode* e) {
     if (e->kind == AstNodeKind_int_expr) {
         return e->node_int_value;
     } else if (e->kind == AstNodeKind_unary_expr) {

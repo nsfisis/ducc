@@ -1,5 +1,6 @@
 #include "preprocess.h"
 #include "common.h"
+#include "parse.h"
 #include "sys.h"
 
 const char* token_kind_stringify(TokenKind k) {
@@ -345,7 +346,7 @@ struct Macro {
 };
 typedef struct Macro Macro;
 
-int macro_find_param(Macro* macro, Token* tok) {
+static int macro_find_param(Macro* macro, Token* tok) {
     if (tok->kind != TokenKind_ident)
         return -1;
 
@@ -364,7 +365,7 @@ struct MacroArray {
 };
 typedef struct MacroArray MacroArray;
 
-MacroArray* macros_new() {
+static MacroArray* macros_new() {
     MacroArray* macros = calloc(1, sizeof(MacroArray));
     macros->len = 0;
     macros->capacity = 8;
@@ -372,7 +373,7 @@ MacroArray* macros_new() {
     return macros;
 }
 
-void macros_reserve(MacroArray* macros, size_t size) {
+static void macros_reserve(MacroArray* macros, size_t size) {
     if (size <= macros->capacity)
         return;
     while (macros->capacity < size) {
@@ -382,12 +383,12 @@ void macros_reserve(MacroArray* macros, size_t size) {
     memset(macros->data + macros->len, 0, (macros->capacity - macros->len) * sizeof(Macro));
 }
 
-Macro* macros_push_new(MacroArray* macros) {
+static Macro* macros_push_new(MacroArray* macros) {
     macros_reserve(macros, macros->len + 1);
     return &macros->data[macros->len++];
 }
 
-void macros_dump(MacroArray* macros) {
+static void macros_dump(MacroArray* macros) {
     fprintf(stderr, "MacroArray {\n");
     fprintf(stderr, "  len = %zu\n", macros->len);
     fprintf(stderr, "  data = [\n");
@@ -403,7 +404,7 @@ void macros_dump(MacroArray* macros) {
     fprintf(stderr, "}\n");
 }
 
-void add_predefined_macros(MacroArray* macros) {
+static void add_predefined_macros(MacroArray* macros) {
     Macro* m;
 
     m = macros_push_new(macros);
@@ -435,7 +436,7 @@ struct MacroArgArray {
 };
 typedef struct MacroArgArray MacroArgArray;
 
-MacroArgArray* macroargs_new() {
+static MacroArgArray* macroargs_new() {
     MacroArgArray* macroargs = calloc(1, sizeof(MacroArgArray));
     macroargs->len = 0;
     macroargs->capacity = 2;
@@ -443,7 +444,7 @@ MacroArgArray* macroargs_new() {
     return macroargs;
 }
 
-void macroargs_reserve(MacroArgArray* macroargs, size_t size) {
+static void macroargs_reserve(MacroArgArray* macroargs, size_t size) {
     if (size <= macroargs->capacity)
         return;
     while (macroargs->capacity < size) {
@@ -453,7 +454,7 @@ void macroargs_reserve(MacroArgArray* macroargs, size_t size) {
     memset(macroargs->data + macroargs->len, 0, (macroargs->capacity - macroargs->len) * sizeof(MacroArg));
 }
 
-MacroArg* macroargs_push_new(MacroArgArray* macroargs) {
+static MacroArg* macroargs_push_new(MacroArgArray* macroargs) {
     macroargs_reserve(macroargs, macroargs->len + 1);
     return &macroargs->data[macroargs->len++];
 }
@@ -466,7 +467,7 @@ struct PpLexer {
 };
 typedef struct PpLexer PpLexer;
 
-PpLexer* pplexer_new(InFile* src) {
+static PpLexer* pplexer_new(InFile* src) {
     PpLexer* ppl = calloc(1, sizeof(PpLexer));
 
     ppl->src = src;
@@ -478,7 +479,7 @@ PpLexer* pplexer_new(InFile* src) {
     return ppl;
 }
 
-TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
+static TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
     // Skip whitespaces after '#'.
     char c;
     while (isspace((c = infile_peek_char(ppl->src)))) {
@@ -538,7 +539,7 @@ TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
     }
 }
 
-void pplexer_tokenize_all(PpLexer* ppl) {
+static void pplexer_tokenize_all(PpLexer* ppl) {
     while (!infile_eof(ppl->src)) {
         Token* tok = tokens_push_new(ppl->pp_tokens);
         tok->loc = ppl->src->loc;
@@ -836,7 +837,7 @@ void pplexer_tokenize_all(PpLexer* ppl) {
     eof_tok->kind = TokenKind_eof;
 }
 
-TokenArray* pp_tokenize(InFile* src) {
+static TokenArray* pp_tokenize(InFile* src) {
     PpLexer* ppl = pplexer_new(src);
     pplexer_tokenize_all(ppl);
     return ppl->pp_tokens;
@@ -853,9 +854,9 @@ struct Preprocessor {
 };
 typedef struct Preprocessor Preprocessor;
 
-TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros);
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros);
 
-Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros) {
+static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros) {
     if (include_depth >= 32) {
         fatal_error("include depth limit exceeded");
     }
@@ -869,23 +870,23 @@ Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroAr
     return pp;
 }
 
-Token* pp_token_at(Preprocessor* pp, int i) {
+static Token* pp_token_at(Preprocessor* pp, int i) {
     return &pp->pp_tokens->data[i];
 }
 
-Token* peek_pp_token(Preprocessor* pp) {
+static Token* peek_pp_token(Preprocessor* pp) {
     return pp_token_at(pp, pp->pos);
 }
 
-Token* next_pp_token(Preprocessor* pp) {
+static Token* next_pp_token(Preprocessor* pp) {
     return pp_token_at(pp, pp->pos++);
 }
 
-BOOL pp_eof(Preprocessor* pp) {
+static BOOL pp_eof(Preprocessor* pp) {
     return peek_pp_token(pp)->kind == TokenKind_eof;
 }
 
-int find_macro(Preprocessor* pp, const char* name) {
+static int find_macro(Preprocessor* pp, const char* name) {
     for (int i = 0; i < pp->macros->len; ++i) {
         if (pp->macros->data[i].kind == MacroKind_undef)
             continue;
@@ -896,28 +897,28 @@ int find_macro(Preprocessor* pp, const char* name) {
     return -1;
 }
 
-void undef_macro(Preprocessor* pp, int idx) {
+static void undef_macro(Preprocessor* pp, int idx) {
     pp->macros->data[idx].kind = MacroKind_undef;
     // TODO: Can predefined macro like __FILE__ be undefined?
 }
 
-void add_include_path(Preprocessor* pp, char* include_path) {
+static void add_include_path(Preprocessor* pp, char* include_path) {
     pp->include_paths[pp->n_include_paths] = include_path;
     ++pp->n_include_paths;
 }
 
-BOOL skip_pp_tokens(Preprocessor* pp) {
+static BOOL skip_pp_tokens(Preprocessor* pp) {
     // TODO: support nested #if
     return pp->skip_pp_tokens;
 }
 
-void skip_whitespaces(Preprocessor* pp) {
+static void skip_whitespaces(Preprocessor* pp) {
     while (!pp_eof(pp) && peek_pp_token(pp)->kind == TokenKind_whitespace) {
         next_pp_token(pp);
     }
 }
 
-void seek_to_next_newline(Preprocessor* pp) {
+static void seek_to_next_newline(Preprocessor* pp) {
     while (!pp_eof(pp)) {
         Token* tok = peek_pp_token(pp);
         if (tok->kind == TokenKind_newline) {
@@ -927,38 +928,37 @@ void seek_to_next_newline(Preprocessor* pp) {
     }
 }
 
-void make_token_whitespace(Token* tok) {
+static void make_token_whitespace(Token* tok) {
     tok->kind = TokenKind_whitespace;
     tok->value.string = NULL;
 }
 
-void remove_directive_tokens(Preprocessor* pp, int start, int end) {
+static void remove_directive_tokens(Preprocessor* pp, int start, int end) {
     for (int i = start; i < end; ++i) {
         make_token_whitespace(pp_token_at(pp, i));
     }
 }
 
-void process_endif_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_endif_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     pp->skip_pp_tokens = FALSE;
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_else_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_else_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     pp->skip_pp_tokens = !pp->skip_pp_tokens;
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_elif_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_elif_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
-BOOL pp_eval_constant_expression(TokenArray*);
-int replace_pp_tokens(Preprocessor*, int, int, TokenArray*);
-BOOL expand_macro(Preprocessor*);
+static int replace_pp_tokens(Preprocessor*, int, int, TokenArray*);
+static BOOL expand_macro(Preprocessor*);
 
-void process_if_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_if_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     int condition_expression_start_pos = pp->pos;
 
@@ -1041,7 +1041,7 @@ void process_if_directive(Preprocessor* pp, int directive_token_pos) {
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_ifdef_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_ifdef_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = peek_pp_token(pp);
@@ -1052,7 +1052,7 @@ void process_ifdef_directive(Preprocessor* pp, int directive_token_pos) {
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = peek_pp_token(pp);
@@ -1063,7 +1063,7 @@ void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-Token* read_include_header_name(Preprocessor* pp) {
+static Token* read_include_header_name(Preprocessor* pp) {
     Token* tok = next_pp_token(pp);
     if (tok->kind != TokenKind_header_name) {
         fatal_error("%s:%d: invalid #include", tok->loc.filename, tok->loc.line);
@@ -1071,7 +1071,7 @@ Token* read_include_header_name(Preprocessor* pp) {
     return tok;
 }
 
-const char* resolve_include_name(Preprocessor* pp, const Token* include_name_token) {
+static const char* resolve_include_name(Preprocessor* pp, const Token* include_name_token) {
     const char* include_name = include_name_token->value.string;
     if (include_name[0] == '"') {
         char* current_filename = strdup(include_name_token->loc.filename);
@@ -1091,7 +1091,7 @@ const char* resolve_include_name(Preprocessor* pp, const Token* include_name_tok
     }
 }
 
-int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, TokenArray* source_tokens) {
+static int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, TokenArray* source_tokens) {
     int n_tokens_to_remove = dest_end - dest_start;
     int n_tokens_after_dest = pp->pp_tokens->len - dest_end;
     int shift_amount;
@@ -1117,14 +1117,14 @@ int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, TokenArray
     return dest_start + source_tokens->len;
 }
 
-int replace_single_pp_token(Preprocessor* pp, int dest, Token* source_tok) {
+static int replace_single_pp_token(Preprocessor* pp, int dest, Token* source_tok) {
     TokenArray tokens;
     tokens_init(&tokens, 1);
     *tokens_push_new(&tokens) = *source_tok;
     replace_pp_tokens(pp, dest, dest + 1, &tokens);
 }
 
-void expand_include_directive(Preprocessor* pp, int directive_token_pos, const char* include_name) {
+static void expand_include_directive(Preprocessor* pp, int directive_token_pos, const char* include_name) {
     InFile* include_source = infile_open(include_name);
     if (!include_source) {
         fatal_error("cannot open include file: %s", include_name);
@@ -1135,7 +1135,7 @@ void expand_include_directive(Preprocessor* pp, int directive_token_pos, const c
     pp->pos = replace_pp_tokens(pp, directive_token_pos, pp->pos, include_pp_tokens);
 }
 
-void process_include_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_include_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* include_name = read_include_header_name(pp);
@@ -1148,7 +1148,7 @@ void process_include_directive(Preprocessor* pp, int directive_token_pos) {
 
 // ws ::= many0(<whitespace>)
 // macro-parameters ::= '(' <ws> opt(<identifier> <ws> many0(',' <ws> <identifier> <ws>)) ')'
-TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
+static TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
     TokenArray* parameters = calloc(1, sizeof(TokenArray));
     tokens_init(parameters, 2);
 
@@ -1176,7 +1176,7 @@ TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
     return parameters;
 }
 
-void process_define_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_define_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = next_pp_token(pp);
@@ -1220,7 +1220,7 @@ void process_define_directive(Preprocessor* pp, int directive_token_pos) {
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_undef_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_undef_directive(Preprocessor* pp, int directive_token_pos) {
     next_pp_token(pp);
     skip_whitespaces(pp);
     Token* macro_name = peek_pp_token(pp);
@@ -1234,21 +1234,21 @@ void process_undef_directive(Preprocessor* pp, int directive_token_pos) {
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-void process_line_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_line_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
-void process_error_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_error_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
-void process_pragma_directive(Preprocessor* pp, int directive_token_pos) {
+static void process_pragma_directive(Preprocessor* pp, int directive_token_pos) {
     unimplemented();
 }
 
 // ws ::= many0(<Whitespace>)
 // macro-arguments ::= '(' <ws> opt(<any-token> <ws> many0(',' <ws> <any-token> <ws>)) ')'
-MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
+static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
     MacroArgArray* args = macroargs_new();
 
     Token* tok = next_pp_token(pp);
@@ -1279,7 +1279,7 @@ MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
     return args;
 }
 
-BOOL expand_macro(Preprocessor* pp) {
+static BOOL expand_macro(Preprocessor* pp) {
     int macro_name_pos = pp->pos;
     Token* macro_name = next_pp_token(pp);
     int macro_idx = find_macro(pp, macro_name->value.string);
@@ -1329,7 +1329,7 @@ BOOL expand_macro(Preprocessor* pp) {
     return TRUE;
 }
 
-void process_pp_directive(Preprocessor* pp) {
+static void process_pp_directive(Preprocessor* pp) {
     int first_token_pos = pp->pos;
     Token* tok = peek_pp_token(pp);
     if (tok->kind == TokenKind_pp_directive_endif) {
@@ -1371,13 +1371,13 @@ void process_pp_directive(Preprocessor* pp) {
     }
 }
 
-void process_pp_directives(Preprocessor* pp) {
+static void process_pp_directives(Preprocessor* pp) {
     while (!pp_eof(pp)) {
         process_pp_directive(pp);
     }
 }
 
-void pp_dump(Token* t, BOOL include_whitespace) {
+static void pp_dump(Token* t, BOOL include_whitespace) {
     for (; t->kind != TokenKind_eof; ++t) {
         if (t->kind == TokenKind_whitespace && !include_whitespace) {
             continue;
@@ -1386,14 +1386,14 @@ void pp_dump(Token* t, BOOL include_whitespace) {
     }
 }
 
-char* get_ducc_include_path() {
+static char* get_ducc_include_path() {
     const char* self_dir = get_self_dir();
     char* buf = calloc(strlen(self_dir) + strlen("/../include") + 1, sizeof(char));
     sprintf(buf, "%s/../include", self_dir);
     return buf;
 }
 
-TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros) {
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros) {
     TokenArray* pp_tokens = pp_tokenize(src);
     Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros);
     add_include_path(pp, get_ducc_include_path());
