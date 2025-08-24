@@ -23,7 +23,9 @@ void lvars_init(LocalVarArray* lvars) {
 void lvars_reserve(LocalVarArray* lvars, size_t size) {
     if (size <= lvars->capacity)
         return;
-    lvars->capacity *= 2;
+    while (lvars->capacity < size) {
+        lvars->capacity *= 2;
+    }
     lvars->data = realloc(lvars->data, lvars->capacity * sizeof(LocalVar));
     memset(lvars->data + lvars->len, 0, (lvars->capacity - lvars->len) * sizeof(LocalVar));
 }
@@ -55,7 +57,9 @@ void scopedsymbols_init(ScopedSymbolArray* syms) {
 void scopedsymbols_reserve(ScopedSymbolArray* syms, size_t size) {
     if (size <= syms->capacity)
         return;
-    syms->capacity *= 2;
+    while (syms->capacity < size) {
+        syms->capacity *= 2;
+    }
     syms->data = realloc(syms->data, syms->capacity * sizeof(ScopedSymbol));
     memset(syms->data + syms->len, 0, (syms->capacity - syms->len) * sizeof(ScopedSymbol));
 }
@@ -93,7 +97,9 @@ void gvars_init(GlobalVarArray* gvars) {
 void gvars_reserve(GlobalVarArray* gvars, size_t size) {
     if (size <= gvars->capacity)
         return;
-    gvars->capacity *= 2;
+    while (gvars->capacity < size) {
+        gvars->capacity *= 2;
+    }
     gvars->data = realloc(gvars->data, gvars->capacity * sizeof(GlobalVar));
     memset(gvars->data + gvars->len, 0, (gvars->capacity - gvars->len) * sizeof(GlobalVar));
 }
@@ -125,7 +131,9 @@ void funcs_init(FuncArray* funcs) {
 void funcs_reserve(FuncArray* funcs, size_t size) {
     if (size <= funcs->capacity)
         return;
-    funcs->capacity *= 2;
+    while (funcs->capacity < size) {
+        funcs->capacity *= 2;
+    }
     funcs->data = realloc(funcs->data, funcs->capacity * sizeof(Func));
     memset(funcs->data + funcs->len, 0, (funcs->capacity - funcs->len) * sizeof(Func));
 }

@@ -36,7 +36,9 @@ void strbuilder_init(StrBuilder* b) {
 void strbuilder_reserve(StrBuilder* b, size_t size) {
     if (size <= b->capacity)
         return;
-    b->capacity *= 2;
+    while (b->capacity < size) {
+        b->capacity *= 2;
+    }
     b->buf = realloc(b->buf, b->capacity * sizeof(char));
     memset(b->buf + b->len, 0, (b->capacity - b->len) * sizeof(char));
 }
@@ -62,7 +64,9 @@ void strings_init(StrArray* strings) {
 void strings_reserve(StrArray* strings, size_t size) {
     if (size <= strings->capacity)
         return;
-    strings->capacity *= 2;
+    while (strings->capacity < size) {
+        strings->capacity *= 2;
+    }
     strings->data = realloc(strings->data, strings->capacity * sizeof(const char*));
     memset(strings->data + strings->len, 0, (strings->capacity - strings->len) * sizeof(const char*));
 }

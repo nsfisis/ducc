@@ -453,7 +453,9 @@ void tokens_init(TokenArray* tokens, size_t capacity) {
 void tokens_reserve(TokenArray* tokens, size_t size) {
     if (size <= tokens->capacity)
         return;
-    tokens->capacity *= 2;
+    while (tokens->capacity < size) {
+        tokens->capacity *= 2;
+    }
     tokens->data = realloc(tokens->data, tokens->capacity * sizeof(Token));
     memset(tokens->data + tokens->len, 0, (tokens->capacity - tokens->len) * sizeof(Token));
 }
@@ -530,7 +532,9 @@ MacroArray* macros_new() {
 void macros_reserve(MacroArray* macros, size_t size) {
     if (size <= macros->capacity)
         return;
-    macros->capacity *= 2;
+    while (macros->capacity < size) {
+        macros->capacity *= 2;
+    }
     macros->data = realloc(macros->data, macros->capacity * sizeof(Macro));
     memset(macros->data + macros->len, 0, (macros->capacity - macros->len) * sizeof(Macro));
 }
@@ -599,7 +603,9 @@ MacroArgArray* macroargs_new() {
 void macroargs_reserve(MacroArgArray* macroargs, size_t size) {
     if (size <= macroargs->capacity)
         return;
-    macroargs->capacity *= 2;
+    while (macroargs->capacity < size) {
+        macroargs->capacity *= 2;
+    }
     macroargs->data = realloc(macroargs->data, macroargs->capacity * sizeof(MacroArg));
     memset(macroargs->data + macroargs->len, 0, (macroargs->capacity - macroargs->len) * sizeof(MacroArg));
 }
