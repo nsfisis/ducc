@@ -1,4 +1,6 @@
-#define LVAR_MAX 32
+#include "parse.h"
+#include "common.h"
+#include "tokenize.h"
 
 struct LocalVar {
     const char* name;

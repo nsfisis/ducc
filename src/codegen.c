@@ -1,3 +1,7 @@
+#include "codegen.h"
+#include "common.h"
+#include "preprocess.h"
+
 enum GenMode {
     GenMode_lval,
     GenMode_rval,

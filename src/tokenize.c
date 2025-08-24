@@ -1,3 +1,6 @@
+#include "tokenize.h"
+#include "common.h"
+
 struct Lexer {
     TokenArray* src;
     TokenArray* tokens;

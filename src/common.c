@@ -1,3 +1,5 @@
+#include "common.h"
+
 void fatal_error(const char* msg, ...) {
     va_list args;
     va_start(args, msg);
@@ -7,10 +9,6 @@ void fatal_error(const char* msg, ...) {
     exit(1);
 }
 
-#define unreachable() fatal_error("%s:%d: unreachable", __FILE__, __LINE__)
-
-#define unimplemented() fatal_error("%s:%d: unimplemented", __FILE__, __LINE__)
-
 BOOL str_ends_with(const char* s, const char* suffix) {
     size_t l1 = strlen(s);
     size_t l2 = strlen(suffix);
@@ -18,13 +16,6 @@ BOOL str_ends_with(const char* s, const char* suffix) {
         return FALSE;
     return strcmp(s + l1 - l2, suffix) == 0;
 }
-
-struct StrBuilder {
-    size_t len;
-    size_t capacity;
-    char* buf;
-};
-typedef struct StrBuilder StrBuilder;
 
 void strbuilder_init(StrBuilder* b) {
     b->len = 0;
@@ -48,12 +39,13 @@ void strbuilder_append_char(StrBuilder* b, int c) {
     b->buf[b->len++] = c;
 }
 
-struct StrArray {
-    size_t len;
-    size_t capacity;
-    const char** data;
-};
-typedef struct StrArray StrArray;
+void strbuilder_append_string(StrBuilder* b, const char* s) {
+    int len = strlen(s);
+    strbuilder_reserve(b, b->len + len + 1);
+    for (int i = 0; i < len; ++i) {
+        b->buf[b->len++] = s[i];
+    }
+}
 
 void strings_init(StrArray* strings) {
     strings->len = 0;

@@ -1,15 +1,5 @@
-struct SourceLocation {
-    const char* filename;
-    int line;
-};
-typedef struct SourceLocation SourceLocation;
-
-struct InFile {
-    const char* buf;
-    int pos;
-    SourceLocation loc;
-};
-typedef struct InFile InFile;
+#include "io.h"
+#include "common.h"
 
 InFile* infile_open(const char* filename) {
     FILE* in;
