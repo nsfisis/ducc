@@ -44,6 +44,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "#include";
     else if (k == TokenKind_pp_directive_line)
         return "#line";
+    else if (k == TokenKind_pp_directive_non_directive)
+        return "#<non-directive>";
     else if (k == TokenKind_pp_directive_nop)
         return "#";
     else if (k == TokenKind_pp_directive_pragma)
@@ -272,7 +274,11 @@ const char* token_kind_stringify(TokenKind k) {
 
 const char* token_stringify(Token* t) {
     TokenKind k = t->kind;
-    if (k == TokenKind_literal_int) {
+    if (k == TokenKind_pp_directive_non_directive) {
+        char* buf = calloc(strlen(t->value.string) + 1 + 1, sizeof(char));
+        sprintf(buf, "#%s", t->value.string);
+        return buf;
+    } else if (k == TokenKind_literal_int) {
         const char* kind_str = token_kind_stringify(k);
         char* buf = calloc(10 + strlen(kind_str) + 3 + 1, sizeof(char));
         sprintf(buf, "%d (%s)", t->value.integer, kind_str);

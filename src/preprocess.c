@@ -168,7 +168,7 @@ static PpLexer* pplexer_new(InFile* src) {
     return ppl;
 }
 
-static TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
+static void pplexer_tokenize_pp_directive(PpLexer* ppl, Token* tok) {
     // Skip whitespaces after '#'.
     char c;
     while (isspace((c = infile_peek_char(ppl->src)))) {
@@ -178,7 +178,8 @@ static TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
     }
     // '#' new-line
     if (c == '\n') {
-        return TokenKind_pp_directive_nop;
+        tok->kind = TokenKind_pp_directive_nop;
+        return;
     }
 
     SourceLocation pp_directive_name_start_loc = ppl->src->loc;
@@ -192,43 +193,43 @@ static TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
     const char* pp_directive_name = builder.buf;
 
     if (builder.len == 0) {
-        return TokenKind_hash;
+        tok->kind = TokenKind_hash;
     } else if (strcmp(pp_directive_name, "define") == 0) {
-        return TokenKind_pp_directive_define;
+        tok->kind = TokenKind_pp_directive_define;
     } else if (strcmp(pp_directive_name, "elif") == 0) {
-        return TokenKind_pp_directive_elif;
+        tok->kind = TokenKind_pp_directive_elif;
     } else if (strcmp(pp_directive_name, "elifdef") == 0) {
-        return TokenKind_pp_directive_elifdef;
+        tok->kind = TokenKind_pp_directive_elifdef;
     } else if (strcmp(pp_directive_name, "elifndef") == 0) {
-        return TokenKind_pp_directive_elifndef;
+        tok->kind = TokenKind_pp_directive_elifndef;
     } else if (strcmp(pp_directive_name, "else") == 0) {
-        return TokenKind_pp_directive_else;
+        tok->kind = TokenKind_pp_directive_else;
     } else if (strcmp(pp_directive_name, "embed") == 0) {
-        return TokenKind_pp_directive_embed;
+        tok->kind = TokenKind_pp_directive_embed;
     } else if (strcmp(pp_directive_name, "endif") == 0) {
-        return TokenKind_pp_directive_endif;
+        tok->kind = TokenKind_pp_directive_endif;
     } else if (strcmp(pp_directive_name, "error") == 0) {
-        return TokenKind_pp_directive_error;
+        tok->kind = TokenKind_pp_directive_error;
     } else if (strcmp(pp_directive_name, "if") == 0) {
-        return TokenKind_pp_directive_if;
+        tok->kind = TokenKind_pp_directive_if;
     } else if (strcmp(pp_directive_name, "ifdef") == 0) {
-        return TokenKind_pp_directive_ifdef;
+        tok->kind = TokenKind_pp_directive_ifdef;
     } else if (strcmp(pp_directive_name, "ifndef") == 0) {
-        return TokenKind_pp_directive_ifndef;
+        tok->kind = TokenKind_pp_directive_ifndef;
     } else if (strcmp(pp_directive_name, "include") == 0) {
         ppl->expect_header_name = TRUE;
-        return TokenKind_pp_directive_include;
+        tok->kind = TokenKind_pp_directive_include;
     } else if (strcmp(pp_directive_name, "line") == 0) {
-        return TokenKind_pp_directive_line;
+        tok->kind = TokenKind_pp_directive_line;
     } else if (strcmp(pp_directive_name, "pragma") == 0) {
-        return TokenKind_pp_directive_pragma;
+        tok->kind = TokenKind_pp_directive_pragma;
     } else if (strcmp(pp_directive_name, "undef") == 0) {
-        return TokenKind_pp_directive_undef;
+        tok->kind = TokenKind_pp_directive_undef;
     } else if (strcmp(pp_directive_name, "warning") == 0) {
-        return TokenKind_pp_directive_warning;
+        tok->kind = TokenKind_pp_directive_warning;
     } else {
-        fatal_error("%s:%d: unknown preprocessor directive (%s)", pp_directive_name_start_loc.filename,
-                    pp_directive_name_start_loc.line, pp_directive_name);
+        tok->kind = TokenKind_pp_directive_non_directive;
+        tok->value.string = pp_directive_name;
     }
 }
 
@@ -448,7 +449,11 @@ static void pplexer_tokenize_all(PpLexer* ppl) {
             if (infile_consume_if(ppl->src, '#')) {
                 tok->kind = TokenKind_hashhash;
             } else {
-                tok->kind = ppl->at_bol ? pplexer_tokenize_pp_directive(ppl) : TokenKind_hash;
+                if (ppl->at_bol) {
+                    pplexer_tokenize_pp_directive(ppl, tok);
+                } else {
+                    tok->kind = TokenKind_hash;
+                }
             }
         } else if (c == '\'') {
             infile_next_char(ppl->src);
@@ -512,7 +517,7 @@ static void pplexer_tokenize_all(PpLexer* ppl) {
             }
             if (ppl->at_bol && infile_peek_char(ppl->src) == '#') {
                 infile_next_char(ppl->src);
-                tok->kind = pplexer_tokenize_pp_directive(ppl);
+                pplexer_tokenize_pp_directive(ppl, tok);
             } else {
                 tok->kind = TokenKind_whitespace;
             }
@@ -963,6 +968,13 @@ static void process_nop_directive(Preprocessor* pp, int directive_token_pos) {
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
+static void process_non_directive_directive(Preprocessor* pp, int directive_token_pos) {
+    Token* tok = pp_token_at(pp, directive_token_pos);
+    // C23 6.10.1.13:
+    // The execution of a non-directive preprocessing directive results in undefined behavior.
+    fatal_error("%s:%d: invalid preprocessing directive, '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+}
+
 // ws ::= many0(<Whitespace>)
 // macro-arguments ::= '(' <ws> opt(<any-token> <ws> many0(',' <ws> <any-token> <ws>)) ')'
 static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
@@ -1070,6 +1082,8 @@ static void process_pp_directive(Preprocessor* pp) {
         process_pragma_directive(pp, first_token_pos);
     } else if (tok->kind == TokenKind_pp_directive_nop) {
         process_nop_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_non_directive) {
+        process_non_directive_directive(pp, first_token_pos);
     } else if (tok->kind == TokenKind_ident) {
         BOOL expanded = expand_macro(pp);
         if (expanded) {
