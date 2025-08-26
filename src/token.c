@@ -276,7 +276,7 @@ const char* token_stringify(Token* t) {
         sprintf(buf, "%d (%s)", t->value.integer, kind_str);
         return buf;
     } else if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_ident ||
-               k == TokenKind_literal_int || k == TokenKind_literal_str) {
+               k == TokenKind_literal_str) {
         const char* kind_str = token_kind_stringify(k);
         char* buf = calloc(strlen(t->value.string) + strlen(kind_str) + 3 + 1, sizeof(char));
         sprintf(buf, "%s (%s)", t->value.string, kind_str);
