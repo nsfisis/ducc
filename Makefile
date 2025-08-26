@@ -12,6 +12,7 @@ OBJECTS := \
 	$(BUILD_DIR)/parse.o \
 	$(BUILD_DIR)/preprocess.o \
 	$(BUILD_DIR)/sys.o \
+	$(BUILD_DIR)/token.o \
 	$(BUILD_DIR)/tokenize.o
 
 .PHONY: all
