@@ -176,6 +176,10 @@ static TokenKind pplexer_tokenize_pp_directive(PpLexer* ppl) {
             break;
         infile_next_char(ppl->src);
     }
+    // '#' new-line
+    if (c == '\n') {
+        return TokenKind_pp_directive_nop;
+    }
 
     SourceLocation pp_directive_name_start_loc = ppl->src->loc;
 
@@ -935,6 +939,11 @@ static void process_pragma_directive(Preprocessor* pp, int directive_token_pos) 
     unimplemented();
 }
 
+static void process_nop_directive(Preprocessor* pp, int directive_token_pos) {
+    next_pp_token(pp);
+    remove_directive_tokens(pp, directive_token_pos, pp->pos);
+}
+
 // ws ::= many0(<Whitespace>)
 // macro-arguments ::= '(' <ws> opt(<any-token> <ws> many0(',' <ws> <any-token> <ws>)) ')'
 static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
@@ -1047,6 +1056,8 @@ static void process_pp_directive(Preprocessor* pp) {
         process_error_directive(pp, first_token_pos);
     } else if (tok->kind == TokenKind_pp_directive_pragma) {
         process_pragma_directive(pp, first_token_pos);
+    } else if (tok->kind == TokenKind_pp_directive_nop) {
+        process_nop_directive(pp, first_token_pos);
     } else if (tok->kind == TokenKind_ident) {
         BOOL expanded = expand_macro(pp);
         if (expanded) {

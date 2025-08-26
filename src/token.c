@@ -44,6 +44,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "#include";
     else if (k == TokenKind_pp_directive_line)
         return "#line";
+    else if (k == TokenKind_pp_directive_nop)
+        return "#";
     else if (k == TokenKind_pp_directive_pragma)
         return "#pragma";
     else if (k == TokenKind_pp_directive_undef)
