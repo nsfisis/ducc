@@ -36,6 +36,13 @@ char* strndup(const char*, size_t);
 char* strstr(const char*, const char*);
 int system(const char*);
 
+#define assert(x) \
+    do { \
+        if (!(x)) { \
+            fatal_error("%s:%d: assertion failed", __FILE__, __LINE__); \
+        } \
+    } while (0)
+
 #include <stdarg.h>
 
 int vfprintf(FILE*, const char*, va_list);

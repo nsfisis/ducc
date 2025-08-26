@@ -575,6 +575,39 @@ static Token* next_pp_token(Preprocessor* pp) {
     return pp_token_at(pp, pp->pos++);
 }
 
+static void skip_pp_token(Preprocessor* pp, TokenKind expected) {
+    Token* tok = next_pp_token(pp);
+    // TODO: currently function-like macro expansion supports only one token.
+    // assert(tok->kind == expected);
+    BOOL ok = tok->kind == expected;
+    assert(ok);
+}
+
+static Token* consume_pp_token_if(Preprocessor* pp, TokenKind expected) {
+    if (peek_pp_token(pp)->kind == expected) {
+        return next_pp_token(pp);
+    } else {
+        return NULL;
+    }
+}
+
+static Token* consume_pp_token_if_not(Preprocessor* pp, TokenKind non_expected) {
+    if (peek_pp_token(pp)->kind == non_expected) {
+        return NULL;
+    } else {
+        return next_pp_token(pp);
+    }
+}
+
+static Token* expect_pp_token(Preprocessor* pp, TokenKind expected) {
+    Token* tok = next_pp_token(pp);
+    if (tok->kind == expected) {
+        return tok;
+    }
+    fatal_error("%s:%d: expected '%s', but got '%s'", tok->loc.filename, tok->loc.line, token_kind_stringify(expected),
+                token_stringify(tok));
+}
+
 static BOOL pp_eof(Preprocessor* pp) {
     return peek_pp_token(pp)->kind == TokenKind_eof;
 }
@@ -606,19 +639,14 @@ static BOOL skip_pp_tokens(Preprocessor* pp) {
 }
 
 static void skip_whitespaces(Preprocessor* pp) {
-    while (!pp_eof(pp) && peek_pp_token(pp)->kind == TokenKind_whitespace) {
-        next_pp_token(pp);
-    }
+    while (!pp_eof(pp) && consume_pp_token_if(pp, TokenKind_whitespace))
+        ;
 }
 
+// It will not consume a new-line token.
 static void seek_to_next_newline(Preprocessor* pp) {
-    while (!pp_eof(pp)) {
-        Token* tok = peek_pp_token(pp);
-        if (tok->kind == TokenKind_newline) {
-            break;
-        }
-        next_pp_token(pp);
-    }
+    while (!pp_eof(pp) && consume_pp_token_if_not(pp, TokenKind_newline))
+        ;
 }
 
 static void make_token_whitespace(Token* tok) {
@@ -633,13 +661,13 @@ static void remove_directive_tokens(Preprocessor* pp, int start, int end) {
 }
 
 static void process_endif_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_endif);
     pp->skip_pp_tokens = FALSE;
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
 static void process_else_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_else);
     pp->skip_pp_tokens = !pp->skip_pp_tokens;
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
@@ -652,7 +680,7 @@ static int replace_pp_tokens(Preprocessor*, int, int, TokenArray*);
 static BOOL expand_macro(Preprocessor*);
 
 static void process_if_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_if);
     int condition_expression_start_pos = pp->pos;
 
     while (!pp_eof(pp)) {
@@ -664,11 +692,10 @@ static void process_if_directive(Preprocessor* pp, int directive_token_pos) {
                 int defined_pos = pp->pos;
                 // 'defined' <ws>* '(' <ws>* <ident> <ws>* ')'
                 // 'defined' <ws>* <ident>
-                next_pp_token(pp);
+                skip_pp_token(pp, TokenKind_ident);
                 skip_whitespaces(pp);
                 Token* macro_name;
-                if (peek_pp_token(pp)->kind == TokenKind_paren_l) {
-                    next_pp_token(pp);
+                if (consume_pp_token_if(pp, TokenKind_paren_l)) {
                     skip_whitespaces(pp);
                     macro_name = next_pp_token(pp);
                     if (macro_name->kind != TokenKind_ident) {
@@ -735,22 +762,20 @@ static void process_if_directive(Preprocessor* pp, int directive_token_pos) {
 }
 
 static void process_ifdef_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_ifdef);
     skip_whitespaces(pp);
-    Token* macro_name = peek_pp_token(pp);
-    if (macro_name->kind == TokenKind_ident) {
-        next_pp_token(pp);
+    Token* macro_name = consume_pp_token_if(pp, TokenKind_ident);
+    if (macro_name) {
         pp->skip_pp_tokens = find_macro(pp, macro_name->value.string) == -1;
     }
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
 static void process_ifndef_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_ifndef);
     skip_whitespaces(pp);
-    Token* macro_name = peek_pp_token(pp);
-    if (macro_name->kind == TokenKind_ident) {
-        next_pp_token(pp);
+    Token* macro_name = consume_pp_token_if(pp, TokenKind_ident);
+    if (macro_name) {
         pp->skip_pp_tokens = find_macro(pp, macro_name->value.string) != -1;
     }
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
@@ -829,7 +854,7 @@ static void expand_include_directive(Preprocessor* pp, int directive_token_pos, 
 }
 
 static void process_include_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_include);
     skip_whitespaces(pp);
     Token* include_name = read_include_header_name(pp);
     const char* include_name_resolved = resolve_include_name(pp, include_name);
@@ -847,12 +872,11 @@ static TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
 
     // '(' is consumed by caller.
     skip_whitespaces(pp);
-    Token* tok = next_pp_token(pp);
-    if (tok->kind == TokenKind_ident) {
+    Token* tok = consume_pp_token_if(pp, TokenKind_ident);
+    if (tok) {
         *tokens_push_new(parameters) = *tok;
         skip_whitespaces(pp);
-        while (peek_pp_token(pp)->kind == TokenKind_comma) {
-            next_pp_token(pp);
+        while (consume_pp_token_if(pp, TokenKind_comma)) {
             skip_whitespaces(pp);
             tok = next_pp_token(pp);
             if (tok->kind != TokenKind_ident) {
@@ -860,17 +884,14 @@ static TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
             }
             *tokens_push_new(parameters) = *tok;
         }
-        tok = next_pp_token(pp);
     }
-    if (tok->kind != TokenKind_paren_r) {
-        fatal_error("%s:%d: invalid macro syntax", tok->loc.filename, tok->loc.line);
-    }
+    expect_pp_token(pp, TokenKind_paren_r);
 
     return parameters;
 }
 
 static void process_define_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_define);
     skip_whitespaces(pp);
     Token* macro_name = next_pp_token(pp);
 
@@ -878,8 +899,7 @@ static void process_define_directive(Preprocessor* pp, int directive_token_pos) 
         fatal_error("%s:%d: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
     }
 
-    if (peek_pp_token(pp)->kind == TokenKind_paren_l) {
-        next_pp_token(pp);
+    if (consume_pp_token_if(pp, TokenKind_paren_l)) {
         TokenArray* parameters = pp_parse_macro_parameters(pp);
         int replacements_start_pos = pp->pos;
         seek_to_next_newline(pp);
@@ -914,11 +934,10 @@ static void process_define_directive(Preprocessor* pp, int directive_token_pos) 
 }
 
 static void process_undef_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_undef);
     skip_whitespaces(pp);
-    Token* macro_name = peek_pp_token(pp);
-    if (macro_name->kind == TokenKind_ident) {
-        next_pp_token(pp);
+    Token* macro_name = consume_pp_token_if(pp, TokenKind_ident);
+    if (macro_name) {
         int macro_idx = find_macro(pp, macro_name->value.string);
         if (macro_idx != -1) {
             undef_macro(pp, macro_idx);
@@ -940,7 +959,7 @@ static void process_pragma_directive(Preprocessor* pp, int directive_token_pos) 
 }
 
 static void process_nop_directive(Preprocessor* pp, int directive_token_pos) {
-    next_pp_token(pp);
+    skip_pp_token(pp, TokenKind_pp_directive_nop);
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
@@ -949,30 +968,23 @@ static void process_nop_directive(Preprocessor* pp, int directive_token_pos) {
 static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
     MacroArgArray* args = macroargs_new();
 
-    Token* tok = next_pp_token(pp);
-    if (tok->kind != TokenKind_paren_l) {
-        fatal_error("%s:%d: invalid macro syntax", tok->loc.filename, tok->loc.line);
-    }
+    expect_pp_token(pp, TokenKind_paren_l);
     skip_whitespaces(pp);
-    tok = next_pp_token(pp);
-    if (tok->kind != TokenKind_paren_r) {
+    Token* tok = consume_pp_token_if_not(pp, TokenKind_paren_r);
+    if (tok) {
         MacroArg* arg = macroargs_push_new(args);
         tokens_init(&arg->tokens, 1);
         *tokens_push_new(&arg->tokens) = *tok;
         skip_whitespaces(pp);
-        while (peek_pp_token(pp)->kind == TokenKind_comma) {
-            next_pp_token(pp);
+        while (consume_pp_token_if(pp, TokenKind_comma)) {
             skip_whitespaces(pp);
             tok = next_pp_token(pp);
             arg = macroargs_push_new(args);
             tokens_init(&arg->tokens, 1);
             *tokens_push_new(&arg->tokens) = *tok;
         }
-        tok = next_pp_token(pp);
     }
-    if (tok->kind != TokenKind_paren_r) {
-        fatal_error("%s:%d: invalid macro syntax", tok->loc.filename, tok->loc.line);
-    }
+    expect_pp_token(pp, TokenKind_paren_r);
 
     return args;
 }
