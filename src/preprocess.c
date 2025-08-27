@@ -1117,11 +1117,17 @@ static void preprocess_nop_directive(Preprocessor* pp, int directive_token_pos) 
     remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
-static void preprocess_non_directive_directive(Preprocessor* pp, int directive_token_pos) {
-    Token* tok = pp_token_at(pp, directive_token_pos);
-    // C23 6.10.1.13:
-    // The execution of a non-directive preprocessing directive results in undefined behavior.
-    fatal_error("%s:%d: invalid preprocessing directive, '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+static void preprocess_non_directive_directive(Preprocessor* pp, int directive_token_pos, BOOL do_process) {
+    if (do_process) {
+        Token* tok = pp_token_at(pp, directive_token_pos);
+        // C23 6.10.1.13:
+        // The execution of a non-directive preprocessing directive results in undefined behavior.
+        fatal_error("%s:%d: invalid preprocessing directive, '%s'", tok->loc.filename, tok->loc.line,
+                    token_stringify(tok));
+    } else {
+        seek_to_next_newline(pp);
+        expect_pp_token(pp, TokenKind_newline);
+    }
 }
 
 static void preprocess_text_line(Preprocessor* pp) {
@@ -1161,17 +1167,6 @@ static void preprocess_text_line(Preprocessor* pp) {
 //     '#' 'pragma' ...
 //     '#' new-line
 static void preprocess_group_part(Preprocessor* pp, BOOL do_process) {
-    if (!do_process) {
-        while (!pp_eof(pp)) {
-            Token* tok = next_pp_token(pp);
-            if (tok->kind == TokenKind_newline)
-                return;
-            make_token_whitespace(tok);
-        }
-        expect_pp_token(pp, TokenKind_newline);
-        return;
-    }
-
     int first_token_pos = pp->pos;
     Token* tok = peek_pp_token(pp);
     if (tok->kind == TokenKind_pp_directive_if || tok->kind == TokenKind_pp_directive_ifdef ||
@@ -1194,9 +1189,13 @@ static void preprocess_group_part(Preprocessor* pp, BOOL do_process) {
     } else if (tok->kind == TokenKind_pp_directive_nop) {
         preprocess_nop_directive(pp, first_token_pos);
     } else if (tok->kind == TokenKind_pp_directive_non_directive) {
-        preprocess_non_directive_directive(pp, first_token_pos);
+        preprocess_non_directive_directive(pp, first_token_pos, do_process);
     } else {
         preprocess_text_line(pp);
+    }
+
+    if (!do_process) {
+        remove_directive_tokens(pp, first_token_pos, pp->pos);
     }
 }
 
