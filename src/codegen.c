@@ -57,7 +57,8 @@ static void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     for (int i = 0; i < ast->node_params->node_len; ++i) {
         fprintf(g->out, "  push %s\n", param_reg(i));
     }
-    fprintf(g->out, "  sub rsp, %d\n", ast->node_stack_size);
+    // Note: rsp must be aligned to 8.
+    fprintf(g->out, "  sub rsp, %d\n", to_aligned(ast->node_stack_size, 8));
 }
 
 static void codegen_func_epilogue(CodeGen* g, AstNode* ast) {

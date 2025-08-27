@@ -969,10 +969,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, int directive_to
 }
 
 static BOOL preprocess_if_group(Preprocessor* pp, int directive_token_pos) {
-    // TODO: this code does not work for some reason.
-    // return preprocess_if_group_or_elif_group(pp, directive_token_pos, FALSE);
-    int x = 0;
-    return preprocess_if_group_or_elif_group(pp, directive_token_pos, x);
+    return preprocess_if_group_or_elif_group(pp, directive_token_pos, FALSE);
 }
 
 static BOOL preprocess_elif_group(Preprocessor* pp, int directive_token_pos, BOOL did_process) {
