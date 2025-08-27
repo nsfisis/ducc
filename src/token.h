@@ -146,6 +146,7 @@ enum TokenKind {
 typedef enum TokenKind TokenKind;
 
 const char* token_kind_stringify(TokenKind k);
+BOOL is_pp_directive(TokenKind k);
 
 // TokenValue is externally tagged by Token's kind.
 union TokenValue {

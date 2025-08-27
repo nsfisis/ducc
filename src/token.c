@@ -272,6 +272,17 @@ const char* token_kind_stringify(TokenKind k) {
         unreachable();
 }
 
+BOOL is_pp_directive(TokenKind k) {
+    return k == TokenKind_pp_directive_define || k == TokenKind_pp_directive_elif ||
+           k == TokenKind_pp_directive_elifdef || k == TokenKind_pp_directive_elifndef ||
+           k == TokenKind_pp_directive_else || k == TokenKind_pp_directive_embed || k == TokenKind_pp_directive_endif ||
+           k == TokenKind_pp_directive_error || k == TokenKind_pp_directive_if || k == TokenKind_pp_directive_ifdef ||
+           k == TokenKind_pp_directive_ifndef || k == TokenKind_pp_directive_include ||
+           k == TokenKind_pp_directive_line || k == TokenKind_pp_directive_non_directive ||
+           k == TokenKind_pp_directive_nop || k == TokenKind_pp_directive_pragma || k == TokenKind_pp_directive_undef ||
+           k == TokenKind_pp_directive_warning;
+}
+
 const char* token_stringify(Token* t) {
     TokenKind k = t->kind;
     if (k == TokenKind_pp_directive_non_directive) {

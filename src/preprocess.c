@@ -648,14 +648,11 @@ static void seek_to_next_newline(Preprocessor* pp) {
         ;
 }
 
-static void make_token_whitespace(Token* tok) {
-    tok->kind = TokenKind_whitespace;
-    tok->value.string = NULL;
-}
-
-static void remove_directive_tokens(Preprocessor* pp, int start, int end) {
+static void make_tokens_whitespaces(Preprocessor* pp, int start, int end) {
     for (int i = start; i < end; ++i) {
-        make_token_whitespace(pp_token_at(pp, i));
+        Token* tok = pp_token_at(pp, i);
+        tok->kind = TokenKind_whitespace;
+        tok->value.string = NULL;
     }
 }
 
@@ -937,8 +934,6 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, int directive_to
 
         BOOL do_process = pp_eval_constant_expression(&condition_expression_tokens) && !did_process;
 
-        remove_directive_tokens(pp, directive_token_pos, pp->pos);
-
         preprocess_group_opt(pp, GroupDelimiterKind_after_if_directive, do_process);
         return do_process;
     } else if (directive->kind == TokenKind_pp_directive_ifdef || directive->kind == TokenKind_pp_directive_elifdef) {
@@ -948,7 +943,6 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, int directive_to
             fatal_error("");
         }
         BOOL do_process = !did_process && find_macro(pp, macro_name->value.string) != -1;
-        remove_directive_tokens(pp, directive_token_pos, pp->pos);
 
         preprocess_group_opt(pp, GroupDelimiterKind_after_if_directive, do_process);
         return do_process;
@@ -959,7 +953,6 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, int directive_to
             fatal_error("");
         }
         BOOL do_process = !did_process && find_macro(pp, macro_name->value.string) == -1;
-        remove_directive_tokens(pp, directive_token_pos, pp->pos);
 
         preprocess_group_opt(pp, GroupDelimiterKind_after_if_directive, do_process);
         return do_process;
@@ -999,7 +992,6 @@ static BOOL preprocess_elif_groups_opt(Preprocessor* pp, BOOL did_process) {
 static void preprocess_else_group(Preprocessor* pp, int directive_token_pos, BOOL did_process) {
     skip_pp_token(pp, TokenKind_pp_directive_else);
     expect_pp_token(pp, TokenKind_newline);
-    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 
     preprocess_group_opt(pp, GroupDelimiterKind_after_else_directive, !did_process);
 }
@@ -1007,8 +999,8 @@ static void preprocess_else_group(Preprocessor* pp, int directive_token_pos, BOO
 // endif-line:
 //     '#' 'endif' new-line
 static void preprocess_endif_directive(Preprocessor* pp, int directive_token_pos) {
-    expect_pp_token(pp, TokenKind_pp_directive_endif);
-    remove_directive_tokens(pp, directive_token_pos, pp->pos);
+    skip_pp_token(pp, TokenKind_pp_directive_endif);
+    expect_pp_token(pp, TokenKind_newline);
 }
 
 // if-section:
@@ -1077,7 +1069,6 @@ static void preprocess_define_directive(Preprocessor* pp, int directive_token_po
             *tokens_push_new(&macro->replacements) = *pp_token_at(pp, replacements_start_pos + i);
         }
     }
-    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
 static void preprocess_undef_directive(Preprocessor* pp, int directive_token_pos) {
@@ -1090,7 +1081,6 @@ static void preprocess_undef_directive(Preprocessor* pp, int directive_token_pos
             undef_macro(pp, macro_idx);
         }
     }
-    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
 static void preprocess_line_directive(Preprocessor* pp, int directive_token_pos) {
@@ -1111,7 +1101,6 @@ static void preprocess_pragma_directive(Preprocessor* pp, int directive_token_po
 
 static void preprocess_nop_directive(Preprocessor* pp, int directive_token_pos) {
     skip_pp_token(pp, TokenKind_pp_directive_nop);
-    remove_directive_tokens(pp, directive_token_pos, pp->pos);
 }
 
 static void preprocess_non_directive_directive(Preprocessor* pp, int directive_token_pos, BOOL do_process) {
@@ -1192,7 +1181,7 @@ static void preprocess_group_part(Preprocessor* pp, BOOL do_process) {
     }
 
     if (!do_process) {
-        remove_directive_tokens(pp, first_token_pos, pp->pos);
+        make_tokens_whitespaces(pp, first_token_pos, pp->pos);
     }
 }
 
@@ -1215,6 +1204,23 @@ static void preprocess_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_
 //     group?
 static void preprocess_preprocessing_file(Preprocessor* pp) {
     preprocess_group_opt(pp, GroupDelimiterKind_normal, TRUE);
+}
+
+static void remove_pp_directive(Preprocessor* pp, int directive_token_pos) {
+    seek_to_next_newline(pp);
+    skip_pp_token(pp, TokenKind_newline);
+    make_tokens_whitespaces(pp, directive_token_pos, pp->pos);
+}
+
+static void remove_pp_directives(Preprocessor* pp) {
+    pp->pos = 0;
+    while (!pp_eof(pp)) {
+        if (is_pp_directive(peek_pp_token(pp)->kind)) {
+            remove_pp_directive(pp, pp->pos);
+        } else {
+            next_pp_token(pp);
+        }
+    }
 }
 
 static void pp_dump(Token* t, BOOL include_whitespace) {
@@ -1240,6 +1246,7 @@ static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros) {
     add_include_path(pp, "/usr/include/x86_64-linux-gnu");
     add_include_path(pp, "/usr/include");
     preprocess_preprocessing_file(pp);
+    remove_pp_directives(pp);
     return pp->pp_tokens;
 }
 
