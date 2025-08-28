@@ -13,3 +13,14 @@ test_diff <<'EOF'
 #endif
 int main() {}
 EOF
+
+cat <<'EOF' > expected
+main.c:5: foo
+EOF
+test_compile_error <<'EOF'
+#define \
+    A \
+    B
+
+#error "foo"
+EOF

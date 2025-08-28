@@ -60,6 +60,7 @@ char infile_peek_char(InFile* f) {
         // TODO: crlf
         if (c2 == '\r' || c2 == '\n') {
             f->pos += 2;
+            ++f->loc.line;
             return infile_peek_char(f);
         }
     }
