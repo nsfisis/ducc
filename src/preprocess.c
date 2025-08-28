@@ -1087,12 +1087,38 @@ static void preprocess_line_directive(Preprocessor* pp, int directive_token_pos)
     unimplemented();
 }
 
-static void preprocess_error_directive(Preprocessor* pp, int directive_token_pos) {
-    unimplemented();
+// control-line:
+//     ...
+//     '#' 'error' pp-tokens? new-line
+static void preprocess_error_directive(Preprocessor* pp, int directive_token_pos, BOOL do_process) {
+    // The C23 standard does not specify format of diagnostic message caused by #error.
+    // Ducc assumes that #error takes exactly one argument consisting of a string literal.
+    // TODO: output some general message or something else if not.
+    skip_pp_token(pp, TokenKind_pp_directive_error);
+    skip_whitespaces(pp);
+    Token* msg = expect_pp_token(pp, TokenKind_literal_str);
+    skip_whitespaces(pp);
+    expect_pp_token(pp, TokenKind_newline);
+    if (do_process) {
+        fatal_error("%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
+    }
 }
 
-static void preprocess_warning_directive(Preprocessor* pp, int directive_token_pos) {
-    unimplemented();
+// control-line:
+//     ...
+//     '#' 'warning' pp-tokens? new-line
+static void preprocess_warning_directive(Preprocessor* pp, int directive_token_pos, BOOL do_process) {
+    // The C23 standard does not specify format of diagnostic message caused by #warning.
+    // Ducc assumes that #warning takes exactly one argument consisting of a string literal.
+    // TODO: output some general message or something else if not.
+    skip_pp_token(pp, TokenKind_pp_directive_warning);
+    skip_whitespaces(pp);
+    Token* msg = expect_pp_token(pp, TokenKind_literal_str);
+    skip_whitespaces(pp);
+    expect_pp_token(pp, TokenKind_newline);
+    if (do_process) {
+        fprintf(stderr, "%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
+    }
 }
 
 static void preprocess_pragma_directive(Preprocessor* pp, int directive_token_pos) {
@@ -1167,9 +1193,9 @@ static void preprocess_group_part(Preprocessor* pp, BOOL do_process) {
     } else if (tok->kind == TokenKind_pp_directive_line) {
         preprocess_line_directive(pp, first_token_pos);
     } else if (tok->kind == TokenKind_pp_directive_error) {
-        preprocess_error_directive(pp, first_token_pos);
+        preprocess_error_directive(pp, first_token_pos, do_process);
     } else if (tok->kind == TokenKind_pp_directive_warning) {
-        preprocess_warning_directive(pp, first_token_pos);
+        preprocess_warning_directive(pp, first_token_pos, do_process);
     } else if (tok->kind == TokenKind_pp_directive_pragma) {
         preprocess_pragma_directive(pp, first_token_pos);
     } else if (tok->kind == TokenKind_pp_directive_nop) {
