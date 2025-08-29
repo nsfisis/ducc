@@ -1074,7 +1074,7 @@ static void preprocess_line_directive(Preprocessor* pp) {
 // control-line:
 //     ...
 //     '#' 'error' pp-tokens? new-line
-static void preprocess_error_directive(Preprocessor* pp, BOOL do_process) {
+static void preprocess_error_directive(Preprocessor* pp) {
     // The C23 standard does not specify format of diagnostic message caused by #error.
     // Ducc assumes that #error takes exactly one argument consisting of a string literal.
     // TODO: output some general message or something else if not.
@@ -1083,15 +1083,13 @@ static void preprocess_error_directive(Preprocessor* pp, BOOL do_process) {
     Token* msg = expect_pp_token(pp, TokenKind_literal_str);
     skip_whitespaces(pp);
     expect_pp_token(pp, TokenKind_newline);
-    if (do_process) {
-        fatal_error("%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
-    }
+    fatal_error("%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
 }
 
 // control-line:
 //     ...
 //     '#' 'warning' pp-tokens? new-line
-static void preprocess_warning_directive(Preprocessor* pp, BOOL do_process) {
+static void preprocess_warning_directive(Preprocessor* pp) {
     // The C23 standard does not specify format of diagnostic message caused by #warning.
     // Ducc assumes that #warning takes exactly one argument consisting of a string literal.
     // TODO: output some general message or something else if not.
@@ -1100,9 +1098,7 @@ static void preprocess_warning_directive(Preprocessor* pp, BOOL do_process) {
     Token* msg = expect_pp_token(pp, TokenKind_literal_str);
     skip_whitespaces(pp);
     expect_pp_token(pp, TokenKind_newline);
-    if (do_process) {
-        fprintf(stderr, "%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
-    }
+    fprintf(stderr, "%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
 }
 
 static void preprocess_pragma_directive(Preprocessor* pp) {
@@ -1113,17 +1109,11 @@ static void preprocess_nop_directive(Preprocessor* pp) {
     skip_pp_token(pp, TokenKind_pp_directive_nop);
 }
 
-static void preprocess_non_directive_directive(Preprocessor* pp, BOOL do_process) {
-    if (do_process) {
-        Token* tok = peek_pp_token(pp);
-        // C23 6.10.1.13:
-        // The execution of a non-directive preprocessing directive results in undefined behavior.
-        fatal_error("%s:%d: invalid preprocessing directive, '%s'", tok->loc.filename, tok->loc.line,
-                    token_stringify(tok));
-    } else {
-        seek_to_next_newline(pp);
-        expect_pp_token(pp, TokenKind_newline);
-    }
+static void preprocess_non_directive_directive(Preprocessor* pp) {
+    Token* tok = peek_pp_token(pp);
+    // C23 6.10.1.13:
+    // The execution of a non-directive preprocessing directive results in undefined behavior.
+    fatal_error("%s:%d: invalid preprocessing directive, '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
 }
 
 static void preprocess_text_line(Preprocessor* pp) {
@@ -1162,7 +1152,7 @@ static void preprocess_text_line(Preprocessor* pp) {
 //     '#' 'warning' ...
 //     '#' 'pragma' ...
 //     '#' new-line
-static void preprocess_group_part(Preprocessor* pp, BOOL do_process) {
+static void preprocess_group_part(Preprocessor* pp) {
     int first_token_pos = pp->pos;
     Token* tok = peek_pp_token(pp);
     if (tok->kind == TokenKind_pp_directive_if || tok->kind == TokenKind_pp_directive_ifdef ||
@@ -1177,32 +1167,56 @@ static void preprocess_group_part(Preprocessor* pp, BOOL do_process) {
     } else if (tok->kind == TokenKind_pp_directive_line) {
         preprocess_line_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_error) {
-        preprocess_error_directive(pp, do_process);
+        preprocess_error_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_warning) {
-        preprocess_warning_directive(pp, do_process);
+        preprocess_warning_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_pragma) {
         preprocess_pragma_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_nop) {
         preprocess_nop_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_non_directive) {
-        preprocess_non_directive_directive(pp, do_process);
+        preprocess_non_directive_directive(pp);
     } else {
         preprocess_text_line(pp);
     }
+}
 
-    if (!do_process) {
-        make_tokens_whitespaces(pp, first_token_pos, pp->pos);
+static void skip_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind) {
+    int nesting = 0;
+
+    while (!pp_eof(pp)) {
+        Token* tok = peek_pp_token(pp);
+        if (nesting == 0 && is_delimiter_of_current_group(delimiter_kind, tok->kind)) {
+            return;
+        }
+        if (tok->kind == TokenKind_pp_directive_if || tok->kind == TokenKind_pp_directive_ifdef ||
+            tok->kind == TokenKind_pp_directive_ifndef) {
+            ++nesting;
+        } else if (tok->kind == TokenKind_pp_directive_endif) {
+            --nesting;
+        }
+        int first_pos = pp->pos;
+        seek_to_next_newline(pp);
+        expect_pp_token(pp, TokenKind_newline);
+        make_tokens_whitespaces(pp, first_pos, pp->pos);
     }
+
+    expect_pp_token(pp, TokenKind_pp_directive_endif);
 }
 
 // group:
 //     { group-part }+
 static void preprocess_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_process) {
+    if (!do_process) {
+        skip_group_opt(pp, delimiter_kind);
+        return;
+    }
+
     while (!pp_eof(pp)) {
         Token* tok = peek_pp_token(pp);
         if (is_delimiter_of_current_group(delimiter_kind, tok->kind))
             return;
-        preprocess_group_part(pp, do_process);
+        preprocess_group_part(pp);
     }
 
     if (delimiter_kind != GroupDelimiterKind_normal) {
