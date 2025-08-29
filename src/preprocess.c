@@ -477,6 +477,10 @@ static void pplexer_tokenize_all(PpLexer* ppl) {
                 strbuilder_append_char(&builder, infile_peek_char(ppl->src));
                 infile_next_char(ppl->src);
             }
+            // Skip integer suffix.
+            while (isalpha(infile_peek_char(ppl->src))) {
+                infile_next_char(ppl->src);
+            }
             tok->kind = TokenKind_literal_int;
             tok->value.integer = atoi(builder.buf);
         } else if (isalpha(c) || c == '_') {
