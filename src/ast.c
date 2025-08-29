@@ -29,6 +29,10 @@ const char* type_kind_stringify(TypeKind k) {
         unreachable();
 }
 
+static AstNode* members_of(Type* ty) {
+    return ty->ref.defs->node_items[ty->ref.index].node_members;
+}
+
 Type* type_new(TypeKind kind) {
     Type* ty = calloc(1, sizeof(Type));
     ty->kind = kind;
@@ -249,8 +253,8 @@ int type_sizeof_struct(Type* ty) {
     int next_offset = 0;
     int struct_align = 0;
 
-    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
-        AstNode* member = ty->def->node_members->node_items + i;
+    for (int i = 0; i < members_of(ty)->node_len; ++i) {
+        AstNode* member = &members_of(ty)->node_items[i];
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -267,8 +271,8 @@ int type_sizeof_union(Type* ty) {
     int union_size = 0;
     int union_align = 0;
 
-    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
-        AstNode* member = ty->def->node_members->node_items + i;
+    for (int i = 0; i < members_of(ty)->node_len; ++i) {
+        AstNode* member = &members_of(ty)->node_items[i];
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -286,8 +290,8 @@ int type_sizeof_union(Type* ty) {
 int type_alignof_struct(Type* ty) {
     int struct_align = 0;
 
-    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
-        AstNode* member = ty->def->node_members->node_items + i;
+    for (int i = 0; i < members_of(ty)->node_len; ++i) {
+        AstNode* member = &members_of(ty)->node_items[i];
         int align = type_alignof(member->ty);
 
         if (struct_align < align) {
@@ -300,8 +304,8 @@ int type_alignof_struct(Type* ty) {
 int type_alignof_union(Type* ty) {
     int union_align = 0;
 
-    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
-        AstNode* member = ty->def->node_members->node_items + i;
+    for (int i = 0; i < members_of(ty)->node_len; ++i) {
+        AstNode* member = &members_of(ty)->node_items[i];
         int align = type_alignof(member->ty);
 
         if (union_align < align) {
@@ -321,8 +325,8 @@ int type_offsetof(Type* ty, const char* name) {
 
     int next_offset = 0;
 
-    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
-        AstNode* member = ty->def->node_members->node_items + i;
+    for (int i = 0; i < members_of(ty)->node_len; ++i) {
+        AstNode* member = &members_of(ty)->node_items[i];
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -341,8 +345,8 @@ Type* type_member_typeof(Type* ty, const char* name) {
         fatal_error("type_member_typeof: type is neither a struct nor a union");
     }
 
-    for (int i = 0; i < ty->def->node_members->node_len; ++i) {
-        AstNode* member = ty->def->node_members->node_items + i;
+    for (int i = 0; i < members_of(ty)->node_len; ++i) {
+        AstNode* member = &members_of(ty)->node_items[i];
         if (strcmp(member->name, name) == 0) {
             return member->ty;
         }

@@ -412,7 +412,8 @@ static AstNode* parse_primary_expr(Parser* p) {
                 int n = enum_member_idx % 1000;
                 AstNode* e = ast_new_int(p->enums->node_items[enum_idx].node_members->node_items[n].node_int_value);
                 e->ty = type_new(TypeKind_enum);
-                e->ty->def = &p->enums->node_items[enum_idx];
+                e->ty->ref.defs = p->enums;
+                e->ty->ref.index = enum_idx;
                 return e;
             }
             AstNode* e = ast_new(AstNodeKind_gvar);
@@ -558,7 +559,8 @@ static Type* parse_type(Parser* p) {
             if (enum_idx == -1) {
                 fatal_error("parse_type: unknown enum, %s", name);
             }
-            ty->def = &p->enums->node_items[enum_idx];
+            ty->ref.defs = p->enums;
+            ty->ref.index = enum_idx;
         } else if (t->kind == TokenKind_keyword_struct) {
             ty->kind = TypeKind_struct;
             const char* name = parse_ident(p);
@@ -566,7 +568,8 @@ static Type* parse_type(Parser* p) {
             if (struct_idx == -1) {
                 fatal_error("parse_type: unknown struct, %s", name);
             }
-            ty->def = &p->structs->node_items[struct_idx];
+            ty->ref.defs = p->structs;
+            ty->ref.index = struct_idx;
         } else if (t->kind == TokenKind_keyword_union) {
             ty->kind = TypeKind_union;
             const char* name = parse_ident(p);
@@ -574,7 +577,8 @@ static Type* parse_type(Parser* p) {
             if (union_idx == -1) {
                 fatal_error("parse_type: unknown union, %s", name);
             }
-            ty->def = &p->unions->node_items[union_idx];
+            ty->ref.defs = p->unions;
+            ty->ref.index = union_idx;
         } else {
             unreachable();
         }

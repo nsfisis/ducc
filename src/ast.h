@@ -22,13 +22,20 @@ typedef enum TypeKind TypeKind;
 const char* type_kind_stringify(TypeKind k);
 
 struct AstNode;
+typedef struct AstNode AstNode;
+
+struct TypeRef {
+    struct AstNode* defs;
+    size_t index;
+};
+typedef struct TypeRef TypeRef;
 
 struct Type {
     TypeKind kind;
     // Check `base` instead of `kind` to test if the type is an array or a pointer.
     struct Type* base;
     int array_size;
-    struct AstNode* def;
+    TypeRef ref;
     BOOL is_static;
 };
 typedef struct Type Type;
@@ -131,7 +138,6 @@ struct AstNode {
     int __i1;
     int __i2;
 };
-typedef struct AstNode AstNode;
 
 struct Program {
     AstNode* funcs;

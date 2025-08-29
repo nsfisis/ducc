@@ -3,13 +3,16 @@
 
 struct JsonBuilder {
     StrBuilder buf;
-    BOOL has_output_element[256];
+    // not supported by ducc for now
+    // BOOL has_output_element[256];
+    BOOL* has_output_element;
     int depth;
 };
 
 JsonBuilder* jsonbuilder_new() {
     JsonBuilder* b = calloc(1, sizeof(JsonBuilder));
     strbuilder_init(&b->buf);
+    b->has_output_element = calloc(256, sizeof(BOOL));
     return b;
 }
 
