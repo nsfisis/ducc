@@ -166,8 +166,6 @@ static void pplexer_tokenize_pp_directive(PpLexer* ppl, Token* tok) {
         return;
     }
 
-    SourceLocation pp_directive_name_start_loc = ppl->src->loc;
-
     StrBuilder builder;
     strbuilder_init(&builder);
     while (isalnum(infile_peek_char(ppl->src))) {

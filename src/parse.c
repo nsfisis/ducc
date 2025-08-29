@@ -476,7 +476,6 @@ static AstNode* create_new_postfix_inc_or_dec(Parser* p, AstNode* e, TokenKind o
 static AstNode* parse_postfix_expr(Parser* p) {
     AstNode* ret = parse_primary_expr(p);
     while (1) {
-        TokenKind tk = peek_token(p)->kind;
         if (consume_token_if(p, TokenKind_paren_l)) {
             AstNode* args = parse_arg_list(p);
             expect(p, TokenKind_paren_r);
@@ -842,7 +841,6 @@ static AstNode* parse_assignment_expr(Parser* p) {
 static AstNode* parse_comma_expr(Parser* p) {
     AstNode* lhs = parse_assignment_expr(p);
     while (1) {
-        TokenKind op = peek_token(p)->kind;
         if (consume_token_if(p, TokenKind_comma)) {
             AstNode* rhs = parse_assignment_expr(p);
             AstNode* list = ast_new_list(2);

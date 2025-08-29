@@ -257,7 +257,6 @@ static void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
 
 static void codegen_assign_expr(CodeGen* g, AstNode* ast) {
     int sizeof_lhs = type_sizeof(ast->node_lhs->ty);
-    int sizeof_rhs = type_sizeof(ast->node_rhs->ty);
 
     codegen_expr(g, ast->node_lhs, GenMode_lval);
     codegen_expr(g, ast->node_rhs, GenMode_rval);
