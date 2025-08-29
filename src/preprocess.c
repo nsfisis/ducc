@@ -1157,8 +1157,15 @@ static void preprocess_group_part(Preprocessor* pp) {
     if (tok->kind == TokenKind_pp_directive_if || tok->kind == TokenKind_pp_directive_ifdef ||
         tok->kind == TokenKind_pp_directive_ifndef) {
         preprocess_if_section(pp);
+    } else if (tok->kind == TokenKind_pp_directive_elif || tok->kind == TokenKind_pp_directive_elifdef ||
+               tok->kind == TokenKind_pp_directive_elifndef || tok->kind == TokenKind_pp_directive_else ||
+               tok->kind == TokenKind_pp_directive_endif) {
+        fatal_error("%s:%d: unexpected '%s'; no corresponding '#if'*", tok->loc.filename, tok->loc.line,
+                    token_kind_stringify(tok->kind));
     } else if (tok->kind == TokenKind_pp_directive_include) {
         preprocess_include_directive(pp);
+    } else if (tok->kind == TokenKind_pp_directive_embed) {
+        preprocess_embed_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_define) {
         preprocess_define_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_undef) {
