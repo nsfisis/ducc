@@ -1493,6 +1493,8 @@ static int eval(AstNode* e) {
         int v = eval(e->node_operand);
         if (e->node_op == TokenKind_not) {
             return !v;
+        } else if (e->node_op == TokenKind_minus) {
+            return -v;
         } else {
             unimplemented();
         }
@@ -1503,8 +1505,43 @@ static int eval(AstNode* e) {
             return v1 && v2;
         } else if (e->node_op == TokenKind_oror) {
             return v1 || v2;
+        } else if (e->node_op == TokenKind_plus) {
+            return v1 + v2;
+        } else if (e->node_op == TokenKind_minus) {
+            return v1 - v2;
+        } else if (e->node_op == TokenKind_star) {
+            return v1 * v2;
+        } else if (e->node_op == TokenKind_slash) {
+            if (v2 == 0) {
+                fatal_error("eval: division by zero");
+            }
+            return v1 / v2;
+        } else if (e->node_op == TokenKind_percent) {
+            if (v2 == 0) {
+                fatal_error("eval: division by zero");
+            }
+            return v1 % v2;
+        } else if (e->node_op == TokenKind_eq) {
+            return v1 == v2;
+        } else if (e->node_op == TokenKind_ne) {
+            return v1 != v2;
+        } else if (e->node_op == TokenKind_lt) {
+            return v1 < v2;
+        } else if (e->node_op == TokenKind_le) {
+            return v1 <= v2;
+        } else if (e->node_op == TokenKind_lshift) {
+            return v1 << v2;
+        } else if (e->node_op == TokenKind_rshift) {
+            return v1 >> v2;
         } else {
             unimplemented();
+        }
+    } else if (e->kind == AstNodeKind_cond_expr) {
+        int cond = eval(e->node_cond);
+        if (cond) {
+            return eval(e->node_then);
+        } else {
+            return eval(e->node_else);
         }
     } else {
         unimplemented();
