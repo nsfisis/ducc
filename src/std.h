@@ -34,6 +34,7 @@ int strncmp(const char*, const char*, size_t);
 char* strdup(const char*);
 char* strndup(const char*, size_t);
 char* strstr(const char*, const char*);
+long strtol(const char*, char**, int);
 int system(const char*);
 
 #define assert(x) \

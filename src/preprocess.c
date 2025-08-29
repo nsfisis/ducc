@@ -770,6 +770,48 @@ static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
     return args;
 }
 
+static Token* concat_two_tokens(Token* left, Token* right) {
+    StrBuilder builder;
+    strbuilder_init(&builder);
+
+    // Left
+    if (left->kind == TokenKind_ident) {
+        strbuilder_append_string(&builder, left->value.string);
+    } else if (left->kind == TokenKind_literal_int) {
+        char buf[32];
+        sprintf(buf, "%d", left->value.integer);
+        strbuilder_append_string(&builder, buf);
+    } else {
+        strbuilder_append_string(&builder, token_stringify(left));
+    }
+
+    // Right
+    if (right->kind == TokenKind_ident) {
+        strbuilder_append_string(&builder, right->value.string);
+    } else if (right->kind == TokenKind_literal_int) {
+        char buf[32];
+        sprintf(buf, "%d", right->value.integer);
+        strbuilder_append_string(&builder, buf);
+    } else {
+        strbuilder_append_string(&builder, token_stringify(right));
+    }
+
+    // Concat
+    Token* result = calloc(1, sizeof(Token));
+
+    char* endptr;
+    int val = strtol(builder.buf, &endptr, 10);
+    if (*endptr == '\0') {
+        result->kind = TokenKind_literal_int;
+        result->value.integer = val;
+    } else {
+        result->kind = TokenKind_ident;
+        result->value.string = builder.buf;
+    }
+
+    return result;
+}
+
 static BOOL expand_macro(Preprocessor* pp) {
     int macro_name_pos = pp->pos;
     Token* macro_name = next_pp_token(pp);
@@ -783,6 +825,8 @@ static BOOL expand_macro(Preprocessor* pp) {
     if (macro->kind == MacroKind_func) {
         MacroArgArray* args = pp_parse_macro_arguments(pp);
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
+
+        // Parameter substitution
         for (size_t i = 0; i < macro->replacements.len; ++i) {
             Token* tok = pp_token_at(pp, macro_name_pos + i);
             int macro_param_idx = macro_find_param(macro, tok);
@@ -790,8 +834,35 @@ static BOOL expand_macro(Preprocessor* pp) {
                 replace_pp_tokens(pp, macro_name_pos + i, macro_name_pos + i + 1, &args->data[macro_param_idx].tokens);
             }
         }
+
+        // Handle ## operator
+        size_t result_len = 0;
+        for (int i = macro_name_pos; i < pp->pos && pp_token_at(pp, i)->kind != TokenKind_newline; ++i) {
+            Token* tok = pp_token_at(pp, i);
+            if (tok->kind == TokenKind_hashhash) {
+                // Concatenate previous and next tokens
+                if (result_len > 0 && i + 1 < pp->pos) {
+                    Token* left = pp_token_at(pp, i - 1);
+                    Token* right = pp_token_at(pp, i + 1);
+                    Token* concatenated = concat_two_tokens(left, right);
+
+                    // Replace the three tokens (left ## right) with the concatenated one
+                    TokenArray single_token;
+                    tokens_init(&single_token, 1);
+                    *tokens_push_new(&single_token) = *concatenated;
+                    int new_pos = replace_pp_tokens(pp, i - 1, i + 2, &single_token);
+                    i = new_pos - 1;
+                    ++result_len;
+                } else {
+                    fatal_error("invalid usage of ## operator");
+                }
+            } else {
+                ++result_len;
+            }
+        }
+
         // Inherit a source location from the original macro token.
-        for (size_t i = 0; i < macro->replacements.len; ++i) {
+        for (size_t i = 0; i < result_len; ++i) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
     } else if (macro->kind == MacroKind_obj) {
