@@ -209,7 +209,7 @@ static Token* expect(Parser* p, TokenKind expected) {
 }
 
 static int find_lvar_in_scope(Parser* p, Scope* scope, const char* name) {
-    for (int i = 0; i < scope->syms.len; ++i) {
+    for (size_t i = 0; i < scope->syms.len; ++i) {
         ScopedSymbol* sym = &scope->syms.data[i];
         if (sym->name && strcmp(sym->name, name) == 0) {
             return sym->index;
@@ -277,7 +277,7 @@ static AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
 }
 
 static int find_gvar(Parser* p, const char* name) {
-    for (int i = 0; i < p->gvars.len; ++i) {
+    for (size_t i = 0; i < p->gvars.len; ++i) {
         if (strcmp(p->gvars.data[i].name, name) == 0) {
             return i;
         }
@@ -286,7 +286,7 @@ static int find_gvar(Parser* p, const char* name) {
 }
 
 static int find_func(Parser* p, const char* name) {
-    for (int i = 0; i < p->funcs.len; ++i) {
+    for (size_t i = 0; i < p->funcs.len; ++i) {
         if (strcmp(p->funcs.data[i].name, name) == 0) {
             return i;
         }

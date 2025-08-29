@@ -39,7 +39,7 @@ static int macro_find_param(Macro* macro, Token* tok) {
     if (tok->kind != TokenKind_ident)
         return -1;
 
-    for (int i = 0; i < macro->parameters.len; ++i) {
+    for (size_t i = 0; i < macro->parameters.len; ++i) {
         if (strcmp(macro->parameters.data[i].value.string, tok->value.string) == 0) {
             return i;
         }
@@ -599,7 +599,7 @@ static BOOL pp_eof(Preprocessor* pp) {
 }
 
 static int find_macro(Preprocessor* pp, const char* name) {
-    for (int i = 0; i < pp->macros->len; ++i) {
+    for (size_t i = 0; i < pp->macros->len; ++i) {
         if (pp->macros->data[i].kind == MacroKind_undef)
             continue;
         if (strcmp(pp->macros->data[i].name, name) == 0) {
@@ -667,9 +667,9 @@ static const char* resolve_include_name(Preprocessor* pp, const Token* include_n
 }
 
 static int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, TokenArray* source_tokens) {
-    int n_tokens_to_remove = dest_end - dest_start;
-    int n_tokens_after_dest = pp->pp_tokens->len - dest_end;
-    int shift_amount;
+    size_t n_tokens_to_remove = dest_end - dest_start;
+    size_t n_tokens_after_dest = pp->pp_tokens->len - dest_end;
+    size_t shift_amount;
 
     if (n_tokens_to_remove < source_tokens->len) {
         // Move existing tokens backward to make room.
@@ -692,7 +692,7 @@ static int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, Tok
     return dest_start + source_tokens->len;
 }
 
-static int replace_single_pp_token(Preprocessor* pp, int dest, Token* source_tok) {
+static void replace_single_pp_token(Preprocessor* pp, int dest, Token* source_tok) {
     TokenArray tokens;
     tokens_init(&tokens, 1);
     *tokens_push_new(&tokens) = *source_tok;
@@ -775,7 +775,7 @@ static BOOL expand_macro(Preprocessor* pp) {
     if (macro->kind == MacroKind_func) {
         MacroArgArray* args = pp_parse_macro_arguments(pp);
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
-        for (int i = 0; i < macro->replacements.len; ++i) {
+        for (size_t i = 0; i < macro->replacements.len; ++i) {
             Token* tok = pp_token_at(pp, macro_name_pos + i);
             int macro_param_idx = macro_find_param(macro, tok);
             if (macro_param_idx != -1) {
@@ -783,13 +783,13 @@ static BOOL expand_macro(Preprocessor* pp) {
             }
         }
         // Inherit a source location from the original macro token.
-        for (int i = 0; i < macro->replacements.len; ++i) {
+        for (size_t i = 0; i < macro->replacements.len; ++i) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
     } else if (macro->kind == MacroKind_obj) {
         replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &macro->replacements);
         // Inherit a source location from the original macro token.
-        for (int i = 0; i < macro->replacements.len; ++i) {
+        for (size_t i = 0; i < macro->replacements.len; ++i) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
     } else if (macro->kind == MacroKind_builtin_file) {

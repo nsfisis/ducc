@@ -353,8 +353,11 @@ Token* tokens_push_new(TokenArray* tokens) {
 }
 
 Token* tokens_pop(TokenArray* tokens) {
-    if (tokens->len != 0)
-        tokens->len--;
+    if (tokens->len == 0) {
+        return NULL;
+    } else {
+        return &tokens->data[--tokens->len];
+    }
 }
 
 void tokens_build_json(JsonBuilder* builder, TokenArray* tokens) {

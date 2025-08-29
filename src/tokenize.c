@@ -17,7 +17,7 @@ static Lexer* lexer_new(TokenArray* pp_tokens) {
 }
 
 static void tokenize_all(Lexer* l) {
-    for (int pos = 0; pos < l->src->len; ++pos) {
+    for (size_t pos = 0; pos < l->src->len; ++pos) {
         Token* pp_tok = &l->src->data[pos];
         TokenKind k = pp_tok->kind;
         if (k == TokenKind_whitespace || k == TokenKind_newline) {
