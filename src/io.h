@@ -1,6 +1,7 @@
 #ifndef DUCC_IO_H
 #define DUCC_IO_H
 
+#include "json.h"
 #include "std.h"
 
 struct SourceLocation {
@@ -8,6 +9,8 @@ struct SourceLocation {
     int line;
 };
 typedef struct SourceLocation SourceLocation;
+
+void sourcelocation_build_json(JsonBuilder* builder, SourceLocation* loc);
 
 struct InFile {
     const char* buf;

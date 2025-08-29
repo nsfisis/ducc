@@ -9,6 +9,7 @@ OBJECTS := \
 	$(BUILD_DIR)/codegen.o \
 	$(BUILD_DIR)/common.o \
 	$(BUILD_DIR)/io.o \
+	$(BUILD_DIR)/json.o \
 	$(BUILD_DIR)/parse.o \
 	$(BUILD_DIR)/preprocess.o \
 	$(BUILD_DIR)/sys.o \

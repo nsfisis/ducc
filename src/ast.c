@@ -29,12 +29,6 @@ const char* type_kind_stringify(TypeKind k) {
         unreachable();
 }
 
-void type_dump(Type* ty) {
-    fprintf(stderr, "Type {\n");
-    fprintf(stderr, "  kind = %s\n", type_kind_stringify(ty->kind));
-    fprintf(stderr, "}\n");
-}
-
 Type* type_new(TypeKind kind) {
     Type* ty = calloc(1, sizeof(Type));
     ty->kind = kind;

@@ -77,22 +77,6 @@ static Macro* macros_push_new(MacroArray* macros) {
     return &macros->data[macros->len++];
 }
 
-static void macros_dump(MacroArray* macros) {
-    fprintf(stderr, "MacroArray {\n");
-    fprintf(stderr, "  len = %zu\n", macros->len);
-    fprintf(stderr, "  data = [\n");
-    for (int i = 0; i < macros->len; ++i) {
-        Macro* m = &macros->data[i];
-        fprintf(stderr, "    Macro {\n");
-        fprintf(stderr, "      kind = %s\n", macro_kind_stringify(m->kind));
-        fprintf(stderr, "      name = %s\n", m->name);
-        fprintf(stderr, "      replacements = TODO\n");
-        fprintf(stderr, "    }\n");
-    }
-    fprintf(stderr, "  ]\n");
-    fprintf(stderr, "}\n");
-}
-
 static void add_predefined_macros(MacroArray* macros) {
     Macro* m;
 
@@ -875,19 +859,11 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, int directive_to
                     Token* macro_name;
                     if (consume_pp_token_if(pp, TokenKind_paren_l)) {
                         skip_whitespaces(pp);
-                        macro_name = next_pp_token(pp);
-                        if (macro_name->kind != TokenKind_ident) {
-                            fatal_error("invalid defined");
-                        }
+                        macro_name = expect_pp_token(pp, TokenKind_ident);
                         skip_whitespaces(pp);
-                        if (next_pp_token(pp)->kind != TokenKind_paren_r) {
-                            fatal_error("invalid defined");
-                        }
+                        expect_pp_token(pp, TokenKind_paren_r);
                     } else {
-                        macro_name = next_pp_token(pp);
-                        if (macro_name->kind != TokenKind_ident) {
-                            fatal_error("invalid defined");
-                        }
+                        macro_name = expect_pp_token(pp, TokenKind_ident);
                     }
                     BOOL is_defined = find_macro(pp, macro_name->value.string) != -1;
                     TokenArray defined_results;
@@ -1246,15 +1222,6 @@ static void remove_pp_directives(Preprocessor* pp) {
         } else {
             next_pp_token(pp);
         }
-    }
-}
-
-static void pp_dump(Token* t, BOOL include_whitespace) {
-    for (; t->kind != TokenKind_eof; ++t) {
-        if (t->kind == TokenKind_whitespace && !include_whitespace) {
-            continue;
-        }
-        fprintf(stderr, "%s\n", token_stringify(t));
     }
 }
 

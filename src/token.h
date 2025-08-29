@@ -2,6 +2,7 @@
 #define DUCC_TOKEN_H
 
 #include "io.h"
+#include "json.h"
 
 enum TokenKind {
     TokenKind_eof,
@@ -162,7 +163,8 @@ struct Token {
 };
 typedef struct Token Token;
 
-const char* token_stringify(Token* t);
+const char* token_stringify(Token* tok);
+void token_build_json(JsonBuilder* builder, Token* tok);
 
 struct TokenArray {
     size_t len;
@@ -175,5 +177,6 @@ void tokens_init(TokenArray* tokens, size_t capacity);
 void tokens_reserve(TokenArray* tokens, size_t size);
 Token* tokens_push_new(TokenArray* tokens);
 Token* tokens_pop(TokenArray* tokens);
+void tokens_build_json(JsonBuilder* builder, TokenArray* tokens);
 
 #endif

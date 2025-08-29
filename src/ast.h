@@ -33,7 +33,6 @@ struct Type {
 };
 typedef struct Type Type;
 
-void type_dump(Type* ty);
 Type* type_new(TypeKind kind);
 Type* type_new_ptr(Type* base);
 Type* type_new_array(Type* elem, int size);

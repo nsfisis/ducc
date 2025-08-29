@@ -1,5 +1,6 @@
 #include "token.h"
 #include "common.h"
+#include "json.h"
 
 const char* token_kind_stringify(TokenKind k) {
     if (k == TokenKind_eof)
@@ -283,26 +284,51 @@ BOOL is_pp_directive(TokenKind k) {
            k == TokenKind_pp_directive_warning;
 }
 
-const char* token_stringify(Token* t) {
-    TokenKind k = t->kind;
+const char* token_stringify(Token* tok) {
+    TokenKind k = tok->kind;
     if (k == TokenKind_pp_directive_non_directive) {
-        char* buf = calloc(strlen(t->value.string) + 1 + 1, sizeof(char));
-        sprintf(buf, "#%s", t->value.string);
+        char* buf = calloc(strlen(tok->value.string) + 1 + 1, sizeof(char));
+        sprintf(buf, "#%s", tok->value.string);
         return buf;
     } else if (k == TokenKind_literal_int) {
         const char* kind_str = token_kind_stringify(k);
         char* buf = calloc(10 + strlen(kind_str) + 3 + 1, sizeof(char));
-        sprintf(buf, "%d (%s)", t->value.integer, kind_str);
+        sprintf(buf, "%d (%s)", tok->value.integer, kind_str);
         return buf;
     } else if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_ident ||
                k == TokenKind_literal_str) {
         const char* kind_str = token_kind_stringify(k);
-        char* buf = calloc(strlen(t->value.string) + strlen(kind_str) + 3 + 1, sizeof(char));
-        sprintf(buf, "%s (%s)", t->value.string, kind_str);
+        char* buf = calloc(strlen(tok->value.string) + strlen(kind_str) + 3 + 1, sizeof(char));
+        sprintf(buf, "%s (%s)", tok->value.string, kind_str);
         return buf;
     } else {
         return token_kind_stringify(k);
     }
+}
+
+void token_build_json(JsonBuilder* builder, Token* tok) {
+    jsonbuilder_object_start(builder);
+    jsonbuilder_object_member_start(builder, "kind");
+    jsonbuilder_string(builder, token_kind_stringify(tok->kind));
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "value");
+    if (tok->kind == TokenKind_pp_directive_non_directive) {
+        char* buf = calloc(strlen(tok->value.string) + 1 + 1, sizeof(char));
+        sprintf(buf, "#%s", tok->value.string);
+        jsonbuilder_string(builder, buf);
+    } else if (tok->kind == TokenKind_literal_int) {
+        jsonbuilder_integer(builder, tok->value.integer);
+    } else if (tok->kind == TokenKind_other || tok->kind == TokenKind_character_constant ||
+               tok->kind == TokenKind_ident || tok->kind == TokenKind_literal_str) {
+        jsonbuilder_string(builder, tok->value.string);
+    } else {
+        jsonbuilder_null(builder);
+    }
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "loc");
+    sourcelocation_build_json(builder, &tok->loc);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_end(builder);
 }
 
 void tokens_init(TokenArray* tokens, size_t capacity) {
@@ -329,4 +355,21 @@ Token* tokens_push_new(TokenArray* tokens) {
 Token* tokens_pop(TokenArray* tokens) {
     if (tokens->len != 0)
         tokens->len--;
+}
+
+void tokens_build_json(JsonBuilder* builder, TokenArray* tokens) {
+    jsonbuilder_object_start(builder);
+    jsonbuilder_object_member_start(builder, "len");
+    jsonbuilder_integer(builder, tokens->len);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "data");
+    jsonbuilder_array_start(builder);
+    for (int i = 0; i < tokens->len; ++i) {
+        jsonbuilder_array_element_start(builder);
+        token_build_json(builder, &tokens->data[i]);
+        jsonbuilder_array_element_end(builder);
+    }
+    jsonbuilder_array_end(builder);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_end(builder);
 }

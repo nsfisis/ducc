@@ -1,5 +1,17 @@
 #include "io.h"
 #include "common.h"
+#include "json.h"
+
+void sourcelocation_build_json(JsonBuilder* builder, SourceLocation* loc) {
+    jsonbuilder_object_start(builder);
+    jsonbuilder_object_member_start(builder, "filename");
+    jsonbuilder_string(builder, loc->filename);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "line");
+    jsonbuilder_integer(builder, loc->line);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_end(builder);
+}
 
 InFile* infile_open(const char* filename) {
     FILE* in;
