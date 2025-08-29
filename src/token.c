@@ -224,7 +224,7 @@ const char* token_kind_stringify(TokenKind k) {
     else if (k == TokenKind_ident)
         return "<identifier>";
     else if (k == TokenKind_le)
-        return "le";
+        return "<=";
     else if (k == TokenKind_literal_int)
         return "<integer>";
     else if (k == TokenKind_literal_str)
@@ -232,7 +232,7 @@ const char* token_kind_stringify(TokenKind k) {
     else if (k == TokenKind_lshift)
         return "<<";
     else if (k == TokenKind_lt)
-        return "lt";
+        return "<";
     else if (k == TokenKind_minus)
         return "-";
     else if (k == TokenKind_minusminus)
