@@ -843,9 +843,9 @@ static BOOL is_delimiter_of_current_group(GroupDelimiterKind delimiter_kind, Tok
 
 static int replace_pp_tokens(Preprocessor*, int, int, TokenArray*);
 static BOOL expand_macro(Preprocessor*);
-static void preprocess_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_process);
+static void include_conditionally(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_include);
 
-static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_process) {
+static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include) {
     Token* directive = next_pp_token(pp);
 
     if (directive->kind == TokenKind_pp_directive_if || directive->kind == TokenKind_pp_directive_elif) {
@@ -914,30 +914,29 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_process
         Token* eof_tok = tokens_push_new(&condition_expression_tokens);
         eof_tok->kind = TokenKind_eof;
 
-        BOOL do_process = pp_eval_constant_expression(&condition_expression_tokens) && !did_process;
-
-        preprocess_group_opt(pp, GroupDelimiterKind_after_if_directive, do_process);
-        return do_process;
+        BOOL do_include = pp_eval_constant_expression(&condition_expression_tokens) && !did_include;
+        include_conditionally(pp, GroupDelimiterKind_after_if_directive, do_include);
+        return do_include;
     } else if (directive->kind == TokenKind_pp_directive_ifdef || directive->kind == TokenKind_pp_directive_elifdef) {
         skip_whitespaces(pp);
         Token* macro_name = consume_pp_token_if(pp, TokenKind_ident);
         if (!macro_name) {
             fatal_error("");
         }
-        BOOL do_process = !did_process && find_macro(pp, macro_name->value.string) != -1;
 
-        preprocess_group_opt(pp, GroupDelimiterKind_after_if_directive, do_process);
-        return do_process;
+        BOOL do_include = !did_include && find_macro(pp, macro_name->value.string) != -1;
+        include_conditionally(pp, GroupDelimiterKind_after_if_directive, do_include);
+        return do_include;
     } else if (directive->kind == TokenKind_pp_directive_ifndef || directive->kind == TokenKind_pp_directive_elifndef) {
         skip_whitespaces(pp);
         Token* macro_name = consume_pp_token_if(pp, TokenKind_ident);
         if (!macro_name) {
             fatal_error("");
         }
-        BOOL do_process = !did_process && find_macro(pp, macro_name->value.string) == -1;
 
-        preprocess_group_opt(pp, GroupDelimiterKind_after_if_directive, do_process);
-        return do_process;
+        BOOL do_include = !did_include && find_macro(pp, macro_name->value.string) == -1;
+        include_conditionally(pp, GroupDelimiterKind_after_if_directive, do_include);
+        return do_include;
     } else {
         unreachable();
     }
@@ -947,35 +946,35 @@ static BOOL preprocess_if_group(Preprocessor* pp) {
     return preprocess_if_group_or_elif_group(pp, FALSE);
 }
 
-static BOOL preprocess_elif_group(Preprocessor* pp, BOOL did_process) {
-    return preprocess_if_group_or_elif_group(pp, did_process);
+static BOOL preprocess_elif_group(Preprocessor* pp, BOOL did_include) {
+    return preprocess_if_group_or_elif_group(pp, did_include);
 }
 
 // elif-groups:
 //     { elif-group }+
-static BOOL preprocess_elif_groups_opt(Preprocessor* pp, BOOL did_process) {
+static BOOL preprocess_elif_groups_opt(Preprocessor* pp, BOOL did_include) {
     while (!pp_eof(pp)) {
         Token* tok = peek_pp_token(pp);
         if (tok->kind == TokenKind_pp_directive_elif || tok->kind == TokenKind_pp_directive_elifdef ||
             tok->kind == TokenKind_pp_directive_elifndef) {
             // TODO: | and |= is not supported
-            // did_process |= preprocess_elif_group(pp, pp->pos, did_process);
-            BOOL a = preprocess_elif_group(pp, did_process);
-            did_process = did_process ? TRUE : a;
+            // did_include |= preprocess_elif_group(pp, pp->pos, did_include);
+            BOOL a = preprocess_elif_group(pp, did_include);
+            did_include = did_include ? TRUE : a;
         } else {
             break;
         }
     }
-    return did_process;
+    return did_include;
 }
 
 // else-group:
 //     '#' 'else' group?
-static void preprocess_else_group(Preprocessor* pp, BOOL did_process) {
+static void preprocess_else_group(Preprocessor* pp, BOOL did_include) {
     skip_pp_token(pp, TokenKind_pp_directive_else);
     expect_pp_token(pp, TokenKind_newline);
 
-    preprocess_group_opt(pp, GroupDelimiterKind_after_else_directive, !did_process);
+    include_conditionally(pp, GroupDelimiterKind_after_else_directive, !did_include);
 }
 
 // endif-line:
@@ -988,10 +987,10 @@ static void preprocess_endif_directive(Preprocessor* pp) {
 // if-section:
 //     if-group elif-groups? else-group? endif-line
 static void preprocess_if_section(Preprocessor* pp) {
-    BOOL did_process = preprocess_if_group(pp);
-    did_process = preprocess_elif_groups_opt(pp, did_process);
+    BOOL did_include = preprocess_if_group(pp);
+    did_include = preprocess_elif_groups_opt(pp, did_include);
     if (peek_pp_token(pp)->kind == TokenKind_pp_directive_else) {
-        preprocess_else_group(pp, did_process);
+        preprocess_else_group(pp, did_include);
     }
     preprocess_endif_directive(pp);
 }
@@ -1181,6 +1180,21 @@ static void preprocess_group_part(Preprocessor* pp) {
     }
 }
 
+// group:
+//     { group-part }+
+static void preprocess_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind) {
+    while (!pp_eof(pp)) {
+        Token* tok = peek_pp_token(pp);
+        if (is_delimiter_of_current_group(delimiter_kind, tok->kind))
+            return;
+        preprocess_group_part(pp);
+    }
+
+    if (delimiter_kind != GroupDelimiterKind_normal) {
+        expect_pp_token(pp, TokenKind_pp_directive_endif);
+    }
+}
+
 static void skip_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind) {
     int nesting = 0;
 
@@ -1204,30 +1218,18 @@ static void skip_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind) 
     expect_pp_token(pp, TokenKind_pp_directive_endif);
 }
 
-// group:
-//     { group-part }+
-static void preprocess_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_process) {
-    if (!do_process) {
+static void include_conditionally(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_include) {
+    if (do_include) {
+        preprocess_group_opt(pp, delimiter_kind);
+    } else {
         skip_group_opt(pp, delimiter_kind);
-        return;
-    }
-
-    while (!pp_eof(pp)) {
-        Token* tok = peek_pp_token(pp);
-        if (is_delimiter_of_current_group(delimiter_kind, tok->kind))
-            return;
-        preprocess_group_part(pp);
-    }
-
-    if (delimiter_kind != GroupDelimiterKind_normal) {
-        expect_pp_token(pp, TokenKind_pp_directive_endif);
     }
 }
 
 // preprocessing-file:
 //     group?
 static void preprocess_preprocessing_file(Preprocessor* pp) {
-    preprocess_group_opt(pp, GroupDelimiterKind_normal, TRUE);
+    preprocess_group_opt(pp, GroupDelimiterKind_normal);
 }
 
 static void remove_pp_directive(Preprocessor* pp, int directive_token_pos) {
