@@ -13,7 +13,8 @@ int printf();
 
 int main() {
     printf("%d\n", A(42));
-    printf("%d\n", B(123));
-    printf("%d\n", C(13, 17));
+    printf("%d\n", B
+    (123));
+    printf("%d\n", C (13, 17));
 }
 EOF

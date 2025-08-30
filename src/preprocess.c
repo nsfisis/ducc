@@ -102,6 +102,14 @@ struct MacroArg {
 };
 typedef struct MacroArg MacroArg;
 
+void macroarg_build_json(JsonBuilder* builder, MacroArg* arg) {
+    jsonbuilder_object_start(builder);
+    jsonbuilder_object_member_start(builder, "tokens");
+    tokens_build_json(builder, &arg->tokens);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_end(builder);
+}
+
 struct MacroArgArray {
     size_t len;
     size_t capacity;
@@ -130,6 +138,23 @@ static void macroargs_reserve(MacroArgArray* macroargs, size_t size) {
 static MacroArg* macroargs_push_new(MacroArgArray* macroargs) {
     macroargs_reserve(macroargs, macroargs->len + 1);
     return &macroargs->data[macroargs->len++];
+}
+
+void macroargs_build_json(JsonBuilder* builder, MacroArgArray* macroargs) {
+    jsonbuilder_object_start(builder);
+    jsonbuilder_object_member_start(builder, "len");
+    jsonbuilder_integer(builder, macroargs->len);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "data");
+    jsonbuilder_array_start(builder);
+    for (int i = 0; i < macroargs->len; ++i) {
+        jsonbuilder_array_element_start(builder);
+        macroarg_build_json(builder, &macroargs->data[i]);
+        jsonbuilder_array_element_end(builder);
+    }
+    jsonbuilder_array_end(builder);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_end(builder);
 }
 
 struct PpLexer {
@@ -628,6 +653,12 @@ static void skip_whitespaces(Preprocessor* pp) {
         ;
 }
 
+static void skip_whitespaces_or_newlines(Preprocessor* pp, BOOL skip_newline) {
+    while (!pp_eof(pp) && (consume_pp_token_if(pp, TokenKind_whitespace) ||
+                           (skip_newline && consume_pp_token_if(pp, TokenKind_newline))))
+        ;
+}
+
 // It will not consume a new-line token.
 static void seek_to_next_newline(Preprocessor* pp) {
     while (!pp_eof(pp) && consume_pp_token_if_not(pp, TokenKind_newline))
@@ -744,21 +775,26 @@ static TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
     return parameters;
 }
 
-// ws ::= many0(<Whitespace>)
-// macro-arguments ::= '(' <ws> opt(<any-token> <ws> many0(',' <ws> <any-token> <ws>)) ')'
-static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp) {
+// ws ::= many0(<whitespace>)
+// macro-arguments ::= <ws> '(' <ws> opt(<any-token> <ws> many0(',' <ws> <any-token> <ws>)) ')'
+static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp, BOOL skip_newline) {
     MacroArgArray* args = macroargs_new();
 
+    skip_whitespaces_or_newlines(pp, skip_newline);
     expect_pp_token(pp, TokenKind_paren_l);
-    skip_whitespaces(pp);
-    Token* tok = consume_pp_token_if_not(pp, TokenKind_paren_r);
-    if (tok) {
+    skip_whitespaces_or_newlines(pp, skip_newline);
+    Token* tok = peek_pp_token(pp);
+    if (!skip_newline && tok->kind == TokenKind_newline) {
+        expect_pp_token(pp, TokenKind_paren_r);
+    }
+    if (tok->kind != TokenKind_paren_r) {
+        next_pp_token(pp);
         MacroArg* arg = macroargs_push_new(args);
         tokens_init(&arg->tokens, 1);
         *tokens_push_new(&arg->tokens) = *tok;
-        skip_whitespaces(pp);
+        skip_whitespaces_or_newlines(pp, skip_newline);
         while (consume_pp_token_if(pp, TokenKind_comma)) {
-            skip_whitespaces(pp);
+            skip_whitespaces_or_newlines(pp, skip_newline);
             tok = next_pp_token(pp);
             arg = macroargs_push_new(args);
             tokens_init(&arg->tokens, 1);
@@ -812,7 +848,7 @@ static Token* concat_two_tokens(Token* left, Token* right) {
     return result;
 }
 
-static BOOL expand_macro(Preprocessor* pp) {
+static BOOL expand_macro(Preprocessor* pp, BOOL skip_newline) {
     int macro_name_pos = pp->pos;
     Token* macro_name = next_pp_token(pp);
     int macro_idx = find_macro(pp, macro_name->value.string);
@@ -823,48 +859,54 @@ static BOOL expand_macro(Preprocessor* pp) {
     SourceLocation original_loc = macro_name->loc;
     Macro* macro = &pp->macros->data[macro_idx];
     if (macro->kind == MacroKind_func) {
-        MacroArgArray* args = pp_parse_macro_arguments(pp);
+        MacroArgArray* args = pp_parse_macro_arguments(pp, skip_newline);
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
 
         // Parameter substitution
+        size_t token_count = 0;
         for (size_t i = 0; i < macro->replacements.len; ++i) {
             Token* tok = pp_token_at(pp, macro_name_pos + i);
             int macro_param_idx = macro_find_param(macro, tok);
             if (macro_param_idx != -1) {
                 replace_pp_tokens(pp, macro_name_pos + i, macro_name_pos + i + 1, &args->data[macro_param_idx].tokens);
+                token_count += args->data[macro_param_idx].tokens.len;
+            } else {
+                ++token_count;
             }
         }
 
         // Handle ## operator
-        size_t result_len = 0;
-        for (int i = macro_name_pos; i < pp->pos && pp_token_at(pp, i)->kind != TokenKind_newline; ++i) {
-            Token* tok = pp_token_at(pp, i);
+        size_t token_count2 = 0;
+        for (size_t i = 0; i < token_count; ++i) {
+            int pos = macro_name_pos + i;
+            Token* tok = pp_token_at(pp, pos);
             if (tok->kind == TokenKind_hashhash) {
                 // Concatenate previous and next tokens
-                if (result_len > 0 && i + 1 < pp->pos) {
-                    Token* left = pp_token_at(pp, i - 1);
-                    Token* right = pp_token_at(pp, i + 1);
+                if (0 < i && i < token_count - 1) {
+                    Token* left = pp_token_at(pp, pos - 1);
+                    Token* right = pp_token_at(pp, pos + 1);
                     Token* concatenated = concat_two_tokens(left, right);
 
                     // Replace the three tokens (left ## right) with the concatenated one
                     TokenArray single_token;
                     tokens_init(&single_token, 1);
                     *tokens_push_new(&single_token) = *concatenated;
-                    int new_pos = replace_pp_tokens(pp, i - 1, i + 2, &single_token);
-                    i = new_pos - 1;
-                    ++result_len;
+                    replace_pp_tokens(pp, pos - 1, pos + 2, &single_token);
+                    --i;
+                    ++token_count2;
                 } else {
                     fatal_error("invalid usage of ## operator");
                 }
             } else {
-                ++result_len;
+                ++token_count2;
             }
         }
 
         // Inherit a source location from the original macro token.
-        for (size_t i = 0; i < result_len; ++i) {
+        for (size_t i = 0; i < token_count2; ++i) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
+        pp->pos = macro_name_pos;
     } else if (macro->kind == MacroKind_obj) {
         replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &macro->replacements);
         // Inherit a source location from the original macro token.
@@ -913,7 +955,6 @@ static BOOL is_delimiter_of_current_group(GroupDelimiterKind delimiter_kind, Tok
 }
 
 static int replace_pp_tokens(Preprocessor*, int, int, TokenArray*);
-static BOOL expand_macro(Preprocessor*);
 static void include_conditionally(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_include);
 
 static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include) {
@@ -950,7 +991,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
                     defined_result->value.integer = is_defined;
                     pp->pos = replace_pp_tokens(pp, defined_pos, pp->pos, &defined_results);
                 } else {
-                    BOOL expanded = expand_macro(pp);
+                    BOOL expanded = expand_macro(pp, FALSE);
                     if (expanded) {
                         // A macro may expand to another macro. Re-scan the expanded tokens.
                         // TODO: if the macro is defined recursively, it causes infinite loop.
@@ -1195,7 +1236,7 @@ static void preprocess_text_line(Preprocessor* pp) {
             continue;
         }
 
-        BOOL expanded = expand_macro(pp);
+        BOOL expanded = expand_macro(pp, TRUE);
         if (expanded) {
             // A macro may expand to another macro. Re-scan the expanded tokens.
             // TODO: if the macro is defined recursively, it causes infinite loop.

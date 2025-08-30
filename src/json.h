@@ -28,7 +28,7 @@ void jsonbuilder_string(JsonBuilder* b, const char* value);
     do { \
         JsonBuilder* _builder = jsonbuilder_new(); \
         f(_builder, (x)); \
-        fprintf(stderr, "%s", jsonbuilder_get_output(_builder)); \
+        fprintf(stderr, "%s\n", jsonbuilder_get_output(_builder)); \
     } while (0)
 
 #endif
