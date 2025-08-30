@@ -1,5 +1,3 @@
-all: build
-
 build N="1":
     #!/usr/bin/env bash
     set -e
@@ -13,8 +11,7 @@ build N="1":
         cc="./build/ducc$(({{N}} - 1))"
         target=ducc{{N}}
     fi
-    # TODO: Remove --always-make once ducc supports -MD.
-    CC="$cc" TARGET="$target" make --always-make
+    CC="$cc" TARGET="$target" make
 
 build-upto-5-gen:
     just build 1

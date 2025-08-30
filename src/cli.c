@@ -5,6 +5,7 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     const char* output_filename = NULL;
     int positional_arguments_start = -1;
     BOOL only_compile = FALSE;
+    BOOL generate_deps = FALSE;
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] != '-') {
@@ -16,8 +17,8 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             // ignore
         } else if (c == 'O') {
             // ignore
-        } else if (c == 'M') {
-            // ignore
+        } else if (c == 'M' && argv[i][2] == '\0') {
+            // ignore -M
         } else if (c == 'o') {
             if (argc <= i + 1) {
                 fatal_error("-o requires filename");
@@ -26,6 +27,8 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             ++i;
         } else if (c == 'c') {
             only_compile = TRUE;
+        } else if (strcmp(argv[i], "-MMD") == 0) {
+            generate_deps = TRUE;
         } else {
             fatal_error("unknown option: %s", argv[i]);
         }
@@ -41,6 +44,7 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     a->only_compile = only_compile;
     a->totally_deligate_to_gcc = FALSE;
     a->gcc_command = NULL;
+    a->generate_deps = generate_deps;
 
     if (!a->only_compile && str_ends_with(a->input_filename, ".o")) {
         a->totally_deligate_to_gcc = TRUE;

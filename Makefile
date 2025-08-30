@@ -1,6 +1,7 @@
 SRC_DIR := src
-BUILD_DIR := build
 TARGET ?= ducc
+BUILD_ROOT_DIR := build
+BUILD_DIR := $(BUILD_ROOT_DIR)/.$(TARGET)
 
 OBJECTS := \
 	$(BUILD_DIR)/main.o \
@@ -8,6 +9,7 @@ OBJECTS := \
 	$(BUILD_DIR)/cli.o \
 	$(BUILD_DIR)/codegen.o \
 	$(BUILD_DIR)/common.o \
+	$(BUILD_DIR)/fs.o \
 	$(BUILD_DIR)/io.o \
 	$(BUILD_DIR)/json.o \
 	$(BUILD_DIR)/parse.o \
@@ -17,15 +19,15 @@ OBJECTS := \
 	$(BUILD_DIR)/tokenize.o
 
 .PHONY: all
-all: $(BUILD_DIR) $(BUILD_DIR)/$(TARGET)
-
-$(BUILD_DIR)/$(TARGET): $(OBJECTS)
-	$(CC) -MD -g -O0 -o $@ $^
+all: $(BUILD_DIR) $(BUILD_ROOT_DIR)/$(TARGET)
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
+$(BUILD_ROOT_DIR)/$(TARGET): $(OBJECTS)
+	$(CC) -MMD -g -O0 -o $@ $^
+
 $(BUILD_DIR)/%.o: src/%.c
-	$(CC) -c -MD -g -O0 -o $@ $<
+	$(CC) -c -MMD -g -O0 -o $@ $<
 
 -include $(BUILD_DIR)/*.d

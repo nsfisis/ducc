@@ -559,12 +559,14 @@ struct Preprocessor {
     int include_depth;
     char** include_paths;
     int n_include_paths;
+    StrArray* included_files;
 };
 typedef struct Preprocessor Preprocessor;
 
-static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros);
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files);
 
-static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros) {
+static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros,
+                                      StrArray* included_files) {
     if (include_depth >= 32) {
         fatal_error("include depth limit exceeded");
     }
@@ -574,6 +576,7 @@ static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, 
     pp->macros = macros;
     pp->include_depth = include_depth;
     pp->include_paths = calloc(16, sizeof(char*));
+    pp->included_files = included_files;
 
     return pp;
 }
@@ -745,7 +748,8 @@ static void expand_include_directive(Preprocessor* pp, const char* include_name,
                     original_include_name_tok->loc.line, token_stringify(original_include_name_tok));
     }
 
-    TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros);
+    TokenArray* include_pp_tokens =
+        do_preprocess(include_source, pp->include_depth + 1, pp->macros, pp->included_files);
     tokens_pop(include_pp_tokens); // pop EOF token
     pp->pos = insert_pp_tokens(pp, pp->pos, include_pp_tokens);
 }
@@ -1119,6 +1123,20 @@ static void preprocess_include_directive(Preprocessor* pp) {
         fatal_error("%s:%d: cannot resolve include file name: %s", include_name->loc.filename, include_name->loc.line,
                     token_stringify(include_name));
     }
+
+    if (include_name->value.string[0] == '"') {
+        BOOL already_included = FALSE;
+        for (size_t i = 0; i < pp->included_files->len; ++i) {
+            if (strcmp(pp->included_files->data[i], include_name_resolved) == 0) {
+                already_included = TRUE;
+                break;
+            }
+        }
+        if (!already_included) {
+            strings_push(pp->included_files, include_name_resolved);
+        }
+    }
+
     skip_whitespaces(pp);
     expect_pp_token(pp, TokenKind_newline);
     expand_include_directive(pp, include_name_resolved, include_name);
@@ -1379,9 +1397,9 @@ static char* get_ducc_include_path() {
     return buf;
 }
 
-static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros) {
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files) {
     TokenArray* pp_tokens = pp_tokenize(src);
-    Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros);
+    Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros, included_files);
     add_include_path(pp, get_ducc_include_path());
     add_include_path(pp, "/usr/include/x86_64-linux-gnu");
     add_include_path(pp, "/usr/include");
@@ -1390,8 +1408,9 @@ static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros) {
     return pp->pp_tokens;
 }
 
-TokenArray* preprocess(InFile* src) {
+TokenArray* preprocess(InFile* src, StrArray* included_files) {
     MacroArray* macros = macros_new();
     add_predefined_macros(macros);
-    return do_preprocess(src, 0, macros);
+    strings_push(included_files, src->loc.filename);
+    return do_preprocess(src, 0, macros, included_files);
 }

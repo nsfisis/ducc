@@ -8,6 +8,7 @@ struct CliArgs {
     const char* output_filename;
     BOOL output_assembly;
     BOOL only_compile;
+    BOOL generate_deps;
     BOOL totally_deligate_to_gcc;
     const char* gcc_command;
 };

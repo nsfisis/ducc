@@ -14,12 +14,7 @@ void sourcelocation_build_json(JsonBuilder* builder, SourceLocation* loc) {
 }
 
 InFile* infile_open(const char* filename) {
-    FILE* in;
-    if (strcmp(filename, "-") == 0) {
-        in = stdin;
-    } else {
-        in = fopen(filename, "rb");
-    }
+    FILE* in = fopen(filename, "rb");
     if (!in) {
         return NULL;
     }

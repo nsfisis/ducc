@@ -2,6 +2,7 @@
 #include "cli.h"
 #include "codegen.h"
 #include "common.h"
+#include "fs.h"
 #include "io.h"
 #include "parse.h"
 #include "preprocess.h"
@@ -16,7 +17,11 @@ int main(int argc, char** argv) {
     }
 
     InFile* source = infile_open(cli_args->input_filename);
-    TokenArray* pp_tokens = preprocess(source);
+
+    StrArray included_files;
+    strings_init(&included_files);
+
+    TokenArray* pp_tokens = preprocess(source, &included_files);
     TokenArray* tokens = tokenize(pp_tokens);
     Program* prog = parse(tokens);
 
@@ -44,5 +49,19 @@ int main(int argc, char** argv) {
         if (result != 0) {
             fatal_error("gcc failed: %d", result);
         }
+    }
+
+    if (cli_args->generate_deps && cli_args->only_compile && cli_args->output_filename) {
+        const char* dep_filename = replace_extension(cli_args->output_filename, ".d");
+
+        FILE* dep_file = fopen(dep_filename, "w");
+        if (!dep_file) {
+            fatal_error("Cannot open dependency file: %s", dep_filename);
+        }
+        fprintf(dep_file, "%s:", cli_args->output_filename);
+        for (size_t i = 0; i < included_files.len; ++i) {
+            fprintf(dep_file, " \\\n    %s", included_files.data[i]);
+        }
+        fprintf(dep_file, "\n");
     }
 }
