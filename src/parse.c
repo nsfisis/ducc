@@ -503,6 +503,10 @@ static AstNode* parse_postfix_expr(Parser* p) {
     return ret;
 }
 
+static BOOL is_typedef_name(Parser* p, Token* tok) {
+    return tok->kind == TokenKind_ident && find_typedef(p, tok->value.string) != -1;
+}
+
 static BOOL is_type_token(Parser* p, Token* token) {
     if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_short ||
         token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
@@ -898,8 +902,8 @@ static AstNode* parse_if_stmt(Parser* p) {
 }
 
 // pointer:
-//     '*' TODO attribute-specifier-sequence_opt TODO type-qualifier-list_opt
-//     '*' TODO attribute-specifier-sequence_opt TODO type-qualifier-list_opt pointer
+//     '*' TODO attribute-specifier-sequence? TODO type-qualifier-list?
+//     '*' TODO attribute-specifier-sequence? TODO type-qualifier-list? pointer
 static Type* parse_pointer_opt(Parser* p, Type* ty) {
     while (peek_token(p)->kind == TokenKind_star) {
         next_token(p);
@@ -909,10 +913,10 @@ static Type* parse_pointer_opt(Parser* p, Type* ty) {
 }
 
 // array-declarator:
-//     direct-declarator '[' TODO type-qualifier-list_opt TODO assignment-expression_opt ']'
-//     TODO direct-declarator '[' 'static' type-qualifier-list_opt assignment-expression_opt ']'
-//     TODO direct-declarator '[' type-qualifier-list 'static' assignment-expression_opt ']'
-//     TODO direct-declarator '[' type-qualifier-list_opt '*' ']'
+//     direct-declarator '[' TODO type-qualifier-list? TODO assignment-expression? ']'
+//     TODO direct-declarator '[' 'static' type-qualifier-list? assignment-expression? ']'
+//     TODO direct-declarator '[' type-qualifier-list 'static' assignment-expression? ']'
+//     TODO direct-declarator '[' type-qualifier-list? '*' ']'
 static Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
     next_token(p); // skip '['
 
@@ -927,10 +931,10 @@ static Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
 }
 
 // direct-declarator:
-//     identifier TODO attribute-specifier-sequence_opt
+//     identifier TODO attribute-specifier-sequence?
 //     TODO '(' declarator ')'
-//     array-declarator TODO attribute-specifier-sequence_opt
-//     TODO function-declarator TODO attribute-specifier-sequence_opt
+//     array-declarator TODO attribute-specifier-sequence?
+//     TODO function-declarator TODO attribute-specifier-sequence?
 static AstNode* parse_direct_declarator(Parser* p, Type* ty) {
     const Token* name = parse_ident(p);
     while (1) {
@@ -948,7 +952,7 @@ static AstNode* parse_direct_declarator(Parser* p, Type* ty) {
 }
 
 // declarator:
-//     pointer_opt direct-declarator
+//     pointer? direct-declarator
 static AstNode* parse_declarator(Parser* p, Type* ty) {
     ty = parse_pointer_opt(p, ty);
     return parse_direct_declarator(p, ty);
@@ -1207,13 +1211,7 @@ static AstNode* parse_param_list(Parser* p) {
     return list;
 }
 
-static AstNode* parse_global_var_decl(Parser* p) {
-    Type* base_ty = parse_type(p);
-    if (type_is_unsized(base_ty)) {
-        fatal_error("parse_global_var_decl: invalid type for variable");
-    }
-
-    AstNode* decls = parse_init_declarator_list(p, base_ty);
+static AstNode* parse_global_var_decl(Parser* p, AstNode* decls) {
     expect(p, TokenKind_semicolon);
 
     for (int i = 0; i < decls->node_len; ++i) {
@@ -1229,24 +1227,18 @@ static AstNode* parse_global_var_decl(Parser* p) {
         decl->kind = AstNodeKind_gvar_decl;
         decl->node_expr = decl->node_init;
     }
+
     return decls;
 }
 
-static AstNode* parse_func_decl_or_def(Parser* p) {
-    // TODO: remove it.
-    int start_pos = p->pos;
-
-    Type* ty = parse_type(p);
-    const Token* name = parse_ident(p);
-
-    if (peek_token(p)->kind != TokenKind_paren_l) {
-        // TODO: avoid backtracking
-        p->pos = start_pos;
-        return parse_global_var_decl(p);
+static AstNode* parse_func_decl_or_def(Parser* p, AstNode* decls) {
+    if (decls->node_len != 1) {
+        fatal_error("parse_func_decl_or_def: invalid syntax");
     }
+    Type* ty = decls->node_items[0].ty;
+    const char* name = decls->node_items[0].name;
 
-    expect(p, TokenKind_paren_l);
-    register_func(p, name->value.string, ty);
+    register_func(p, name, ty);
     AstNode* params = parse_param_list(p);
     expect(p, TokenKind_paren_r);
     if (consume_token_if(p, TokenKind_semicolon)) {
@@ -1258,7 +1250,7 @@ static AstNode* parse_func_decl_or_def(Parser* p) {
     leave_func(p);
     AstNode* func = ast_new(AstNodeKind_func_def);
     func->ty = ty;
-    func->name = name->value.string;
+    func->name = name;
     func->node_params = params;
     func->node_body = body;
     if (p->lvars.len == 0) {
@@ -1290,36 +1282,6 @@ static AstNode* parse_struct_members(Parser* p) {
     return list;
 }
 
-static AstNode* parse_struct_decl_or_def(Parser* p) {
-    expect(p, TokenKind_keyword_struct);
-    const Token* name = parse_ident(p);
-
-    if (peek_token(p)->kind != TokenKind_semicolon && peek_token(p)->kind != TokenKind_brace_l) {
-        p->pos = p->pos - 2;
-        return parse_func_decl_or_def(p);
-    }
-
-    int struct_idx = find_struct(p, name->value.string);
-    if (struct_idx == -1) {
-        AstNode* new_struct = ast_new(AstNodeKind_struct_def);
-        new_struct->name = name->value.string;
-        ast_append(p->structs, new_struct);
-        struct_idx = p->structs->node_len - 1;
-    }
-    if (consume_token_if(p, TokenKind_semicolon)) {
-        return ast_new(AstNodeKind_struct_decl);
-    }
-    if (p->structs->node_items[struct_idx].node_members) {
-        fatal_error("parse_struct_decl_or_def: struct %s redefined", name->value.string);
-    }
-    expect(p, TokenKind_brace_l);
-    AstNode* members = parse_struct_members(p);
-    expect(p, TokenKind_brace_r);
-    expect(p, TokenKind_semicolon);
-    p->structs->node_items[struct_idx].node_members = members;
-    return &p->structs->node_items[struct_idx];
-}
-
 static AstNode* parse_union_member(Parser* p) {
     Type* ty = parse_type(p);
     const Token* name = parse_ident(p);
@@ -1337,36 +1299,6 @@ static AstNode* parse_union_members(Parser* p) {
         ast_append(list, member);
     }
     return list;
-}
-
-static AstNode* parse_union_decl_or_def(Parser* p) {
-    expect(p, TokenKind_keyword_union);
-    const Token* name = parse_ident(p);
-
-    if (peek_token(p)->kind != TokenKind_semicolon && peek_token(p)->kind != TokenKind_brace_l) {
-        p->pos = p->pos - 2;
-        return parse_func_decl_or_def(p);
-    }
-
-    int union_idx = find_union(p, name->value.string);
-    if (union_idx == -1) {
-        AstNode* new_union = ast_new(AstNodeKind_union_def);
-        new_union->name = name->value.string;
-        ast_append(p->unions, new_union);
-        union_idx = p->unions->node_len - 1;
-    }
-    if (consume_token_if(p, TokenKind_semicolon)) {
-        return ast_new(AstNodeKind_union_decl);
-    }
-    if (p->unions->node_items[union_idx].node_members) {
-        fatal_error("parse_union_decl_or_def: union %s redefined", name->value.string);
-    }
-    expect(p, TokenKind_brace_l);
-    AstNode* members = parse_union_members(p);
-    expect(p, TokenKind_brace_r);
-    expect(p, TokenKind_semicolon);
-    p->unions->node_items[union_idx].node_members = members;
-    return &p->unions->node_items[union_idx];
 }
 
 static AstNode* parse_enum_member(Parser* p) {
@@ -1391,77 +1323,394 @@ static AstNode* parse_enum_members(Parser* p) {
     return list;
 }
 
-static AstNode* parse_enum_def(Parser* p) {
-    expect(p, TokenKind_keyword_enum);
+void parse_typedef_decl(Parser* p, AstNode* decls) {
+    expect(p, TokenKind_semicolon);
+    for (int i = 0; i < decls->node_len; ++i) {
+        AstNode* decl = &decls->node_items[i];
+
+        AstNode* typedef_ = ast_new(AstNodeKind_typedef_decl);
+        typedef_->name = decl->name;
+        typedef_->ty = decl->ty;
+        ast_append(p->typedefs, typedef_);
+    }
+}
+
+void parse_extern_var_decl(Parser* p, AstNode* decls) {
+    expect(p, TokenKind_semicolon);
+
+    for (int i = 0; i < decls->node_len; ++i) {
+        AstNode* decl = &decls->node_items[i];
+
+        if (find_gvar(p, decl->name) != -1) {
+            fatal_error("parse_extern_var_decl: %s redeclared", decl->name);
+        }
+        GlobalVar* gvar = gvars_push_new(&p->gvars);
+        gvar->name = decl->name;
+        gvar->ty = decl->ty;
+    }
+}
+
+// struct-specifier:
+//     'struct' TODO attribute-specifier-sequence? identifier? '{' member-declaration-list '}'
+//     'struct' TODO attribute-specifier-sequence? identifier
+static Type* parse_struct_specifier(Parser* p) {
+    next_token(p);
+
+    // TODO: support anonymous struct
     const Token* name = parse_ident(p);
 
-    if (peek_token(p)->kind != TokenKind_brace_l) {
-        p->pos = p->pos - 2;
-        return parse_func_decl_or_def(p);
+    if (!consume_token_if(p, TokenKind_brace_l)) {
+        int struct_idx = find_struct(p, name->value.string);
+        if (struct_idx != -1) {
+            Type* ty = type_new(TypeKind_struct);
+            ty->ref.defs = p->structs;
+            ty->ref.index = struct_idx;
+            return ty;
+        } else {
+            // TODO
+            AstNode* new_struct = ast_new(AstNodeKind_struct_def);
+            new_struct->name = name->value.string;
+            ast_append(p->structs, new_struct);
+            struct_idx = p->structs->node_len - 1;
+
+            Type* ty = type_new(TypeKind_struct);
+            ty->ref.defs = p->structs;
+            ty->ref.index = struct_idx;
+            return ty;
+        }
+    }
+
+    int struct_idx = find_struct(p, name->value.string);
+    if (struct_idx != -1 && p->structs->node_items[struct_idx].node_members) {
+        fatal_error("%s:%d: struct %s redefined", name->loc.filename, name->loc.line, name->value.string);
+    }
+
+    if (struct_idx == -1) {
+        AstNode* new_struct = ast_new(AstNodeKind_struct_def);
+        new_struct->name = name->value.string;
+        ast_append(p->structs, new_struct);
+        struct_idx = p->structs->node_len - 1;
+    }
+
+    AstNode* members = parse_struct_members(p);
+    expect(p, TokenKind_brace_r);
+    expect(p, TokenKind_semicolon);
+    p->structs->node_items[struct_idx].node_members = members;
+
+    Type* ty = type_new(TypeKind_struct);
+    ty->ref.defs = p->structs;
+    ty->ref.index = struct_idx;
+    return ty;
+}
+
+// union-specifier:
+//     'union' TODO attribute-specifier-sequence? identifier? '{' member-declaration-list '}'
+//     'union' TODO attribute-specifier-sequence? identifier
+static Type* parse_union_specifier(Parser* p) {
+    next_token(p);
+
+    // TODO: support anonymous union
+    const Token* name = parse_ident(p);
+
+    if (!consume_token_if(p, TokenKind_brace_l)) {
+        int union_idx = find_union(p, name->value.string);
+        if (union_idx != -1) {
+            Type* ty = type_new(TypeKind_union);
+            ty->ref.defs = p->unions;
+            ty->ref.index = union_idx;
+            return ty;
+        } else {
+            // TODO
+            AstNode* new_union = ast_new(AstNodeKind_union_def);
+            new_union->name = name->value.string;
+            ast_append(p->unions, new_union);
+            union_idx = p->unions->node_len - 1;
+
+            Type* ty = type_new(TypeKind_union);
+            ty->ref.defs = p->unions;
+            ty->ref.index = union_idx;
+            return ty;
+        }
+    }
+
+    int union_idx = find_union(p, name->value.string);
+    if (union_idx != -1 && p->unions->node_items[union_idx].node_members) {
+        fatal_error("%s:%d: union %s redefined", name->loc.filename, name->loc.line, name->value.string);
+    }
+
+    if (union_idx == -1) {
+        AstNode* new_union = ast_new(AstNodeKind_union_def);
+        new_union->name = name->value.string;
+        ast_append(p->unions, new_union);
+        union_idx = p->unions->node_len - 1;
+    }
+
+    AstNode* members = parse_union_members(p);
+    expect(p, TokenKind_brace_r);
+    expect(p, TokenKind_semicolon);
+    p->unions->node_items[union_idx].node_members = members;
+
+    Type* ty = type_new(TypeKind_union);
+    ty->ref.defs = p->unions;
+    ty->ref.index = union_idx;
+    return ty;
+}
+
+// enum-specifier:
+//     'enum' TODO attribute-specifier-sequence? identifier? TODO enum-type-specifier? '{' enumerator-list ','? '}'
+//     'enum' identifier TODO enum-type-specifier?
+static Type* parse_enum_specifier(Parser* p) {
+    next_token(p);
+
+    // TODO: support anonymous enum
+    const Token* name = parse_ident(p);
+
+    if (!consume_token_if(p, TokenKind_brace_l)) {
+        int enum_idx = find_enum(p, name->value.string);
+        if (enum_idx != -1) {
+            Type* ty = type_new(TypeKind_enum);
+            ty->ref.defs = p->enums;
+            ty->ref.index = enum_idx;
+            return ty;
+        } else {
+            // TODO
+            AstNode* new_enum = ast_new(AstNodeKind_enum_def);
+            new_enum->name = name->value.string;
+            ast_append(p->enums, new_enum);
+            enum_idx = p->enums->node_len - 1;
+
+            Type* ty = type_new(TypeKind_enum);
+            ty->ref.defs = p->enums;
+            ty->ref.index = enum_idx;
+            return ty;
+        }
     }
 
     int enum_idx = find_enum(p, name->value.string);
+    if (enum_idx != -1 && p->enums->node_items[enum_idx].node_members) {
+        fatal_error("%s:%d: enum %s redefined", name->loc.filename, name->loc.line, name->value.string);
+    }
+
     if (enum_idx == -1) {
         AstNode* new_enum = ast_new(AstNodeKind_enum_def);
         new_enum->name = name->value.string;
         ast_append(p->enums, new_enum);
         enum_idx = p->enums->node_len - 1;
-    } else {
-        fatal_error("parse_enum_def: enum %s redefined", name->value.string);
     }
-    expect(p, TokenKind_brace_l);
+
     AstNode* members = parse_enum_members(p);
     expect(p, TokenKind_brace_r);
-    expect(p, TokenKind_semicolon);
     p->enums->node_items[enum_idx].node_members = members;
-    return &p->enums->node_items[enum_idx];
+
+    Type* ty = type_new(TypeKind_enum);
+    ty->ref.defs = p->enums;
+    ty->ref.index = enum_idx;
+    return ty;
 }
 
-static AstNode* parse_typedef_decl(Parser* p) {
-    expect(p, TokenKind_keyword_typedef);
-    Type* ty = parse_type(p);
-    const Token* name = parse_ident(p);
-    expect(p, TokenKind_semicolon);
-    AstNode* decl = ast_new(AstNodeKind_typedef_decl);
-    decl->name = name->value.string;
-    decl->ty = ty;
-    ast_append(p->typedefs, decl);
-    return decl;
-}
+// declaration-specifiers:
+//     { declaration-specifier }+ TODO attribute-specifier-sequence?
+//
+// declaration-specifier:
+//     storage-class-specifier
+//     type-specifier-qualifier
+//     function-speicifier
+//
+// storage-class-specifier:
+//     'auto'
+//     'constexpr'
+//     'extern'
+//     'register'
+//     'static'
+//     'thread_local'
+//     'typedef'
+//
+// type-specifier-qualifier:
+//     type-specifier
+//     type-qualifier
+//     alignment-specifier
+//
+// function-specifier:
+//     'inline'
+//     '_Noreturn'
+//
+// type-specifier:
+//     'void'
+//     'char'
+//     'short'
+//     'int'
+//     'long'
+//     'float'
+//     'double'
+//     'signed'
+//     'unsigned'
+//     TODO '_BitInt' '(' constant-expression ')'
+//     'bool'
+//     '_Complex'
+//     '_Decimal32'
+//     '_Decimal64'
+//     '_Decimal128'
+//     atomic-type-specifier
+//     struct-or-union-specifier
+//     enum-specifier
+//     typeof-specifier
+//     typedef-name
+//
+// type-qualifier:
+//     'const'
+//     'restrict'
+//     'volatile'
+//     '_Atomic'
+//
+// alignment-specifier:
+//     TODO 'alignas' '(' type-name ')'
+//     TODO 'alignas' '(' constant-expression ')'
+//
+// atomic-type-specifier:
+//     TODO '_Atomic' '(' type-name ')'
+//
+// struct-or-union-specifier:
+//     'struct' ...
+//     'union' ...
+//
+// enum-specifier:
+//     'enum' ...
+//
+// typeof-specifier:
+//     TODO 'typeof' '(' typeof-specifier-argument ')'
+//     TODO 'typeof_unqual' '(' typeof-specifier-argument ')'
+//
+// typedef-name:
+//     identifier
+static Type* parse_declaration_specifiers(Parser* p) {
+    StorageClass storage_class = StorageClass_unspecified;
+    Type* ty = NULL;
 
-static AstNode* parse_extern_var_decl(Parser* p) {
-    expect(p, TokenKind_keyword_extern);
-    Type* ty = parse_type(p);
-    if (type_is_unsized(ty)) {
-        fatal_error("parse_extern_var_decl: invalid type for variable");
+    while (1) {
+        Token* tok = peek_token(p);
+
+        // storage-class-spciefier
+        if (tok->kind == TokenKind_keyword_auto) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_constexpr) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_extern) {
+            next_token(p);
+            storage_class = StorageClass_extern;
+        } else if (tok->kind == TokenKind_keyword_register) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_static) {
+            next_token(p);
+            storage_class = StorageClass_static;
+        } else if (tok->kind == TokenKind_keyword_thread_local) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_typedef) {
+            next_token(p);
+            storage_class = StorageClass_typedef;
+        }
+        // type-specifier-qualifier > type-specifier
+        else if (tok->kind == TokenKind_keyword_void) {
+            next_token(p);
+            ty = type_new(TypeKind_void);
+        } else if (tok->kind == TokenKind_keyword_char) {
+            next_token(p);
+            ty = type_new(TypeKind_char);
+        } else if (tok->kind == TokenKind_keyword_short) {
+            next_token(p);
+            ty = type_new(TypeKind_short);
+        } else if (tok->kind == TokenKind_keyword_int) {
+            next_token(p);
+            ty = type_new(TypeKind_int);
+        } else if (tok->kind == TokenKind_keyword_long) {
+            next_token(p);
+            ty = type_new(TypeKind_long);
+        } else if (tok->kind == TokenKind_keyword_float) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_double) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_signed) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_unsigned) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__BitInt) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_bool) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Complex) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Decimal32) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Decimal64) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Decimal128) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Atomic) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_struct) {
+            ty = parse_struct_specifier(p);
+        } else if (tok->kind == TokenKind_keyword_union) {
+            ty = parse_union_specifier(p);
+        } else if (tok->kind == TokenKind_keyword_enum) {
+            ty = parse_enum_specifier(p);
+        } else if (tok->kind == TokenKind_keyword_typeof) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_typeof_unqual) {
+            unimplemented();
+        } else if (is_typedef_name(p, tok)) {
+            next_token(p);
+            int typedef_idx = find_typedef(p, tok->value.string);
+            ty = p->typedefs->node_items[typedef_idx].ty;
+        }
+        // type-specifier-qualifier > type-qualifier
+        else if (tok->kind == TokenKind_keyword_const) {
+            // TODO
+            next_token(p);
+        } else if (tok->kind == TokenKind_keyword_restrict) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_volatile) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Atomic) {
+            unimplemented();
+        }
+        // type-specifier-qualifier > alignment-specifier
+        else if (tok->kind == TokenKind_keyword_alignas) {
+            unimplemented();
+        }
+        // function-specifier
+        else if (tok->kind == TokenKind_keyword_inline) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Noreturn) {
+            unimplemented();
+        } else {
+            break;
+        }
     }
-    const Token* name = parse_ident(p);
-    expect(p, TokenKind_semicolon);
 
-    if (find_lvar(p, name->value.string) != -1 || find_gvar(p, name->value.string) != -1) {
-        fatal_error("parse_extern_var_decl: %s redeclared", name->value.string);
-    }
-    GlobalVar* gvar = gvars_push_new(&p->gvars);
-    gvar->name = name->value.string;
-    gvar->ty = ty;
-
-    return ast_new(AstNodeKind_gvar_decl);
+    ty->storage_class = storage_class;
+    return ty;
 }
 
 static AstNode* parse_toplevel(Parser* p) {
-    TokenKind tk = peek_token(p)->kind;
-    if (tk == TokenKind_keyword_struct) {
-        return parse_struct_decl_or_def(p);
-    } else if (tk == TokenKind_keyword_union) {
-        return parse_union_decl_or_def(p);
-    } else if (tk == TokenKind_keyword_enum) {
-        return parse_enum_def(p);
-    } else if (tk == TokenKind_keyword_typedef) {
-        return parse_typedef_decl(p);
-    } else if (tk == TokenKind_keyword_extern) {
-        return parse_extern_var_decl(p);
+    Type* ty = parse_declaration_specifiers(p);
+    if (consume_token_if(p, TokenKind_semicolon)) {
+        // Type declaration.
+        return NULL;
+    }
+
+    AstNode* decls = parse_init_declarator_list(p, ty);
+
+    if (consume_token_if(p, TokenKind_paren_l)) {
+        return parse_func_decl_or_def(p, decls);
+    }
+
+    if (ty->storage_class == StorageClass_typedef) {
+        parse_typedef_decl(p, decls);
+        return NULL;
+    } else if (ty->storage_class == StorageClass_extern) {
+        parse_extern_var_decl(p, decls);
+        return NULL;
     } else {
-        return parse_func_decl_or_def(p);
+        return parse_global_var_decl(p, decls);
     }
 }
 
@@ -1471,6 +1720,8 @@ Program* parse(TokenArray* tokens) {
     AstNode* vars = ast_new_list(16);
     while (eof(p)) {
         AstNode* n = parse_toplevel(p);
+        if (!n)
+            continue;
         if (n->kind == AstNodeKind_func_def) {
             ast_append(funcs, n);
         } else if (n->kind == AstNodeKind_gvar_decl && n->ty) {
