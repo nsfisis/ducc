@@ -1084,6 +1084,7 @@ static BOOL preprocess_elif_groups_opt(Preprocessor* pp, BOOL did_include) {
 //     '#' 'else' group?
 static void preprocess_else_group(Preprocessor* pp, BOOL did_include) {
     skip_pp_token(pp, TokenKind_pp_directive_else);
+    skip_whitespaces(pp);
     expect_pp_token(pp, TokenKind_newline);
 
     include_conditionally(pp, GroupDelimiterKind_after_else_directive, !did_include);
@@ -1093,6 +1094,7 @@ static void preprocess_else_group(Preprocessor* pp, BOOL did_include) {
 //     '#' 'endif' new-line
 static void preprocess_endif_directive(Preprocessor* pp) {
     skip_pp_token(pp, TokenKind_pp_directive_endif);
+    skip_whitespaces(pp);
     expect_pp_token(pp, TokenKind_newline);
 }
 
