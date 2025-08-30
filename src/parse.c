@@ -589,7 +589,9 @@ static Type* parse_type(Parser* p) {
         }
         ty = type_new_ptr(ty);
     }
-    ty->is_static = has_static;
+    if (has_static) {
+        ty->storage_class = StorageClass_static;
+    }
     return ty;
 }
 
@@ -1265,7 +1267,7 @@ static AstNode* parse_func_decl_or_def(Parser* p) {
         func->node_stack_size =
             p->lvars.data[p->lvars.len - 1].stack_offset + type_sizeof(p->lvars.data[p->lvars.len - 1].ty);
     }
-    func->node_function_is_static = ty->is_static;
+    func->node_function_is_static = ty->storage_class == StorageClass_static;
     return func;
 }
 

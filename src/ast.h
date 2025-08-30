@@ -3,6 +3,18 @@
 
 #include "std.h"
 
+enum StorageClass {
+    StorageClass_unspecified,
+    StorageClass_auto,
+    StorageClass_constexpr,
+    StorageClass_extern,
+    StorageClass_register,
+    StorageClass_static,
+    StorageClass_thread_local,
+    StorageClass_typedef,
+};
+typedef enum StorageClass StorageClass;
+
 enum TypeKind {
     TypeKind_unknown,
 
@@ -32,11 +44,11 @@ typedef struct TypeRef TypeRef;
 
 struct Type {
     TypeKind kind;
+    StorageClass storage_class;
     // Check `base` instead of `kind` to test if the type is an array or a pointer.
     struct Type* base;
     int array_size;
     TypeRef ref;
-    BOOL is_static;
 };
 typedef struct Type Type;
 
