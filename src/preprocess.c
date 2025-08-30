@@ -738,10 +738,11 @@ static void replace_single_pp_token(Preprocessor* pp, int dest, Token* source_to
     replace_pp_tokens(pp, dest, dest + 1, &tokens);
 }
 
-static void expand_include_directive(Preprocessor* pp, const char* include_name) {
+static void expand_include_directive(Preprocessor* pp, const char* include_name, Token* original_include_name_tok) {
     InFile* include_source = infile_open(include_name);
     if (!include_source) {
-        fatal_error("cannot open include file: %s", include_name);
+        fatal_error("%s:%d: cannot open include file: %s", original_include_name_tok->loc.filename,
+                    original_include_name_tok->loc.line, token_stringify(original_include_name_tok));
     }
 
     TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros);
@@ -1115,11 +1116,12 @@ static void preprocess_include_directive(Preprocessor* pp) {
     Token* include_name = read_include_header_name(pp);
     const char* include_name_resolved = resolve_include_name(pp, include_name);
     if (include_name_resolved == NULL) {
-        fatal_error("cannot resolve include file name: %s", include_name);
+        fatal_error("%s:%d: cannot resolve include file name: %s", include_name->loc.filename, include_name->loc.line,
+                    token_stringify(include_name));
     }
     skip_whitespaces(pp);
     expect_pp_token(pp, TokenKind_newline);
-    expand_include_directive(pp, include_name_resolved);
+    expand_include_directive(pp, include_name_resolved, include_name);
 }
 
 static void preprocess_embed_directive(Preprocessor* pp) {

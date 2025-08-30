@@ -291,16 +291,12 @@ const char* token_stringify(Token* tok) {
         sprintf(buf, "#%s", tok->value.string);
         return buf;
     } else if (k == TokenKind_literal_int) {
-        const char* kind_str = token_kind_stringify(k);
-        char* buf = calloc(10 + strlen(kind_str) + 3 + 1, sizeof(char));
-        sprintf(buf, "%d (%s)", tok->value.integer, kind_str);
+        char* buf = calloc(10, sizeof(char));
+        sprintf(buf, "%d", tok->value.integer);
         return buf;
     } else if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_ident ||
-               k == TokenKind_literal_str) {
-        const char* kind_str = token_kind_stringify(k);
-        char* buf = calloc(strlen(tok->value.string) + strlen(kind_str) + 3 + 1, sizeof(char));
-        sprintf(buf, "%s (%s)", tok->value.string, kind_str);
-        return buf;
+               k == TokenKind_literal_str || k == TokenKind_header_name) {
+        return tok->value.string;
     } else {
         return token_kind_stringify(k);
     }

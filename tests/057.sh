@@ -1,5 +1,5 @@
 cat <<'EOF' > expected
-cannot open include file: ./nonexistent.h
+main.c:1: cannot open include file: "nonexistent.h"
 EOF
 
 test_compile_error <<'EOF'

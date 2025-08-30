@@ -7,7 +7,7 @@ int main() }
 EOF
 
 cat <<'EOF' > expected
-main.c:1: expected '{', but got '123 (<integer>)'
+main.c:1: expected '{', but got '123'
 EOF
 
 test_compile_error <<'EOF'
