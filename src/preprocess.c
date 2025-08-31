@@ -557,8 +557,7 @@ struct Preprocessor {
     int pos;
     MacroArray* macros;
     int include_depth;
-    char** include_paths;
-    int n_include_paths;
+    StrArray include_paths;
     StrArray* included_files;
 };
 typedef struct Preprocessor Preprocessor;
@@ -575,7 +574,7 @@ static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, 
     pp->pp_tokens = pp_tokens;
     pp->macros = macros;
     pp->include_depth = include_depth;
-    pp->include_paths = calloc(16, sizeof(char*));
+    strings_init(&pp->include_paths);
     pp->included_files = included_files;
 
     return pp;
@@ -646,9 +645,8 @@ static void undef_macro(Preprocessor* pp, int idx) {
     // TODO: Can predefined macro like __FILE__ be undefined?
 }
 
-static void add_include_path(Preprocessor* pp, char* include_path) {
-    pp->include_paths[pp->n_include_paths] = include_path;
-    ++pp->n_include_paths;
+static void add_include_path(Preprocessor* pp, const char* include_path) {
+    strings_push(&pp->include_paths, include_path);
 }
 
 static void skip_whitespaces(Preprocessor* pp) {
@@ -693,9 +691,9 @@ static const char* resolve_include_name(Preprocessor* pp, const Token* include_n
         sprintf(buf, "%s/%.*s", current_dir, (int)(strlen(include_name) - 2), include_name + 1);
         return buf;
     } else {
-        for (int i = 0; i < pp->n_include_paths; ++i) {
-            char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths[i]) + 1, sizeof(char));
-            sprintf(buf, "%s/%.*s", pp->include_paths[i], (int)(strlen(include_name) - 2), include_name + 1);
+        for (size_t i = 0; i < pp->include_paths.len; ++i) {
+            char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths.data[i]) + 1, sizeof(char));
+            sprintf(buf, "%s/%.*s", pp->include_paths.data[i], (int)(strlen(include_name) - 2), include_name + 1);
             if (access(buf, F_OK | R_OK) == 0) {
                 return buf;
             }
