@@ -690,12 +690,12 @@ static const char* resolve_include_name(Preprocessor* pp, const Token* include_n
         char* current_filename = strdup(include_name_token->loc.filename);
         const char* current_dir = dirname(current_filename);
         char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(current_dir) + 1, sizeof(char));
-        sprintf(buf, "%s/%.*s", current_dir, strlen(include_name) - 2, include_name + 1);
+        sprintf(buf, "%s/%.*s", current_dir, INT_CAST strlen(include_name) - 2, include_name + 1);
         return buf;
     } else {
         for (int i = 0; i < pp->n_include_paths; ++i) {
             char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths[i]) + 1, sizeof(char));
-            sprintf(buf, "%s/%.*s", pp->include_paths[i], strlen(include_name) - 2, include_name + 1);
+            sprintf(buf, "%s/%.*s", pp->include_paths[i], INT_CAST strlen(include_name) - 2, include_name + 1);
             if (access(buf, F_OK | R_OK) == 0) {
                 return buf;
             }
@@ -1286,7 +1286,6 @@ static void preprocess_text_line(Preprocessor* pp) {
 //     '#' 'pragma' ...
 //     '#' new-line
 static void preprocess_group_part(Preprocessor* pp) {
-    int first_token_pos = pp->pos;
     Token* tok = peek_pp_token(pp);
     if (tok->kind == TokenKind_pp_directive_if || tok->kind == TokenKind_pp_directive_ifdef ||
         tok->kind == TokenKind_pp_directive_ifndef) {

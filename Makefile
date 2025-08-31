@@ -25,9 +25,9 @@ $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
 $(BUILD_ROOT_DIR)/$(TARGET): $(OBJECTS)
-	$(CC) -MMD -g -O0 -o $@ $^
+	$(CC) -Wall -MMD -g -O0 -o $@ $^
 
 $(BUILD_DIR)/%.o: src/%.c
-	$(CC) -c -MMD -g -O0 -o $@ $<
+	$(CC) -c -Wall -MMD -g -O0 -o $@ $<
 
 -include $(BUILD_DIR)/*.d

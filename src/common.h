@@ -3,7 +3,7 @@
 
 #include "std.h"
 
-void fatal_error(const char* msg, ...);
+_Noreturn void fatal_error(const char* msg, ...);
 
 #define unreachable() fatal_error("%s:%d: unreachable", __FILE__, __LINE__)
 #define unimplemented() fatal_error("%s:%d: unimplemented", __FILE__, __LINE__)
