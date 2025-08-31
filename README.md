@@ -12,6 +12,23 @@ Ducc, Decidedly Unimplemented C compiler, is a toy C compiler.
 * [just](https://github.com/casey/just)
 
 
+### Optional: Nix support
+
+This project includes Nix support with flake.
+
+To build:
+
+```
+$ nix build
+```
+
+To develop:
+
+```
+$ nix develop
+```
+
+
 ## Build
 
 ```
