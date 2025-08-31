@@ -1,5 +1,10 @@
 #include "cli.h"
 #include "common.h"
+#include "version.h"
+
+static void print_version() {
+    printf("ducc v%s\n", DUCC_VERSION);
+}
 
 CliArgs* parse_cli_args(int argc, char** argv) {
     const char* output_filename = NULL;
@@ -29,6 +34,9 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             only_compile = TRUE;
         } else if (strcmp(argv[i], "-MMD") == 0) {
             generate_deps = TRUE;
+        } else if (strcmp(argv[i], "--version") == 0) {
+            print_version();
+            exit(0);
         } else {
             fatal_error("unknown option: %s", argv[i]);
         }
