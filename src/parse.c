@@ -183,6 +183,10 @@ static Token* peek_token(Parser* p) {
     return &p->tokens->data[p->pos];
 }
 
+static Token* peek_token2(Parser* p) {
+    return &p->tokens->data[p->pos + 1];
+}
+
 static Token* next_token(Parser* p) {
     return &p->tokens->data[p->pos++];
 }
@@ -644,13 +648,27 @@ static AstNode* parse_prefix_expr(Parser* p) {
     return parse_postfix_expr(p);
 }
 
+static AstNode* parse_cast_expr(Parser* p) {
+    if (peek_token(p)->kind == TokenKind_paren_l && is_type_token(p, peek_token2(p))) {
+        next_token(p);
+        Type* ty = parse_type(p);
+        expect(p, TokenKind_paren_r);
+
+        // TODO: check whether the original type can be casted to the result type.
+        AstNode* e = parse_cast_expr(p);
+        e->ty = ty;
+        return e;
+    }
+    return parse_prefix_expr(p);
+}
+
 static AstNode* parse_multiplicative_expr(Parser* p) {
-    AstNode* lhs = parse_prefix_expr(p);
+    AstNode* lhs = parse_cast_expr(p);
     while (1) {
         TokenKind op = peek_token(p)->kind;
         if (op == TokenKind_star || op == TokenKind_slash || op == TokenKind_percent) {
             next_token(p);
-            AstNode* rhs = parse_prefix_expr(p);
+            AstNode* rhs = parse_cast_expr(p);
             lhs = ast_new_binary_expr(op, lhs, rhs);
         } else {
             break;
