@@ -47,10 +47,6 @@ int system(const char*);
     } while (0)
 
 #ifdef __ducc__
-#define _Noreturn
-#endif
-
-#ifdef __ducc__
 #define INT_CAST
 #else
 #define INT_CAST (int)

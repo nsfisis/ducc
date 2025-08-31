@@ -1680,7 +1680,8 @@ static Type* parse_declaration_specifiers(Parser* p) {
         else if (tok->kind == TokenKind_keyword_inline) {
             unimplemented();
         } else if (tok->kind == TokenKind_keyword__Noreturn) {
-            unimplemented();
+            // TODO
+            next_token(p);
         } else {
             break;
         }
