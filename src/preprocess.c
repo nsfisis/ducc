@@ -1398,6 +1398,7 @@ static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, Str
     TokenArray* pp_tokens = pp_tokenize(src);
     Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros, included_files);
     add_include_path(pp, get_ducc_include_path());
+    add_include_path(pp, "/usr/local/include");
     add_include_path(pp, "/usr/include/x86_64-linux-gnu");
     add_include_path(pp, "/usr/include");
     preprocess_preprocessing_file(pp);
