@@ -601,10 +601,7 @@ static Token* next_pp_token(Preprocessor* pp) {
 
 static void skip_pp_token(Preprocessor* pp, TokenKind expected) {
     Token* tok = next_pp_token(pp);
-    // TODO: currently function-like macro expansion supports only one token.
-    // assert(tok->kind == expected);
-    BOOL ok = tok->kind == expected;
-    assert(ok);
+    assert(tok->kind == expected);
 }
 
 static Token* consume_pp_token_if(Preprocessor* pp, TokenKind expected) {
@@ -798,17 +795,41 @@ static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp, BOOL skip_newli
         expect_pp_token(pp, TokenKind_paren_r);
     }
     if (tok->kind != TokenKind_paren_r) {
-        next_pp_token(pp);
         MacroArg* arg = macroargs_push_new(args);
-        tokens_init(&arg->tokens, 1);
-        *tokens_push_new(&arg->tokens) = *tok;
-        skip_whitespaces_or_newlines(pp, skip_newline);
-        while (consume_pp_token_if(pp, TokenKind_comma)) {
-            skip_whitespaces_or_newlines(pp, skip_newline);
+        tokens_init(&arg->tokens, 4);
+
+        // Parse argument tokens, handling nested parentheses.
+        int nesting = 0;
+        while (TRUE) {
+            tok = peek_pp_token(pp);
+
+            if (nesting == 0) {
+                if (tok->kind == TokenKind_paren_r) {
+                    break;
+                }
+                if (tok->kind == TokenKind_comma) {
+                    next_pp_token(pp);
+                    skip_whitespaces_or_newlines(pp, skip_newline);
+
+                    arg = macroargs_push_new(args);
+                    tokens_init(&arg->tokens, 4);
+                    continue;
+                }
+            }
+
+            if (tok->kind == TokenKind_paren_l) {
+                nesting++;
+            } else if (tok->kind == TokenKind_paren_r) {
+                nesting--;
+                if (nesting < 0) {
+                    break;
+                }
+            }
+
             tok = next_pp_token(pp);
-            arg = macroargs_push_new(args);
-            tokens_init(&arg->tokens, 1);
             *tokens_push_new(&arg->tokens) = *tok;
+
+            skip_whitespaces_or_newlines(pp, skip_newline);
         }
     }
     expect_pp_token(pp, TokenKind_paren_r);
@@ -874,12 +895,16 @@ static BOOL expand_macro(Preprocessor* pp, BOOL skip_newline) {
 
         // Parameter substitution
         size_t token_count = 0;
+        size_t offset = 0;
         for (size_t i = 0; i < macro->replacements.len; ++i) {
-            Token* tok = pp_token_at(pp, macro_name_pos + i);
+            Token* tok = pp_token_at(pp, macro_name_pos + i + offset);
             int macro_param_idx = macro_find_param(macro, tok);
             if (macro_param_idx != -1) {
-                replace_pp_tokens(pp, macro_name_pos + i, macro_name_pos + i + 1, &args->data[macro_param_idx].tokens);
-                token_count += args->data[macro_param_idx].tokens.len;
+                size_t arg_token_count = args->data[macro_param_idx].tokens.len;
+                replace_pp_tokens(pp, macro_name_pos + i + offset, macro_name_pos + i + offset + 1,
+                                  &args->data[macro_param_idx].tokens);
+                token_count += arg_token_count;
+                offset += arg_token_count - 1;
             } else {
                 ++token_count;
             }
