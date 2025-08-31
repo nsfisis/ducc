@@ -881,7 +881,7 @@ static Token* concat_two_tokens(Token* left, Token* right) {
 
 static BOOL expand_macro(Preprocessor* pp, BOOL skip_newline) {
     int macro_name_pos = pp->pos;
-    Token* macro_name = next_pp_token(pp);
+    Token* macro_name = peek_pp_token(pp);
     int macro_idx = find_macro(pp, macro_name->value.string);
     if (macro_idx == -1) {
         return FALSE;
@@ -890,6 +890,7 @@ static BOOL expand_macro(Preprocessor* pp, BOOL skip_newline) {
     SourceLocation original_loc = macro_name->loc;
     Macro* macro = &pp->macros->data[macro_idx];
     if (macro->kind == MacroKind_func) {
+        next_pp_token(pp);
         MacroArgArray* args = pp_parse_macro_arguments(pp, skip_newline);
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
 
@@ -1179,19 +1180,13 @@ static void preprocess_embed_directive(Preprocessor* pp) {
 static void preprocess_define_directive(Preprocessor* pp) {
     skip_pp_token(pp, TokenKind_pp_directive_define);
     skip_whitespaces(pp);
-    Token* macro_name = next_pp_token(pp);
-
-    if (macro_name->kind != TokenKind_ident) {
-        fatal_error("%s:%d: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
-    }
+    Token* macro_name = expect_pp_token(pp, TokenKind_ident);
 
     if (consume_pp_token_if(pp, TokenKind_paren_l)) {
         TokenArray* parameters = pp_parse_macro_parameters(pp);
+        skip_whitespaces(pp);
         int replacements_start_pos = pp->pos;
         seek_to_next_newline(pp);
-        if (pp_eof(pp)) {
-            fatal_error("%s:%d: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
-        }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_func;
         macro->name = macro_name->value.string;
@@ -1201,12 +1196,18 @@ static void preprocess_define_directive(Preprocessor* pp) {
         for (int i = 0; i < n_replacements; ++i) {
             *tokens_push_new(&macro->replacements) = *pp_token_at(pp, replacements_start_pos + i);
         }
+        // Remove trailing whitespaces.
+        for (int i = n_replacements - 1; i >= 0; --i) {
+            if (macro->replacements.data[i].kind == TokenKind_whitespace) {
+                tokens_pop(&macro->replacements);
+            } else {
+                break;
+            }
+        }
     } else {
+        skip_whitespaces(pp);
         int replacements_start_pos = pp->pos;
         seek_to_next_newline(pp);
-        if (pp_eof(pp)) {
-            fatal_error("%s:%d: invalid #define syntax", macro_name->loc.filename, macro_name->loc.line);
-        }
         Macro* macro = macros_push_new(pp->macros);
         macro->kind = MacroKind_obj;
         macro->name = macro_name->value.string;
@@ -1215,7 +1216,16 @@ static void preprocess_define_directive(Preprocessor* pp) {
         for (int i = 0; i < n_replacements; ++i) {
             *tokens_push_new(&macro->replacements) = *pp_token_at(pp, replacements_start_pos + i);
         }
+        // Remove trailing whitespaces.
+        for (int i = n_replacements - 1; i >= 0; --i) {
+            if (macro->replacements.data[i].kind == TokenKind_whitespace) {
+                tokens_pop(&macro->replacements);
+            } else {
+                break;
+            }
+        }
     }
+    expect_pp_token(pp, TokenKind_newline);
 }
 
 static void preprocess_undef_directive(Preprocessor* pp) {
@@ -1366,6 +1376,7 @@ static void preprocess_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_
 }
 
 static void skip_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind) {
+    assert(delimiter_kind != GroupDelimiterKind_normal);
     int nesting = 0;
 
     while (!pp_eof(pp)) {
