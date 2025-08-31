@@ -525,83 +525,7 @@ static BOOL is_type_token(Parser* p, Token* token) {
     return find_typedef(p, token->value.string) != -1;
 }
 
-static Type* parse_type(Parser* p) {
-    Token* t = next_token(p);
-    BOOL has_static = FALSE;
-    while (1) {
-        if (t->kind == TokenKind_keyword_const) {
-            t = next_token(p);
-        } else if (t->kind == TokenKind_keyword_static) {
-            t = next_token(p);
-            has_static = TRUE;
-        } else {
-            break;
-        }
-    }
-    if (!is_type_token(p, t)) {
-        fatal_error("%s:%d: parse_type: expected type, but got '%s'", t->loc.filename, t->loc.line, token_stringify(t));
-    }
-    Type* ty;
-    if (t->kind == TokenKind_ident) {
-        int typedef_idx = find_typedef(p, t->value.string);
-        if (typedef_idx == -1) {
-            fatal_error("parse_type: unknown typedef, %s", t->value.string);
-        }
-        ty = p->typedefs->node_items[typedef_idx].ty;
-    } else {
-        ty = type_new(TypeKind_unknown);
-        if (t->kind == TokenKind_keyword_char) {
-            ty->kind = TypeKind_char;
-        } else if (t->kind == TokenKind_keyword_short) {
-            ty->kind = TypeKind_short;
-        } else if (t->kind == TokenKind_keyword_int) {
-            ty->kind = TypeKind_int;
-        } else if (t->kind == TokenKind_keyword_long) {
-            ty->kind = TypeKind_long;
-        } else if (t->kind == TokenKind_keyword_void) {
-            ty->kind = TypeKind_void;
-        } else if (t->kind == TokenKind_keyword_enum) {
-            ty->kind = TypeKind_enum;
-            const Token* name = parse_ident(p);
-            int enum_idx = find_enum(p, name->value.string);
-            if (enum_idx == -1) {
-                fatal_error("parse_type: unknown enum, %s", name->value.string);
-            }
-            ty->ref.defs = p->enums;
-            ty->ref.index = enum_idx;
-        } else if (t->kind == TokenKind_keyword_struct) {
-            ty->kind = TypeKind_struct;
-            const Token* name = parse_ident(p);
-            int struct_idx = find_struct(p, name->value.string);
-            if (struct_idx == -1) {
-                fatal_error("parse_type: unknown struct, %s", name->value.string);
-            }
-            ty->ref.defs = p->structs;
-            ty->ref.index = struct_idx;
-        } else if (t->kind == TokenKind_keyword_union) {
-            ty->kind = TypeKind_union;
-            const Token* name = parse_ident(p);
-            int union_idx = find_union(p, name->value.string);
-            if (union_idx == -1) {
-                fatal_error("parse_type: unknown union, %s", name->value.string);
-            }
-            ty->ref.defs = p->unions;
-            ty->ref.index = union_idx;
-        } else {
-            unreachable();
-        }
-    }
-    while (1) {
-        if (!consume_token_if(p, TokenKind_star)) {
-            break;
-        }
-        ty = type_new_ptr(ty);
-    }
-    if (has_static) {
-        ty->storage_class = StorageClass_static;
-    }
-    return ty;
-}
+static Type* parse_type_name(Parser* p);
 
 static AstNode* parse_prefix_expr(Parser* p) {
     TokenKind op = peek_token(p)->kind;
@@ -640,7 +564,7 @@ static AstNode* parse_prefix_expr(Parser* p) {
             }
         }
         if (!ty) {
-            ty = parse_type(p);
+            ty = parse_type_name(p);
         }
         expect(p, TokenKind_paren_r);
         return ast_new_int(type_sizeof(ty));
@@ -651,7 +575,7 @@ static AstNode* parse_prefix_expr(Parser* p) {
 static AstNode* parse_cast_expr(Parser* p) {
     if (peek_token(p)->kind == TokenKind_paren_l && is_type_token(p, peek_token2(p))) {
         next_token(p);
-        Type* ty = parse_type(p);
+        Type* ty = parse_type_name(p);
         expect(p, TokenKind_paren_r);
 
         // TODO: check whether the original type can be casted to the result type.
@@ -1012,7 +936,7 @@ static AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
 }
 
 static AstNode* parse_var_decl(Parser* p) {
-    Type* base_ty = parse_type(p);
+    Type* base_ty = parse_type_name(p);
     if (type_is_unsized(base_ty)) {
         fatal_error("parse_var_decl: invalid type for variable");
     }
@@ -1189,7 +1113,7 @@ static void register_func(Parser* p, const char* name, Type* ty) {
 }
 
 static AstNode* parse_param(Parser* p) {
-    Type* ty = parse_type(p);
+    Type* ty = parse_type_name(p);
     const Token* name = NULL;
     TokenKind tk = peek_token(p)->kind;
     if (tk != TokenKind_comma && tk != TokenKind_paren_r) {
@@ -1282,7 +1206,7 @@ static AstNode* parse_func_decl_or_def(Parser* p, AstNode* decls) {
 }
 
 static AstNode* parse_struct_member(Parser* p) {
-    Type* ty = parse_type(p);
+    Type* ty = parse_type_name(p);
     const Token* name = parse_ident(p);
     expect(p, TokenKind_semicolon);
     AstNode* member = ast_new(AstNodeKind_struct_member);
@@ -1301,7 +1225,7 @@ static AstNode* parse_struct_members(Parser* p) {
 }
 
 static AstNode* parse_union_member(Parser* p) {
-    Type* ty = parse_type(p);
+    Type* ty = parse_type_name(p);
     const Token* name = parse_ident(p);
     expect(p, TokenKind_semicolon);
     AstNode* member = ast_new(AstNodeKind_union_member);
@@ -1706,6 +1630,107 @@ static Type* parse_declaration_specifiers(Parser* p) {
     }
 
     ty->storage_class = storage_class;
+    return ty;
+}
+
+// specifier-qualifier-list:
+//     { type-specifier-qualifier }+ TODO attribute-specifier-sequence?
+static Type* parse_specifier_qualifier_list(Parser* p) {
+    Type* ty = NULL;
+
+    while (1) {
+        Token* tok = peek_token(p);
+
+        // type-specifier-qualifier > type-specifier
+        if (tok->kind == TokenKind_keyword_void) {
+            next_token(p);
+            ty = type_new(TypeKind_void);
+        } else if (tok->kind == TokenKind_keyword_char) {
+            next_token(p);
+            ty = type_new(TypeKind_char);
+        } else if (tok->kind == TokenKind_keyword_short) {
+            next_token(p);
+            ty = type_new(TypeKind_short);
+        } else if (tok->kind == TokenKind_keyword_int) {
+            next_token(p);
+            ty = type_new(TypeKind_int);
+        } else if (tok->kind == TokenKind_keyword_long) {
+            next_token(p);
+            ty = type_new(TypeKind_long);
+        } else if (tok->kind == TokenKind_keyword_float) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_double) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_signed) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_unsigned) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__BitInt) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_bool) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Complex) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Decimal32) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Decimal64) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Decimal128) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Atomic) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_struct) {
+            ty = parse_struct_specifier(p);
+        } else if (tok->kind == TokenKind_keyword_union) {
+            ty = parse_union_specifier(p);
+        } else if (tok->kind == TokenKind_keyword_enum) {
+            ty = parse_enum_specifier(p);
+        } else if (tok->kind == TokenKind_keyword_typeof) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_typeof_unqual) {
+            unimplemented();
+        } else if (is_typedef_name(p, tok)) {
+            next_token(p);
+            int typedef_idx = find_typedef(p, tok->value.string);
+            ty = p->typedefs->node_items[typedef_idx].ty;
+        }
+        // type-specifier-qualifier > type-qualifier
+        else if (tok->kind == TokenKind_keyword_const) {
+            // TODO
+            next_token(p);
+        } else if (tok->kind == TokenKind_keyword_restrict) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword_volatile) {
+            unimplemented();
+        } else if (tok->kind == TokenKind_keyword__Atomic) {
+            unimplemented();
+        }
+        // type-specifier-qualifier > alignment-specifier
+        else if (tok->kind == TokenKind_keyword_alignas) {
+            unimplemented();
+        } else {
+            break;
+        }
+    }
+
+    return ty;
+}
+
+// abstract-declarator:
+//     pointer
+//     pointer? TODO direct-abstract-declarator
+//
+// abstract-declarator?:
+//     pointer? TODO direct-abstract-declarator?
+static Type* parse_abstract_declarator_opt(Parser* p, Type* ty) {
+    return parse_pointer_opt(p, ty);
+}
+
+// type-name:
+//     specifier-qualifier-list abstract-declarator?
+static Type* parse_type_name(Parser* p) {
+    Type* ty = parse_specifier_qualifier_list(p);
+    ty = parse_abstract_declarator_opt(p, ty);
     return ty;
 }
 
