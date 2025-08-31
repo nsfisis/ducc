@@ -77,16 +77,18 @@ static Macro* macros_push_new(MacroArray* macros) {
     return &macros->data[macros->len++];
 }
 
-static void add_predefined_macros(MacroArray* macros) {
-    Macro* m;
-
-    m = macros_push_new(macros);
+static void define_macro_to_1(MacroArray* macros, const char* name) {
+    Macro* m = macros_push_new(macros);
     m->kind = MacroKind_obj;
-    m->name = "__ducc__";
+    m->name = name;
     tokens_init(&m->replacements, 1);
     Token* tok = tokens_push_new(&m->replacements);
     tok->kind = TokenKind_literal_int;
     tok->value.integer = 1;
+}
+
+static void add_predefined_macros(MacroArray* macros) {
+    Macro* m;
 
     m = macros_push_new(macros);
     m->kind = MacroKind_builtin_file;
@@ -95,6 +97,11 @@ static void add_predefined_macros(MacroArray* macros) {
     m = macros_push_new(macros);
     m->kind = MacroKind_builtin_line;
     m->name = "__LINE__";
+
+    // Non-standard pre-defined macros.
+    define_macro_to_1(macros, "__ducc__");
+    define_macro_to_1(macros, "__x86_64__");
+    define_macro_to_1(macros, "__LP64__");
 }
 
 struct MacroArg {
