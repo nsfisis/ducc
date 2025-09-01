@@ -1247,6 +1247,16 @@ static AstNode* parse_enum_member(Parser* p) {
     const Token* name = parse_ident(p);
     AstNode* member = ast_new(AstNodeKind_enum_member);
     member->name = name->value.string;
+
+    if (consume_token_if(p, TokenKind_assign)) {
+        // TODO: support other kinds of constant expression.
+        const Token* v = expect(p, TokenKind_literal_int);
+        member->node_int_value = v->value.integer;
+    } else {
+        // TODO: use another special value for placeholder because -1 is a valid value.
+        member->node_int_value = -1;
+    }
+
     return member;
 }
 
@@ -1255,8 +1265,14 @@ static AstNode* parse_enum_members(Parser* p) {
     AstNode* list = ast_new_list(16);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_enum_member(p);
-        member->node_int_value = next_value;
+
+        if (member->node_int_value != -1) {
+            next_value = member->node_int_value;
+        } else {
+            member->node_int_value = next_value;
+        }
         ++next_value;
+
         ast_append(list, member);
         if (!consume_token_if(p, TokenKind_comma)) {
             break;
