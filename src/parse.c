@@ -1230,39 +1230,58 @@ static AstNode* parse_func_decl_or_def(Parser* p, AstNode* decls) {
     return func;
 }
 
-static AstNode* parse_struct_member(Parser* p) {
-    Type* ty = parse_type_name(p);
-    const Token* name = parse_ident(p);
-    expect(p, TokenKind_semicolon);
-    AstNode* member = ast_new(AstNodeKind_struct_member);
-    member->name = name->value.string;
-    member->ty = ty;
-    return member;
+// member-declarator:
+//     declarator
+//     TODO declarator? ':' constant-expression
+static AstNode* parse_member_declarator(Parser* p, Type* base_ty) {
+    return parse_declarator(p, base_ty);
 }
 
-static AstNode* parse_struct_members(Parser* p) {
-    AstNode* list = ast_new_list(4);
-    while (peek_token(p)->kind != TokenKind_brace_r) {
-        AstNode* member = parse_struct_member(p);
-        ast_append(list, member);
+// member-declarator-list:
+//     { member-declarator | ',' }+
+static AstNode* parse_member_declarator_list(Parser* p, Type* base_ty) {
+    AstNode* list = ast_new_list(1);
+    while (1) {
+        AstNode* d = parse_member_declarator(p, base_ty);
+        ast_append(list, d);
+        if (!consume_token_if(p, TokenKind_comma)) {
+            break;
+        }
     }
     return list;
 }
 
-static AstNode* parse_union_member(Parser* p) {
-    Type* ty = parse_type_name(p);
-    const Token* name = parse_ident(p);
+static Type* parse_specifier_qualifier_list(Parser* p);
+
+// member-declaration:
+//     TODO attribute-specifier-sequence? specifier-qualifier-list member-declaration-list? ';'
+//     TODO static_assert-declaration
+static AstNode* parse_member_declaration(Parser* p) {
+    Type* base_ty = parse_specifier_qualifier_list(p);
+
+    AstNode* decls = NULL;
+    if (consume_token_if(p, TokenKind_semicolon)) {
+        unimplemented();
+    }
+    decls = parse_member_declarator_list(p, base_ty);
+
     expect(p, TokenKind_semicolon);
-    AstNode* member = ast_new(AstNodeKind_union_member);
-    member->name = name->value.string;
-    member->ty = ty;
-    return member;
+
+    if (decls->node_len != 1)
+        unimplemented();
+
+    AstNode* m = ast_new(AstNodeKind_struct_member);
+    m->name = decls->node_items[0].name;
+    m->ty = decls->node_items[0].ty;
+    return m;
 }
 
-static AstNode* parse_union_members(Parser* p) {
+// member-declaration-list:
+//     { member-declaration }+
+static AstNode* parse_member_declaration_list(Parser* p) {
     AstNode* list = ast_new_list(4);
     while (peek_token(p)->kind != TokenKind_brace_r) {
-        AstNode* member = parse_union_member(p);
+        AstNode* member = parse_member_declaration(p);
         ast_append(list, member);
     }
     return list;
@@ -1375,7 +1394,7 @@ static Type* parse_struct_specifier(Parser* p) {
         struct_idx = p->structs->node_len - 1;
     }
 
-    AstNode* members = parse_struct_members(p);
+    AstNode* members = parse_member_declaration_list(p);
     expect(p, TokenKind_brace_r);
     p->structs->node_items[struct_idx].node_members = members;
 
@@ -1427,7 +1446,7 @@ static Type* parse_union_specifier(Parser* p) {
         union_idx = p->unions->node_len - 1;
     }
 
-    AstNode* members = parse_union_members(p);
+    AstNode* members = parse_member_declaration_list(p);
     expect(p, TokenKind_brace_r);
     p->unions->node_items[union_idx].node_members = members;
 

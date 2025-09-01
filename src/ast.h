@@ -116,7 +116,6 @@ enum AstNodeKind {
     AstNodeKind_unary_expr,
     AstNodeKind_union_decl,
     AstNodeKind_union_def,
-    AstNodeKind_union_member,
 
     // Intermediate ASTs: they are used only in parsing, not for parse result.
     AstNodeKind_declarator,
