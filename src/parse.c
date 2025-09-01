@@ -691,13 +691,40 @@ static AstNode* parse_equality_expr(Parser* p) {
     return lhs;
 }
 
-static AstNode* parse_bitwise_or_expr(Parser* p) {
+static AstNode* parse_bitwise_and_expr(Parser* p) {
     AstNode* lhs = parse_equality_expr(p);
     while (1) {
-        TokenKind op = peek_token(p)->kind;
-        if (consume_token_if(p, TokenKind_or)) {
+        if (consume_token_if(p, TokenKind_and)) {
             AstNode* rhs = parse_equality_expr(p);
-            lhs = ast_new_binary_expr(op, lhs, rhs);
+            lhs = ast_new_binary_expr(TokenKind_and, lhs, rhs);
+            lhs->ty = type_new(TypeKind_int);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
+static AstNode* parse_bitwise_xor_expr(Parser* p) {
+    AstNode* lhs = parse_bitwise_and_expr(p);
+    while (1) {
+        if (consume_token_if(p, TokenKind_xor)) {
+            AstNode* rhs = parse_bitwise_and_expr(p);
+            lhs = ast_new_binary_expr(TokenKind_xor, lhs, rhs);
+            lhs->ty = type_new(TypeKind_int);
+        } else {
+            break;
+        }
+    }
+    return lhs;
+}
+
+static AstNode* parse_bitwise_or_expr(Parser* p) {
+    AstNode* lhs = parse_bitwise_xor_expr(p);
+    while (1) {
+        if (consume_token_if(p, TokenKind_or)) {
+            AstNode* rhs = parse_bitwise_xor_expr(p);
+            lhs = ast_new_binary_expr(TokenKind_or, lhs, rhs);
             lhs->ty = type_new(TypeKind_int);
         } else {
             break;
@@ -709,11 +736,10 @@ static AstNode* parse_bitwise_or_expr(Parser* p) {
 static AstNode* parse_logical_and_expr(Parser* p) {
     AstNode* lhs = parse_bitwise_or_expr(p);
     while (1) {
-        TokenKind op = peek_token(p)->kind;
         if (consume_token_if(p, TokenKind_andand)) {
             AstNode* rhs = parse_bitwise_or_expr(p);
             AstNode* e = ast_new(AstNodeKind_logical_expr);
-            e->node_op = op;
+            e->node_op = TokenKind_andand;
             e->node_lhs = lhs;
             e->node_rhs = rhs;
             e->ty = type_new(TypeKind_int);
@@ -728,11 +754,10 @@ static AstNode* parse_logical_and_expr(Parser* p) {
 static AstNode* parse_logical_or_expr(Parser* p) {
     AstNode* lhs = parse_logical_and_expr(p);
     while (1) {
-        TokenKind op = peek_token(p)->kind;
         if (consume_token_if(p, TokenKind_oror)) {
             AstNode* rhs = parse_logical_and_expr(p);
             AstNode* e = ast_new(AstNodeKind_logical_expr);
-            e->node_op = op;
+            e->node_op = TokenKind_oror;
             e->node_lhs = lhs;
             e->node_rhs = rhs;
             e->ty = type_new(TypeKind_int);
@@ -1846,6 +1871,12 @@ static int eval(AstNode* e) {
             return v1 << v2;
         } else if (e->node_op == TokenKind_rshift) {
             return v1 >> v2;
+        } else if (e->node_op == TokenKind_and) {
+            return v1 & v2;
+        } else if (e->node_op == TokenKind_or) {
+            return v1 | v2;
+        } else if (e->node_op == TokenKind_xor) {
+            return v1 ^ v2;
         } else {
             unimplemented();
         }

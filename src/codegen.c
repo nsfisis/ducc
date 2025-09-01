@@ -180,8 +180,12 @@ static void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
         fprintf(g->out, "  cqo\n");
         fprintf(g->out, "  idiv rdi\n");
         fprintf(g->out, "  mov rax, rdx\n");
+    } else if (ast->node_op == TokenKind_and) {
+        fprintf(g->out, "  and rax, rdi\n");
     } else if (ast->node_op == TokenKind_or) {
         fprintf(g->out, "  or rax, rdi\n");
+    } else if (ast->node_op == TokenKind_xor) {
+        fprintf(g->out, "  xor rax, rdi\n");
     } else if (ast->node_op == TokenKind_lshift) {
         fprintf(g->out, "  mov rcx, rdi\n");
         fprintf(g->out, "  shl rax, cl\n");
