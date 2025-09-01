@@ -3,8 +3,7 @@
 
 #define NULL 0
 
-// TODO: unsigned
-typedef long size_t;
+typedef unsigned long size_t;
 
 // TODO:
 // - max_align_t (C11)

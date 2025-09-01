@@ -5,26 +5,40 @@
 const char* type_kind_stringify(TypeKind k) {
     if (k == TypeKind_unknown)
         return "<unknown>";
-    else if (k == TypeKind_char)
-        return "char";
-    else if (k == TypeKind_short)
-        return "short";
-    else if (k == TypeKind_int)
-        return "int";
-    else if (k == TypeKind_long)
-        return "long";
     else if (k == TypeKind_void)
         return "void";
-    else if (k == TypeKind_ptr)
-        return "<pointer>";
-    else if (k == TypeKind_array)
-        return "<array>";
-    else if (k == TypeKind_enum)
-        return "enum";
+    else if (k == TypeKind_char)
+        return "char";
+    else if (k == TypeKind_schar)
+        return "signed char";
+    else if (k == TypeKind_uchar)
+        return "unsigned char";
+    else if (k == TypeKind_short)
+        return "short";
+    else if (k == TypeKind_ushort)
+        return "unsigned short";
+    else if (k == TypeKind_int)
+        return "int";
+    else if (k == TypeKind_uint)
+        return "unsigned int";
+    else if (k == TypeKind_long)
+        return "long";
+    else if (k == TypeKind_ulong)
+        return "unsigned long";
+    else if (k == TypeKind_llong)
+        return "long long";
+    else if (k == TypeKind_ullong)
+        return "unsigned long long";
     else if (k == TypeKind_struct)
         return "struct";
     else if (k == TypeKind_union)
         return "union";
+    else if (k == TypeKind_enum)
+        return "enum";
+    else if (k == TypeKind_ptr)
+        return "<pointer>";
+    else if (k == TypeKind_array)
+        return "<array>";
     else
         unreachable();
 }
@@ -71,24 +85,25 @@ int type_sizeof(Type* ty) {
         fatal_error("type_sizeof: type size cannot be determined");
     }
 
-    if (ty->kind == TypeKind_ptr)
-        return 8;
-    else if (ty->kind == TypeKind_char)
+    if (ty->kind == TypeKind_char || ty->kind == TypeKind_schar || ty->kind == TypeKind_uchar)
         return 1;
-    else if (ty->kind == TypeKind_short)
+    else if (ty->kind == TypeKind_short || ty->kind == TypeKind_ushort)
         return 2;
-    else if (ty->kind == TypeKind_int)
+    else if (ty->kind == TypeKind_int || ty->kind == TypeKind_uint)
         return 4;
-    else if (ty->kind == TypeKind_long)
+    else if (ty->kind == TypeKind_long || ty->kind == TypeKind_ulong || ty->kind == TypeKind_llong ||
+             ty->kind == TypeKind_ullong)
         return 8;
-    else if (ty->kind == TypeKind_enum)
-        return 4;
-    else if (ty->kind == TypeKind_array)
-        return type_sizeof(ty->base) * ty->array_size;
     else if (ty->kind == TypeKind_struct)
         return type_sizeof_struct(ty);
     else if (ty->kind == TypeKind_union)
         return type_sizeof_union(ty);
+    else if (ty->kind == TypeKind_enum)
+        return 4;
+    else if (ty->kind == TypeKind_ptr)
+        return 8;
+    else if (ty->kind == TypeKind_array)
+        return type_sizeof(ty->base) * ty->array_size;
     else
         unreachable();
 }
@@ -98,24 +113,25 @@ int type_alignof(Type* ty) {
         fatal_error("type_alignof: type size cannot be determined");
     }
 
-    if (ty->kind == TypeKind_ptr)
-        return 8;
-    else if (ty->kind == TypeKind_char)
+    if (ty->kind == TypeKind_char || ty->kind == TypeKind_schar || ty->kind == TypeKind_uchar)
         return 1;
-    else if (ty->kind == TypeKind_short)
+    else if (ty->kind == TypeKind_short || ty->kind == TypeKind_ushort)
         return 2;
-    else if (ty->kind == TypeKind_int)
+    else if (ty->kind == TypeKind_int || ty->kind == TypeKind_uint)
         return 4;
-    else if (ty->kind == TypeKind_long)
+    else if (ty->kind == TypeKind_long || ty->kind == TypeKind_ulong || ty->kind == TypeKind_llong ||
+             ty->kind == TypeKind_ullong)
         return 8;
-    else if (ty->kind == TypeKind_enum)
-        return 4;
-    else if (ty->kind == TypeKind_array)
-        return type_alignof(ty->base);
     else if (ty->kind == TypeKind_struct)
         return type_alignof_struct(ty);
     else if (ty->kind == TypeKind_union)
         return type_alignof_union(ty);
+    else if (ty->kind == TypeKind_enum)
+        return 4;
+    else if (ty->kind == TypeKind_ptr)
+        return 8;
+    else if (ty->kind == TypeKind_array)
+        return type_alignof(ty->base);
     else
         unreachable();
 }

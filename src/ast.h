@@ -18,16 +18,23 @@ typedef enum StorageClass StorageClass;
 enum TypeKind {
     TypeKind_unknown,
 
-    TypeKind_char,
-    TypeKind_short,
-    TypeKind_int,
-    TypeKind_long,
     TypeKind_void,
-    TypeKind_ptr,
-    TypeKind_array,
-    TypeKind_enum,
+    TypeKind_char,
+    TypeKind_schar,
+    TypeKind_uchar,
+    TypeKind_short,
+    TypeKind_ushort,
+    TypeKind_int,
+    TypeKind_uint,
+    TypeKind_long,
+    TypeKind_ulong,
+    TypeKind_llong,
+    TypeKind_ullong,
     TypeKind_struct,
     TypeKind_union,
+    TypeKind_enum,
+    TypeKind_ptr,
+    TypeKind_array,
 };
 typedef enum TypeKind TypeKind;
 

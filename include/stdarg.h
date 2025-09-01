@@ -7,10 +7,8 @@
 // Version 1.0
 // Figure 3.34: va_list Type Declaration
 struct __ducc_va_list {
-    // unsigned int gp_offset;
-    // unsigned int fp_offset;
-    int gp_offset;
-    int fp_offset;
+    unsigned int gp_offset;
+    unsigned int fp_offset;
     void* overflow_arg_area;
     void* reg_save_area;
 };

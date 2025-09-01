@@ -1377,7 +1377,6 @@ static Type* parse_struct_specifier(Parser* p) {
 
     AstNode* members = parse_struct_members(p);
     expect(p, TokenKind_brace_r);
-    expect(p, TokenKind_semicolon);
     p->structs->node_items[struct_idx].node_members = members;
 
     Type* ty = type_new(TypeKind_struct);
@@ -1430,7 +1429,6 @@ static Type* parse_union_specifier(Parser* p) {
 
     AstNode* members = parse_union_members(p);
     expect(p, TokenKind_brace_r);
-    expect(p, TokenKind_semicolon);
     p->unions->node_items[union_idx].node_members = members;
 
     Type* ty = type_new(TypeKind_union);
@@ -1489,6 +1487,90 @@ static Type* parse_enum_specifier(Parser* p) {
     ty->ref.defs = p->enums;
     ty->ref.index = enum_idx;
     return ty;
+}
+
+enum TypeSpecifierMask {
+    // TODO: define these constants with shift operators once ducc supports it.
+    TypeSpecifierMask_void = 1,
+    TypeSpecifierMask_char = 2,
+    TypeSpecifierMask_short = 4,
+    TypeSpecifierMask_int = 8,
+    TypeSpecifierMask_long = 16,
+    // 1 << 5 is used for second 'long'.
+    TypeSpecifierMask_float = 64,
+    TypeSpecifierMask_double = 128,
+    TypeSpecifierMask_signed = 256,
+    TypeSpecifierMask_unsigned = 512,
+    TypeSpecifierMask__BitInt = 1024,
+    TypeSpecifierMask_bool = 2048,
+    TypeSpecifierMask__Complex = 4096,
+    TypeSpecifierMask__Decimal32 = 8192,
+    TypeSpecifierMask__Decimal64 = 16384,
+    TypeSpecifierMask__Decimal128 = 32768,
+    TypeSpecifierMask__Atomic = 65536,
+    TypeSpecifierMask_struct = 131072,
+    TypeSpecifierMask_union = 262144,
+    TypeSpecifierMask_enum = 524288,
+    TypeSpecifierMask_typeof = 1048576,
+    TypeSpecifierMask_typeof_unqual = 2097152,
+    TypeSpecifierMask_typedef_name = 4194304,
+};
+typedef enum TypeSpecifierMask TypeSpecifierMask;
+
+static Type* distinguish_type_from_type_specifiers(int type_specifiers) {
+    if (type_specifiers == TypeSpecifierMask_void) {
+        return type_new(TypeKind_void);
+    } else if (type_specifiers == TypeSpecifierMask_char) {
+        return type_new(TypeKind_char);
+    } else if (type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_char)) {
+        return type_new(TypeKind_schar);
+    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_char)) {
+        return type_new(TypeKind_uchar);
+    } else if (type_specifiers == TypeSpecifierMask_short ||
+               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_short) ||
+               type_specifiers == (TypeSpecifierMask_short + TypeSpecifierMask_int) ||
+               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_short + TypeSpecifierMask_int)) {
+        return type_new(TypeKind_short);
+    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_short) ||
+               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_short + TypeSpecifierMask_int)) {
+        return type_new(TypeKind_ushort);
+    } else if (type_specifiers == TypeSpecifierMask_int || type_specifiers == TypeSpecifierMask_signed ||
+               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_int)) {
+        return type_new(TypeKind_int);
+    } else if (type_specifiers == TypeSpecifierMask_unsigned ||
+               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_int)) {
+        return type_new(TypeKind_uint);
+    } else if (type_specifiers == TypeSpecifierMask_long ||
+               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long) ||
+               type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_int) ||
+               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_int)) {
+        return type_new(TypeKind_long);
+    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long) ||
+               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_int)) {
+        return type_new(TypeKind_ulong);
+    } else if (type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_long) ||
+               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_long) ||
+               type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_long + TypeSpecifierMask_int) ||
+               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_long +
+                                   TypeSpecifierMask_int)) {
+        return type_new(TypeKind_llong);
+    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_long) ||
+               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_long +
+                                   TypeSpecifierMask_int)) {
+        return type_new(TypeKind_ullong);
+    } else if (type_specifiers == TypeSpecifierMask_struct) {
+        return NULL;
+    } else if (type_specifiers == TypeSpecifierMask_union) {
+        return NULL;
+    } else if (type_specifiers == TypeSpecifierMask_enum) {
+        return NULL;
+    } else if (type_specifiers == TypeSpecifierMask_typedef_name) {
+        return NULL;
+    } else if (type_specifiers == 0) {
+        fatal_error("no type specifiers");
+    } else {
+        unimplemented();
+    }
 }
 
 // declaration-specifiers:
@@ -1567,6 +1649,7 @@ static Type* parse_enum_specifier(Parser* p) {
 //     identifier
 static Type* parse_declaration_specifiers(Parser* p) {
     StorageClass storage_class = StorageClass_unspecified;
+    int type_specifiers = 0;
     Type* ty = NULL;
 
     while (1) {
@@ -1593,56 +1676,131 @@ static Type* parse_declaration_specifiers(Parser* p) {
         }
         // type-specifier-qualifier > type-specifier
         else if (tok->kind == TokenKind_keyword_void) {
+            if (type_specifiers & TypeSpecifierMask_void) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_void);
+            type_specifiers += TypeSpecifierMask_void;
         } else if (tok->kind == TokenKind_keyword_char) {
+            if (type_specifiers & TypeSpecifierMask_char) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_char);
+            type_specifiers += TypeSpecifierMask_char;
         } else if (tok->kind == TokenKind_keyword_short) {
+            if (type_specifiers & TypeSpecifierMask_short) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_short);
+            type_specifiers += TypeSpecifierMask_short;
         } else if (tok->kind == TokenKind_keyword_int) {
+            if (type_specifiers & TypeSpecifierMask_int) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_int);
+            type_specifiers += TypeSpecifierMask_int;
         } else if (tok->kind == TokenKind_keyword_long) {
+            if (type_specifiers & (TypeSpecifierMask_long + TypeSpecifierMask_long)) {
+                fatal_error("%s:%d: too looong!", tok->loc.filename, tok->loc.line);
+            }
             next_token(p);
-            ty = type_new(TypeKind_long);
+            type_specifiers += TypeSpecifierMask_long;
         } else if (tok->kind == TokenKind_keyword_float) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_float) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_float;
         } else if (tok->kind == TokenKind_keyword_double) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_double) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_double;
         } else if (tok->kind == TokenKind_keyword_signed) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_signed) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_signed;
         } else if (tok->kind == TokenKind_keyword_unsigned) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_unsigned) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_unsigned;
         } else if (tok->kind == TokenKind_keyword__BitInt) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__BitInt) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__BitInt;
         } else if (tok->kind == TokenKind_keyword_bool) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_bool) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_bool;
         } else if (tok->kind == TokenKind_keyword__Complex) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Complex) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Complex;
         } else if (tok->kind == TokenKind_keyword__Decimal32) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Decimal32) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Decimal32;
         } else if (tok->kind == TokenKind_keyword__Decimal64) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Decimal64) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Decimal64;
         } else if (tok->kind == TokenKind_keyword__Decimal128) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Decimal128) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Decimal128;
         } else if (tok->kind == TokenKind_keyword__Atomic) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Atomic) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Atomic;
         } else if (tok->kind == TokenKind_keyword_struct) {
+            if (type_specifiers & TypeSpecifierMask_struct) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             ty = parse_struct_specifier(p);
+            type_specifiers += TypeSpecifierMask_struct;
         } else if (tok->kind == TokenKind_keyword_union) {
+            if (type_specifiers & TypeSpecifierMask_union) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             ty = parse_union_specifier(p);
+            type_specifiers += TypeSpecifierMask_union;
         } else if (tok->kind == TokenKind_keyword_enum) {
+            if (type_specifiers & TypeSpecifierMask_enum) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             ty = parse_enum_specifier(p);
+            type_specifiers += TypeSpecifierMask_enum;
         } else if (tok->kind == TokenKind_keyword_typeof) {
             unimplemented();
         } else if (tok->kind == TokenKind_keyword_typeof_unqual) {
             unimplemented();
         } else if (is_typedef_name(p, tok)) {
+            if (type_specifiers & TypeSpecifierMask_typedef_name) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
             int typedef_idx = find_typedef(p, tok->value.string);
             ty = p->typedefs->node_items[typedef_idx].ty;
+            type_specifiers += TypeSpecifierMask_typedef_name;
         }
         // type-specifier-qualifier > type-qualifier
         else if (tok->kind == TokenKind_keyword_const) {
@@ -1670,6 +1828,11 @@ static Type* parse_declaration_specifiers(Parser* p) {
         }
     }
 
+    Type* ty_ = distinguish_type_from_type_specifiers(type_specifiers);
+    if (ty_) {
+        ty = ty_;
+    }
+
     ty->storage_class = storage_class;
     return ty;
 }
@@ -1677,6 +1840,7 @@ static Type* parse_declaration_specifiers(Parser* p) {
 // specifier-qualifier-list:
 //     { type-specifier-qualifier }+ TODO attribute-specifier-sequence?
 static Type* parse_specifier_qualifier_list(Parser* p) {
+    int type_specifiers = 0;
     Type* ty = NULL;
 
     while (1) {
@@ -1684,56 +1848,131 @@ static Type* parse_specifier_qualifier_list(Parser* p) {
 
         // type-specifier-qualifier > type-specifier
         if (tok->kind == TokenKind_keyword_void) {
+            if (type_specifiers & TypeSpecifierMask_void) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_void);
+            type_specifiers += TypeSpecifierMask_void;
         } else if (tok->kind == TokenKind_keyword_char) {
+            if (type_specifiers & TypeSpecifierMask_char) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_char);
+            type_specifiers += TypeSpecifierMask_char;
         } else if (tok->kind == TokenKind_keyword_short) {
+            if (type_specifiers & TypeSpecifierMask_short) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_short);
+            type_specifiers += TypeSpecifierMask_short;
         } else if (tok->kind == TokenKind_keyword_int) {
+            if (type_specifiers & TypeSpecifierMask_int) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
-            ty = type_new(TypeKind_int);
+            type_specifiers += TypeSpecifierMask_int;
         } else if (tok->kind == TokenKind_keyword_long) {
+            if (type_specifiers & (TypeSpecifierMask_long + TypeSpecifierMask_long)) {
+                fatal_error("%s:%d: too looong!", tok->loc.filename, tok->loc.line);
+            }
             next_token(p);
-            ty = type_new(TypeKind_long);
+            type_specifiers += TypeSpecifierMask_long;
         } else if (tok->kind == TokenKind_keyword_float) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_float) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_float;
         } else if (tok->kind == TokenKind_keyword_double) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_double) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_double;
         } else if (tok->kind == TokenKind_keyword_signed) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_signed) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_signed;
         } else if (tok->kind == TokenKind_keyword_unsigned) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_unsigned) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_unsigned;
         } else if (tok->kind == TokenKind_keyword__BitInt) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__BitInt) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__BitInt;
         } else if (tok->kind == TokenKind_keyword_bool) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask_bool) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask_bool;
         } else if (tok->kind == TokenKind_keyword__Complex) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Complex) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Complex;
         } else if (tok->kind == TokenKind_keyword__Decimal32) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Decimal32) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Decimal32;
         } else if (tok->kind == TokenKind_keyword__Decimal64) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Decimal64) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Decimal64;
         } else if (tok->kind == TokenKind_keyword__Decimal128) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Decimal128) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Decimal128;
         } else if (tok->kind == TokenKind_keyword__Atomic) {
-            unimplemented();
+            if (type_specifiers & TypeSpecifierMask__Atomic) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
+            next_token(p);
+            type_specifiers += TypeSpecifierMask__Atomic;
         } else if (tok->kind == TokenKind_keyword_struct) {
+            if (type_specifiers & TypeSpecifierMask_struct) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             ty = parse_struct_specifier(p);
+            type_specifiers += TypeSpecifierMask_struct;
         } else if (tok->kind == TokenKind_keyword_union) {
+            if (type_specifiers & TypeSpecifierMask_union) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             ty = parse_union_specifier(p);
+            type_specifiers += TypeSpecifierMask_union;
         } else if (tok->kind == TokenKind_keyword_enum) {
+            if (type_specifiers & TypeSpecifierMask_enum) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             ty = parse_enum_specifier(p);
+            type_specifiers += TypeSpecifierMask_enum;
         } else if (tok->kind == TokenKind_keyword_typeof) {
             unimplemented();
         } else if (tok->kind == TokenKind_keyword_typeof_unqual) {
             unimplemented();
         } else if (is_typedef_name(p, tok)) {
+            if (type_specifiers & TypeSpecifierMask_typedef_name) {
+                fatal_error("%s:%d: duplicate '%s'", tok->loc.filename, tok->loc.line, token_stringify(tok));
+            }
             next_token(p);
             int typedef_idx = find_typedef(p, tok->value.string);
             ty = p->typedefs->node_items[typedef_idx].ty;
+            type_specifiers += TypeSpecifierMask_typedef_name;
         }
         // type-specifier-qualifier > type-qualifier
         else if (tok->kind == TokenKind_keyword_const) {
@@ -1752,6 +1991,11 @@ static Type* parse_specifier_qualifier_list(Parser* p) {
         } else {
             break;
         }
+    }
+
+    Type* ty_ = distinguish_type_from_type_specifiers(type_specifiers);
+    if (ty_) {
+        ty = ty_;
     }
 
     return ty;
