@@ -870,6 +870,8 @@ static Type* parse_pointer_opt(Parser* p, Type* ty) {
     return ty;
 }
 
+static int eval(AstNode* e);
+
 // array-declarator:
 //     direct-declarator '[' TODO type-qualifier-list? TODO assignment-expression? ']'
 //     TODO direct-declarator '[' 'static' type-qualifier-list? assignment-expression? ']'
@@ -878,11 +880,8 @@ static Type* parse_pointer_opt(Parser* p, Type* ty) {
 static Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
     next_token(p); // skip '['
 
-    AstNode* size_expr = parse_expr(p);
-    if (size_expr->kind != AstNodeKind_int_expr) {
-        fatal_error("parse_var_decl: invalid array size");
-    }
-    int size = size_expr->node_int_value;
+    AstNode* size_expr = parse_assignment_expr(p);
+    int size = eval(size_expr);
     expect(p, TokenKind_bracket_r);
 
     return type_new_array(ty, size);
