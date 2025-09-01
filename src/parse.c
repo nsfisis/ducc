@@ -2,19 +2,17 @@
 #include "common.h"
 #include "tokenize.h"
 
-struct LocalVar {
+typedef struct {
     const char* name;
     Type* ty;
     int stack_offset;
-};
-typedef struct LocalVar LocalVar;
+} LocalVar;
 
-struct LocalVarArray {
+typedef struct {
     size_t len;
     size_t capacity;
     LocalVar* data;
-};
-typedef struct LocalVarArray LocalVarArray;
+} LocalVarArray;
 
 static void lvars_init(LocalVarArray* lvars) {
     lvars->len = 0;
@@ -37,18 +35,16 @@ static LocalVar* lvars_push_new(LocalVarArray* lvars) {
     return &lvars->data[lvars->len++];
 }
 
-struct ScopedSymbol {
+typedef struct {
     const char* name;
     int index;
-};
-typedef struct ScopedSymbol ScopedSymbol;
+} ScopedSymbol;
 
-struct ScopedSymbolArray {
+typedef struct {
     size_t len;
     size_t capacity;
     ScopedSymbol* data;
-};
-typedef struct ScopedSymbolArray ScopedSymbolArray;
+} ScopedSymbolArray;
 
 static void scopedsymbols_init(ScopedSymbolArray* syms) {
     syms->len = 0;
@@ -71,24 +67,21 @@ static ScopedSymbol* scopedsymbols_push_new(ScopedSymbolArray* syms) {
     return &syms->data[syms->len++];
 }
 
-struct Scope {
+typedef struct Scope {
     struct Scope* outer;
     ScopedSymbolArray syms;
-};
-typedef struct Scope Scope;
+} Scope;
 
-struct GlobalVar {
+typedef struct {
     const char* name;
     Type* ty;
-};
-typedef struct GlobalVar GlobalVar;
+} GlobalVar;
 
-struct GlobalVarArray {
+typedef struct {
     size_t len;
     size_t capacity;
     GlobalVar* data;
-};
-typedef struct GlobalVarArray GlobalVarArray;
+} GlobalVarArray;
 
 static void gvars_init(GlobalVarArray* gvars) {
     gvars->len = 0;
@@ -111,18 +104,16 @@ static GlobalVar* gvars_push_new(GlobalVarArray* gvars) {
     return &gvars->data[gvars->len++];
 }
 
-struct Func {
+typedef struct {
     const char* name;
     Type* ty;
-};
-typedef struct Func Func;
+} Func;
 
-struct FuncArray {
+typedef struct {
     size_t len;
     size_t capacity;
     Func* data;
-};
-typedef struct FuncArray FuncArray;
+} FuncArray;
 
 static void funcs_init(FuncArray* funcs) {
     funcs->len = 0;
@@ -145,7 +136,7 @@ static Func* funcs_push_new(FuncArray* funcs) {
     return &funcs->data[funcs->len++];
 }
 
-struct Parser {
+typedef struct {
     TokenArray* tokens;
     int pos;
     LocalVarArray lvars;
@@ -157,8 +148,8 @@ struct Parser {
     AstNode* enums;
     AstNode* typedefs;
     StrArray str_literals;
-};
-typedef struct Parser Parser;
+    int anonymous_user_type_counter;
+} Parser;
 
 static Parser* parser_new(TokenArray* tokens) {
     Parser* p = calloc(1, sizeof(Parser));
@@ -1352,14 +1343,31 @@ void parse_extern_var_decl(Parser* p, AstNode* decls) {
     }
 }
 
+static char* generate_new_anonymous_user_type_name(Parser* p) {
+    char* buf = calloc(32, sizeof(char));
+    sprintf(buf, "__anonymous_%d__", p->anonymous_user_type_counter++);
+    return buf;
+}
+
 // struct-specifier:
 //     'struct' TODO attribute-specifier-sequence? identifier? '{' member-declaration-list '}'
 //     'struct' TODO attribute-specifier-sequence? identifier
 static Type* parse_struct_specifier(Parser* p) {
+    SourceLocation struct_kw_pos = peek_token(p)->loc;
     next_token(p);
 
-    // TODO: support anonymous struct
-    const Token* name = parse_ident(p);
+    const Token* name;
+    char* anonymous_name = NULL;
+    if (peek_token(p)->kind == TokenKind_brace_l) {
+        anonymous_name = generate_new_anonymous_user_type_name(p);
+        Token* anonymous_token = calloc(1, sizeof(Token));
+        anonymous_token->kind = TokenKind_ident;
+        anonymous_token->value.string = anonymous_name;
+        anonymous_token->loc = struct_kw_pos;
+        name = anonymous_token;
+    } else {
+        name = parse_ident(p);
+    }
 
     if (!consume_token_if(p, TokenKind_brace_l)) {
         int struct_idx = find_struct(p, name->value.string);
@@ -1408,10 +1416,21 @@ static Type* parse_struct_specifier(Parser* p) {
 //     'union' TODO attribute-specifier-sequence? identifier? '{' member-declaration-list '}'
 //     'union' TODO attribute-specifier-sequence? identifier
 static Type* parse_union_specifier(Parser* p) {
+    SourceLocation union_kw_pos = peek_token(p)->loc;
     next_token(p);
 
-    // TODO: support anonymous union
-    const Token* name = parse_ident(p);
+    const Token* name;
+    char* anonymous_name = NULL;
+    if (peek_token(p)->kind == TokenKind_brace_l) {
+        anonymous_name = generate_new_anonymous_user_type_name(p);
+        Token* anonymous_token = calloc(1, sizeof(Token));
+        anonymous_token->kind = TokenKind_ident;
+        anonymous_token->value.string = anonymous_name;
+        anonymous_token->loc = union_kw_pos;
+        name = anonymous_token;
+    } else {
+        name = parse_ident(p);
+    }
 
     if (!consume_token_if(p, TokenKind_brace_l)) {
         int union_idx = find_union(p, name->value.string);
@@ -1460,10 +1479,21 @@ static Type* parse_union_specifier(Parser* p) {
 //     'enum' TODO attribute-specifier-sequence? identifier? TODO enum-type-specifier? '{' enumerator-list ','? '}'
 //     'enum' identifier TODO enum-type-specifier?
 static Type* parse_enum_specifier(Parser* p) {
+    SourceLocation enum_kw_pos = peek_token(p)->loc;
     next_token(p);
 
-    // TODO: support anonymous enum
-    const Token* name = parse_ident(p);
+    const Token* name;
+    char* anonymous_name = NULL;
+    if (peek_token(p)->kind == TokenKind_brace_l) {
+        anonymous_name = generate_new_anonymous_user_type_name(p);
+        Token* anonymous_token = calloc(1, sizeof(Token));
+        anonymous_token->kind = TokenKind_ident;
+        anonymous_token->value.string = anonymous_name;
+        anonymous_token->loc = enum_kw_pos;
+        name = anonymous_token;
+    } else {
+        name = parse_ident(p);
+    }
 
     if (!consume_token_if(p, TokenKind_brace_l)) {
         int enum_idx = find_enum(p, name->value.string);
@@ -1508,7 +1538,7 @@ static Type* parse_enum_specifier(Parser* p) {
     return ty;
 }
 
-enum TypeSpecifierMask {
+typedef enum {
     // TODO: define these constants with shift operators once ducc supports it.
     TypeSpecifierMask_void = 1,
     TypeSpecifierMask_char = 2,
@@ -1533,8 +1563,7 @@ enum TypeSpecifierMask {
     TypeSpecifierMask_typeof = 1048576,
     TypeSpecifierMask_typeof_unqual = 2097152,
     TypeSpecifierMask_typedef_name = 4194304,
-};
-typedef enum TypeSpecifierMask TypeSpecifierMask;
+} TypeSpecifierMask;
 
 static Type* distinguish_type_from_type_specifiers(int type_specifiers) {
     if (type_specifiers == TypeSpecifierMask_void) {

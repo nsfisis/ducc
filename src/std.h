@@ -3,7 +3,6 @@
 
 #include <stddef.h>
 
-struct FILE;
 typedef struct FILE FILE;
 
 extern FILE* stdin;

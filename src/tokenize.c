@@ -1,11 +1,10 @@
 #include "tokenize.h"
 #include "common.h"
 
-struct Lexer {
+typedef struct {
     TokenArray* src;
     TokenArray* tokens;
-};
-typedef struct Lexer Lexer;
+} Lexer;
 
 static Lexer* lexer_new(TokenArray* pp_tokens) {
     Lexer* l = calloc(1, sizeof(Lexer));

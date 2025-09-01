@@ -10,12 +10,11 @@ _Noreturn void fatal_error(const char* msg, ...);
 
 BOOL str_ends_with(const char* s, const char* suffix);
 
-struct StrBuilder {
+typedef struct {
     size_t len;
     size_t capacity;
     char* buf;
-};
-typedef struct StrBuilder StrBuilder;
+} StrBuilder;
 
 void strbuilder_init(StrBuilder* b);
 // `size` must include a trailing null byte.
@@ -23,12 +22,11 @@ void strbuilder_reserve(StrBuilder* b, size_t size);
 void strbuilder_append_char(StrBuilder* b, int c);
 void strbuilder_append_string(StrBuilder* b, const char* s);
 
-struct StrArray {
+typedef struct {
     size_t len;
     size_t capacity;
     const char** data;
-};
-typedef struct StrArray StrArray;
+} StrArray;
 
 void strings_init(StrArray* strings);
 void strings_reserve(StrArray* strings, size_t size);

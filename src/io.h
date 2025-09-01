@@ -4,20 +4,18 @@
 #include "json.h"
 #include "std.h"
 
-struct SourceLocation {
+typedef struct {
     const char* filename;
     int line;
-};
-typedef struct SourceLocation SourceLocation;
+} SourceLocation;
 
 void sourcelocation_build_json(JsonBuilder* builder, SourceLocation* loc);
 
-struct InFile {
+typedef struct {
     const char* buf;
     int pos;
     SourceLocation loc;
-};
-typedef struct InFile InFile;
+} InFile;
 
 InFile* infile_open(const char* filename);
 BOOL infile_eof(InFile* f);

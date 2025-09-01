@@ -3,14 +3,13 @@
 #include "parse.h"
 #include "sys.h"
 
-enum MacroKind {
+typedef enum {
     MacroKind_undef,
     MacroKind_obj,
     MacroKind_func,
     MacroKind_builtin_file,
     MacroKind_builtin_line,
-};
-typedef enum MacroKind MacroKind;
+} MacroKind;
 
 const char* macro_kind_stringify(MacroKind kind) {
     if (kind == MacroKind_undef)
@@ -27,13 +26,12 @@ const char* macro_kind_stringify(MacroKind kind) {
         unreachable();
 }
 
-struct Macro {
+typedef struct {
     MacroKind kind;
     const char* name;
     TokenArray parameters;
     TokenArray replacements;
-};
-typedef struct Macro Macro;
+} Macro;
 
 static int macro_find_param(Macro* macro, Token* tok) {
     if (tok->kind != TokenKind_ident)
@@ -47,12 +45,11 @@ static int macro_find_param(Macro* macro, Token* tok) {
     return -1;
 }
 
-struct MacroArray {
+typedef struct {
     size_t len;
     size_t capacity;
     Macro* data;
-};
-typedef struct MacroArray MacroArray;
+} MacroArray;
 
 static MacroArray* macros_new() {
     MacroArray* macros = calloc(1, sizeof(MacroArray));
@@ -104,10 +101,9 @@ static void add_predefined_macros(MacroArray* macros) {
     define_macro_to_1(macros, "__LP64__");
 }
 
-struct MacroArg {
+typedef struct {
     TokenArray tokens;
-};
-typedef struct MacroArg MacroArg;
+} MacroArg;
 
 void macroarg_build_json(JsonBuilder* builder, MacroArg* arg) {
     jsonbuilder_object_start(builder);
@@ -117,12 +113,11 @@ void macroarg_build_json(JsonBuilder* builder, MacroArg* arg) {
     jsonbuilder_object_end(builder);
 }
 
-struct MacroArgArray {
+typedef struct {
     size_t len;
     size_t capacity;
     MacroArg* data;
-};
-typedef struct MacroArgArray MacroArgArray;
+} MacroArgArray;
 
 static MacroArgArray* macroargs_new() {
     MacroArgArray* macroargs = calloc(1, sizeof(MacroArgArray));
@@ -164,13 +159,12 @@ void macroargs_build_json(JsonBuilder* builder, MacroArgArray* macroargs) {
     jsonbuilder_object_end(builder);
 }
 
-struct PpLexer {
+typedef struct {
     InFile* src;
     BOOL at_bol;
     BOOL expect_header_name;
     TokenArray* pp_tokens;
-};
-typedef struct PpLexer PpLexer;
+} PpLexer;
 
 static PpLexer* pplexer_new(InFile* src) {
     PpLexer* ppl = calloc(1, sizeof(PpLexer));
@@ -559,15 +553,14 @@ static TokenArray* pp_tokenize(InFile* src) {
     return ppl->pp_tokens;
 }
 
-struct Preprocessor {
+typedef struct {
     TokenArray* pp_tokens;
     int pos;
     MacroArray* macros;
     int include_depth;
     StrArray include_paths;
     StrArray* included_files;
-};
-typedef struct Preprocessor Preprocessor;
+} Preprocessor;
 
 static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files);
 
@@ -969,12 +962,11 @@ static BOOL expand_macro(Preprocessor* pp, BOOL skip_newline) {
     return TRUE;
 }
 
-enum GroupDelimiterKind {
+typedef enum {
     GroupDelimiterKind_normal,
     GroupDelimiterKind_after_if_directive,
     GroupDelimiterKind_after_else_directive,
-};
-typedef enum GroupDelimiterKind GroupDelimiterKind;
+} GroupDelimiterKind;
 
 static BOOL is_delimiter_of_current_group(GroupDelimiterKind delimiter_kind, TokenKind token_kind) {
     if (delimiter_kind == GroupDelimiterKind_normal) {

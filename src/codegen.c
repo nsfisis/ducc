@@ -2,19 +2,17 @@
 #include "common.h"
 #include "preprocess.h"
 
-enum GenMode {
+typedef enum {
     GenMode_lval,
     GenMode_rval,
-};
-typedef enum GenMode GenMode;
+} GenMode;
 
-struct CodeGen {
+typedef struct {
     FILE* out;
     int next_label;
     int* loop_labels;
     AstNode* current_func;
-};
-typedef struct CodeGen CodeGen;
+} CodeGen;
 
 static CodeGen* codegen_new(FILE* out) {
     CodeGen* g = calloc(1, sizeof(CodeGen));

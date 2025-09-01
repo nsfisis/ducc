@@ -4,7 +4,7 @@
 #include "io.h"
 #include "json.h"
 
-enum TokenKind {
+typedef enum {
     TokenKind_eof,
 
     // Only preprocessing phase.
@@ -143,35 +143,31 @@ enum TokenKind {
     TokenKind_star,
     TokenKind_tilde,
     TokenKind_xor,
-};
-typedef enum TokenKind TokenKind;
+} TokenKind;
 
 const char* token_kind_stringify(TokenKind k);
 BOOL is_pp_directive(TokenKind k);
 
 // TokenValue is externally tagged by Token's kind.
-union TokenValue {
+typedef union {
     const char* string;
     int integer;
-};
-typedef union TokenValue TokenValue;
+} TokenValue;
 
-struct Token {
+typedef struct {
     TokenKind kind;
     TokenValue value;
     SourceLocation loc;
-};
-typedef struct Token Token;
+} Token;
 
 const char* token_stringify(Token* tok);
 void token_build_json(JsonBuilder* builder, Token* tok);
 
-struct TokenArray {
+typedef struct {
     size_t len;
     size_t capacity;
     Token* data;
-};
-typedef struct TokenArray TokenArray;
+} TokenArray;
 
 void tokens_init(TokenArray* tokens, size_t capacity);
 void tokens_reserve(TokenArray* tokens, size_t size);

@@ -3,7 +3,7 @@
 
 #include "std.h"
 
-enum StorageClass {
+typedef enum {
     StorageClass_unspecified,
     StorageClass_auto,
     StorageClass_constexpr,
@@ -12,10 +12,9 @@ enum StorageClass {
     StorageClass_static,
     StorageClass_thread_local,
     StorageClass_typedef,
-};
-typedef enum StorageClass StorageClass;
+} StorageClass;
 
-enum TypeKind {
+typedef enum {
     TypeKind_unknown,
 
     TypeKind_void,
@@ -35,29 +34,26 @@ enum TypeKind {
     TypeKind_enum,
     TypeKind_ptr,
     TypeKind_array,
-};
-typedef enum TypeKind TypeKind;
+} TypeKind;
 
 const char* type_kind_stringify(TypeKind k);
 
 struct AstNode;
 typedef struct AstNode AstNode;
 
-struct TypeRef {
+typedef struct {
     struct AstNode* defs;
     size_t index;
-};
-typedef struct TypeRef TypeRef;
+} TypeRef;
 
-struct Type {
+typedef struct Type {
     TypeKind kind;
     StorageClass storage_class;
     // Check `base` instead of `kind` to test if the type is an array or a pointer.
     struct Type* base;
     int array_size;
     TypeRef ref;
-};
-typedef struct Type Type;
+} Type;
 
 Type* type_new(TypeKind kind);
 Type* type_new_ptr(Type* base);
@@ -78,7 +74,7 @@ int type_alignof(Type* ty);
 
 int to_aligned(int n, int a);
 
-enum AstNodeKind {
+typedef enum {
     AstNodeKind_unknown,
     AstNodeKind_nop,
 
@@ -119,8 +115,7 @@ enum AstNodeKind {
 
     // Intermediate ASTs: they are used only in parsing, not for parse result.
     AstNodeKind_declarator,
-};
-typedef enum AstNodeKind AstNodeKind;
+} AstNodeKind;
 
 #define node_items __n1
 #define node_len __i1
@@ -157,12 +152,11 @@ struct AstNode {
     int __i2;
 };
 
-struct Program {
+typedef struct {
     AstNode* funcs;
     AstNode* vars;
     const char** str_literals;
-};
-typedef struct Program Program;
+} Program;
 
 AstNode* ast_new(AstNodeKind kind);
 AstNode* ast_new_list(int capacity);
