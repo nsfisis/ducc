@@ -19,4 +19,7 @@ typedef struct __ducc_va_list* va_list;
 #define va_start(args, start) __ducc_va_start(args, start)
 #define va_end(args)
 
+// For glibc:
+typedef va_list __gnuc_va_list;
+
 #endif
