@@ -29,6 +29,12 @@ const char* type_kind_stringify(TypeKind k) {
         return "long long";
     else if (k == TypeKind_ullong)
         return "unsigned long long";
+    else if (k == TypeKind_float)
+        return "float";
+    else if (k == TypeKind_double)
+        return "double";
+    else if (k == TypeKind_ldouble)
+        return "long double";
     else if (k == TypeKind_struct)
         return "struct";
     else if (k == TypeKind_union)

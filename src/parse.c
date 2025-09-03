@@ -1605,6 +1605,12 @@ static Type* distinguish_type_from_type_specifiers(int type_specifiers) {
                type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_long +
                                    TypeSpecifierMask_int)) {
         return type_new(TypeKind_ullong);
+    } else if (type_specifiers == TypeSpecifierMask_float) {
+        return type_new(TypeKind_float);
+    } else if (type_specifiers == TypeSpecifierMask_double) {
+        return type_new(TypeKind_double);
+    } else if (type_specifiers == TypeSpecifierMask_long + TypeSpecifierMask_double) {
+        return type_new(TypeKind_ldouble);
     } else if (type_specifiers == TypeSpecifierMask_struct) {
         return NULL;
     } else if (type_specifiers == TypeSpecifierMask_union) {
