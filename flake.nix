@@ -34,7 +34,7 @@
       {
         packages.default = pkgs.stdenv.mkDerivation {
           pname = "ducc";
-          version = "0.1.0";
+          version = "0.2.0";
           src = ./.;
           # Disable some kinds of hardening to disable GCC optimization.
           # cf. https://nixos.wiki/wiki/C#Hardening_flags
