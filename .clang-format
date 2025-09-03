@@ -9,6 +9,11 @@ AlignTrailingComments: false
 AllowShortFunctionsOnASingleLine: None
 BreakStringLiterals: false
 ColumnLimit: 120
+IncludeCategories:
+  - Regex: '<.+>'
+    Priority: 1
+  - Regex: '.*'
+    Priority: 2
 IndentWidth: 4
 KeepEmptyLines:
     AtStartOfBlock: false
