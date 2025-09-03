@@ -26,10 +26,10 @@ $(BUILD_DIR):
 
 # TODO: provide release build?
 $(BUILD_ROOT_DIR)/$(TARGET): $(OBJECTS)
-	$(CC) -Wall -MMD -g -O0 -o $@ $^
+	$(CC) -Wall -MMD -g -O0 --std=c23 -o $@ $^
 
 # TODO: provide release build?
 $(BUILD_DIR)/%.o: src/%.c
-	$(CC) -c -Wall -MMD -g -O0 -o $@ $<
+	$(CC) -c -Wall -MMD -g -O0 --std=c23 -o $@ $<
 
 -include $(BUILD_DIR)/*.d

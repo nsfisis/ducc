@@ -5,7 +5,11 @@
 
 _Noreturn void fatal_error(const char* msg, ...);
 
+// TODO
+#ifdef __ducc__
 #define unreachable() fatal_error("%s:%d: unreachable", __FILE__, __LINE__)
+#endif
+
 #define unimplemented() fatal_error("%s:%d: unimplemented", __FILE__, __LINE__)
 
 bool str_ends_with(const char* s, const char* suffix);

@@ -16,7 +16,7 @@ int fclose(FILE*);
 int fprintf(FILE*, const char*, ...);
 char* fgets(char*, int, FILE*);
 FILE* fopen(const char*, const char*);
-int getchar(void);
+int getchar();
 int isalnum(int);
 int isalpha(int);
 int isdigit(int);
