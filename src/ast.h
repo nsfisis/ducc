@@ -32,6 +32,7 @@ typedef enum {
     TypeKind_float,
     TypeKind_double,
     TypeKind_ldouble,
+    TypeKind_bool,
     TypeKind_struct,
     TypeKind_union,
     TypeKind_enum,
@@ -67,7 +68,7 @@ Type* type_new_array(Type* elem, int size);
 Type* type_new_static_string(int len);
 Type* type_array_to_ptr(Type* ty);
 Type* type_new_func(Type* result, AstNode* params);
-BOOL type_is_unsized(Type* ty);
+bool type_is_unsized(Type* ty);
 
 int type_sizeof_struct(Type* ty);
 int type_sizeof_union(Type* ty);

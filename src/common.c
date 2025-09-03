@@ -9,11 +9,11 @@ void fatal_error(const char* msg, ...) {
     exit(1);
 }
 
-BOOL str_ends_with(const char* s, const char* suffix) {
+bool str_ends_with(const char* s, const char* suffix) {
     size_t l1 = strlen(s);
     size_t l2 = strlen(suffix);
     if (l1 < l2)
-        return FALSE;
+        return false;
     return strcmp(s + l1 - l2, suffix) == 0;
 }
 

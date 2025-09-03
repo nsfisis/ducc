@@ -18,9 +18,9 @@ typedef struct {
 } InFile;
 
 InFile* infile_open(const char* filename);
-BOOL infile_eof(InFile* f);
+bool infile_eof(InFile* f);
 char infile_peek_char(InFile* f);
 char infile_next_char(InFile* f);
-BOOL infile_consume_if(InFile* f, char expected);
+bool infile_consume_if(InFile* f, char expected);
 
 #endif

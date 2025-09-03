@@ -59,8 +59,4 @@ typedef long ssize_t;
 ssize_t readlink(const char*, char*, size_t);
 char* dirname(char*);
 
-#define BOOL int
-#define TRUE 1
-#define FALSE 0
-
 #endif

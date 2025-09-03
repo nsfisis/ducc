@@ -20,7 +20,7 @@ void jsonbuilder_array_element_start(JsonBuilder* b);
 void jsonbuilder_array_element_end(JsonBuilder* b);
 
 void jsonbuilder_null(JsonBuilder* b);
-void jsonbuilder_boolean(JsonBuilder* b, BOOL value);
+void jsonbuilder_boolean(JsonBuilder* b, bool value);
 void jsonbuilder_integer(JsonBuilder* b, int value);
 void jsonbuilder_string(JsonBuilder* b, const char* value);
 

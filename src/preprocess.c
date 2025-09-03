@@ -161,8 +161,8 @@ void macroargs_build_json(JsonBuilder* builder, MacroArgArray* macroargs) {
 
 typedef struct {
     InFile* src;
-    BOOL at_bol;
-    BOOL expect_header_name;
+    bool at_bol;
+    bool expect_header_name;
     TokenArray* pp_tokens;
 } PpLexer;
 
@@ -170,8 +170,8 @@ static PpLexer* pplexer_new(InFile* src) {
     PpLexer* ppl = calloc(1, sizeof(PpLexer));
 
     ppl->src = src;
-    ppl->at_bol = TRUE;
-    ppl->expect_header_name = FALSE;
+    ppl->at_bol = true;
+    ppl->expect_header_name = false;
     ppl->pp_tokens = calloc(1, sizeof(TokenArray));
     tokens_init(ppl->pp_tokens, 1024 * 16);
 
@@ -225,7 +225,7 @@ static void pplexer_tokenize_pp_directive(PpLexer* ppl, Token* tok) {
     } else if (strcmp(pp_directive_name, "ifndef") == 0) {
         tok->kind = TokenKind_pp_directive_ifndef;
     } else if (strcmp(pp_directive_name, "include") == 0) {
-        ppl->expect_header_name = TRUE;
+        ppl->expect_header_name = true;
         tok->kind = TokenKind_pp_directive_include;
     } else if (strcmp(pp_directive_name, "line") == 0) {
         tok->kind = TokenKind_pp_directive_line;
@@ -267,7 +267,7 @@ static void pplexer_tokenize_all(PpLexer* ppl) {
             infile_next_char(ppl->src);
             tok->kind = TokenKind_header_name;
             tok->value.string = builder.buf;
-            ppl->expect_header_name = FALSE;
+            ppl->expect_header_name = false;
         } else if (ppl->expect_header_name && c == '<') {
             infile_next_char(ppl->src);
             StrBuilder builder;
@@ -284,7 +284,7 @@ static void pplexer_tokenize_all(PpLexer* ppl) {
             infile_next_char(ppl->src);
             tok->kind = TokenKind_header_name;
             tok->value.string = builder.buf;
-            ppl->expect_header_name = FALSE;
+            ppl->expect_header_name = false;
         } else if (c == '(') {
             infile_next_char(ppl->src);
             tok->kind = TokenKind_paren_l;
@@ -622,7 +622,7 @@ static Token* expect_pp_token(Preprocessor* pp, TokenKind expected) {
                 token_stringify(tok));
 }
 
-static BOOL pp_eof(Preprocessor* pp) {
+static bool pp_eof(Preprocessor* pp) {
     return peek_pp_token(pp)->kind == TokenKind_eof;
 }
 
@@ -651,7 +651,7 @@ static void skip_whitespaces(Preprocessor* pp) {
         ;
 }
 
-static void skip_whitespaces_or_newlines(Preprocessor* pp, BOOL skip_newline) {
+static void skip_whitespaces_or_newlines(Preprocessor* pp, bool skip_newline) {
     while (!pp_eof(pp) && (consume_pp_token_if(pp, TokenKind_whitespace) ||
                            (skip_newline && consume_pp_token_if(pp, TokenKind_newline))))
         ;
@@ -777,7 +777,7 @@ static TokenArray* pp_parse_macro_parameters(Preprocessor* pp) {
 
 // ws ::= many0(<whitespace>)
 // macro-arguments ::= <ws> '(' <ws> opt(<any-token> <ws> many0(',' <ws> <any-token> <ws>)) ')'
-static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp, BOOL skip_newline) {
+static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp, bool skip_newline) {
     MacroArgArray* args = macroargs_new();
 
     skip_whitespaces_or_newlines(pp, skip_newline);
@@ -793,7 +793,7 @@ static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp, BOOL skip_newli
 
         // Parse argument tokens, handling nested parentheses.
         int nesting = 0;
-        while (TRUE) {
+        while (true) {
             tok = peek_pp_token(pp);
 
             if (nesting == 0) {
@@ -872,12 +872,12 @@ static Token* concat_two_tokens(Token* left, Token* right) {
     return result;
 }
 
-static BOOL expand_macro(Preprocessor* pp, BOOL skip_newline) {
+static bool expand_macro(Preprocessor* pp, bool skip_newline) {
     int macro_name_pos = pp->pos;
     Token* macro_name = peek_pp_token(pp);
     int macro_idx = find_macro(pp, macro_name->value.string);
     if (macro_idx == -1) {
-        return FALSE;
+        return false;
     }
 
     SourceLocation original_loc = macro_name->loc;
@@ -959,7 +959,7 @@ static BOOL expand_macro(Preprocessor* pp, BOOL skip_newline) {
     } else {
         unreachable();
     }
-    return TRUE;
+    return true;
 }
 
 typedef enum {
@@ -968,7 +968,7 @@ typedef enum {
     GroupDelimiterKind_after_else_directive,
 } GroupDelimiterKind;
 
-static BOOL is_delimiter_of_current_group(GroupDelimiterKind delimiter_kind, TokenKind token_kind) {
+static bool is_delimiter_of_current_group(GroupDelimiterKind delimiter_kind, TokenKind token_kind) {
     if (delimiter_kind == GroupDelimiterKind_normal) {
         return token_kind == TokenKind_eof;
     } else if (delimiter_kind == GroupDelimiterKind_after_if_directive) {
@@ -983,9 +983,9 @@ static BOOL is_delimiter_of_current_group(GroupDelimiterKind delimiter_kind, Tok
 }
 
 static int replace_pp_tokens(Preprocessor*, int, int, TokenArray*);
-static void include_conditionally(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_include);
+static void include_conditionally(Preprocessor* pp, GroupDelimiterKind delimiter_kind, bool do_include);
 
-static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include) {
+static bool preprocess_if_group_or_elif_group(Preprocessor* pp, bool did_include) {
     Token* directive = next_pp_token(pp);
 
     if (directive->kind == TokenKind_pp_directive_if || directive->kind == TokenKind_pp_directive_elif) {
@@ -1011,7 +1011,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
                     } else {
                         macro_name = expect_pp_token(pp, TokenKind_ident);
                     }
-                    BOOL is_defined = find_macro(pp, macro_name->value.string) != -1;
+                    bool is_defined = find_macro(pp, macro_name->value.string) != -1;
                     TokenArray defined_results;
                     tokens_init(&defined_results, 1);
                     Token* defined_result = tokens_push_new(&defined_results);
@@ -1019,7 +1019,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
                     defined_result->value.integer = is_defined;
                     pp->pos = replace_pp_tokens(pp, defined_pos, pp->pos, &defined_results);
                 } else {
-                    BOOL expanded = expand_macro(pp, FALSE);
+                    bool expanded = expand_macro(pp, false);
                     if (expanded) {
                         // A macro may expand to another macro. Re-scan the expanded tokens.
                         // TODO: if the macro is defined recursively, it causes infinite loop.
@@ -1038,7 +1038,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
         for (int pos = condition_expression_start_pos; pos < pp->pos; ++pos) {
             Token* tok = pp_token_at(pp, pos);
             if (tok->kind == TokenKind_ident) {
-                BOOL is_true = strcmp(tok->value.string, "true") == 0;
+                bool is_true = strcmp(tok->value.string, "true") == 0;
                 tok->kind = TokenKind_literal_int;
                 tok->value.integer = is_true;
             }
@@ -1054,7 +1054,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
         Token* eof_tok = tokens_push_new(&condition_expression_tokens);
         eof_tok->kind = TokenKind_eof;
 
-        BOOL do_include = pp_eval_constant_expression(&condition_expression_tokens) && !did_include;
+        bool do_include = pp_eval_constant_expression(&condition_expression_tokens) && !did_include;
         include_conditionally(pp, GroupDelimiterKind_after_if_directive, do_include);
         return do_include;
     } else if (directive->kind == TokenKind_pp_directive_ifdef || directive->kind == TokenKind_pp_directive_elifdef) {
@@ -1064,7 +1064,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
             fatal_error("");
         }
 
-        BOOL do_include = !did_include && find_macro(pp, macro_name->value.string) != -1;
+        bool do_include = !did_include && find_macro(pp, macro_name->value.string) != -1;
         include_conditionally(pp, GroupDelimiterKind_after_if_directive, do_include);
         return do_include;
     } else if (directive->kind == TokenKind_pp_directive_ifndef || directive->kind == TokenKind_pp_directive_elifndef) {
@@ -1074,7 +1074,7 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
             fatal_error("");
         }
 
-        BOOL do_include = !did_include && find_macro(pp, macro_name->value.string) == -1;
+        bool do_include = !did_include && find_macro(pp, macro_name->value.string) == -1;
         include_conditionally(pp, GroupDelimiterKind_after_if_directive, do_include);
         return do_include;
     } else {
@@ -1082,25 +1082,25 @@ static BOOL preprocess_if_group_or_elif_group(Preprocessor* pp, BOOL did_include
     }
 }
 
-static BOOL preprocess_if_group(Preprocessor* pp) {
-    return preprocess_if_group_or_elif_group(pp, FALSE);
+static bool preprocess_if_group(Preprocessor* pp) {
+    return preprocess_if_group_or_elif_group(pp, false);
 }
 
-static BOOL preprocess_elif_group(Preprocessor* pp, BOOL did_include) {
+static bool preprocess_elif_group(Preprocessor* pp, bool did_include) {
     return preprocess_if_group_or_elif_group(pp, did_include);
 }
 
 // elif-groups:
 //     { elif-group }+
-static BOOL preprocess_elif_groups_opt(Preprocessor* pp, BOOL did_include) {
+static bool preprocess_elif_groups_opt(Preprocessor* pp, bool did_include) {
     while (!pp_eof(pp)) {
         Token* tok = peek_pp_token(pp);
         if (tok->kind == TokenKind_pp_directive_elif || tok->kind == TokenKind_pp_directive_elifdef ||
             tok->kind == TokenKind_pp_directive_elifndef) {
             // TODO: | and |= is not supported
             // did_include |= preprocess_elif_group(pp, pp->pos, did_include);
-            BOOL a = preprocess_elif_group(pp, did_include);
-            did_include = did_include ? TRUE : a;
+            bool a = preprocess_elif_group(pp, did_include);
+            did_include = did_include ? true : a;
         } else {
             break;
         }
@@ -1110,7 +1110,7 @@ static BOOL preprocess_elif_groups_opt(Preprocessor* pp, BOOL did_include) {
 
 // else-group:
 //     '#' 'else' group?
-static void preprocess_else_group(Preprocessor* pp, BOOL did_include) {
+static void preprocess_else_group(Preprocessor* pp, bool did_include) {
     skip_pp_token(pp, TokenKind_pp_directive_else);
     skip_whitespaces(pp);
     expect_pp_token(pp, TokenKind_newline);
@@ -1129,7 +1129,7 @@ static void preprocess_endif_directive(Preprocessor* pp) {
 // if-section:
 //     if-group elif-groups? else-group? endif-line
 static void preprocess_if_section(Preprocessor* pp) {
-    BOOL did_include = preprocess_if_group(pp);
+    bool did_include = preprocess_if_group(pp);
     did_include = preprocess_elif_groups_opt(pp, did_include);
     if (peek_pp_token(pp)->kind == TokenKind_pp_directive_else) {
         preprocess_else_group(pp, did_include);
@@ -1148,10 +1148,10 @@ static void preprocess_include_directive(Preprocessor* pp) {
     }
 
     if (include_name->value.string[0] == '"') {
-        BOOL already_included = FALSE;
+        bool already_included = false;
         for (size_t i = 0; i < pp->included_files->len; ++i) {
             if (strcmp(pp->included_files->data[i], include_name_resolved) == 0) {
-                already_included = TRUE;
+                already_included = true;
                 break;
             }
         }
@@ -1290,7 +1290,7 @@ static void preprocess_text_line(Preprocessor* pp) {
             continue;
         }
 
-        BOOL expanded = expand_macro(pp, TRUE);
+        bool expanded = expand_macro(pp, true);
         if (expanded) {
             // A macro may expand to another macro. Re-scan the expanded tokens.
             // TODO: if the macro is defined recursively, it causes infinite loop.
@@ -1391,7 +1391,7 @@ static void skip_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind) 
     expect_pp_token(pp, TokenKind_pp_directive_endif);
 }
 
-static void include_conditionally(Preprocessor* pp, GroupDelimiterKind delimiter_kind, BOOL do_include) {
+static void include_conditionally(Preprocessor* pp, GroupDelimiterKind delimiter_kind, bool do_include) {
     if (do_include) {
         preprocess_group_opt(pp, delimiter_kind);
     } else {

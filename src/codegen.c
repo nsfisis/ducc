@@ -584,11 +584,11 @@ void codegen(Program* prog, FILE* out) {
     for (int i = 0; i < prog->vars->node_len; ++i) {
         AstNode* var = prog->vars->node_items + i;
         if (var->node_expr) {
-            if (var->ty->kind == TypeKind_char)
+            if (type_sizeof(var->ty) == 1)
                 fprintf(g->out, "  %s: .byte %d\n", var->name, var->node_expr->node_int_value);
-            else if (var->ty->kind == TypeKind_short)
+            else if (type_sizeof(var->ty) == 2)
                 fprintf(g->out, "  %s: .word %d\n", var->name, var->node_expr->node_int_value);
-            else if (var->ty->kind == TypeKind_int)
+            else if (type_sizeof(var->ty) == 4)
                 fprintf(g->out, "  %s: .int %d\n", var->name, var->node_expr->node_int_value);
             else
                 unimplemented();

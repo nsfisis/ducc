@@ -48,7 +48,7 @@ InFile* infile_open(const char* filename) {
     return in_file;
 }
 
-BOOL infile_eof(InFile* f) {
+bool infile_eof(InFile* f) {
     return f->buf[f->pos] == '\0';
 }
 
@@ -87,11 +87,11 @@ char infile_next_char(InFile* f) {
     return c;
 }
 
-BOOL infile_consume_if(InFile* f, char expected) {
+bool infile_consume_if(InFile* f, char expected) {
     if (infile_peek_char(f) == expected) {
         infile_next_char(f);
-        return TRUE;
+        return true;
     } else {
-        return FALSE;
+        return false;
     }
 }

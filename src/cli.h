@@ -6,10 +6,10 @@
 typedef struct {
     const char* input_filename;
     const char* output_filename;
-    BOOL output_assembly;
-    BOOL only_compile;
-    BOOL generate_deps;
-    BOOL totally_deligate_to_gcc;
+    bool output_assembly;
+    bool only_compile;
+    bool generate_deps;
+    bool totally_deligate_to_gcc;
     const char* gcc_command;
 } CliArgs;
 

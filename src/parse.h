@@ -5,6 +5,6 @@
 #include "preprocess.h"
 
 Program* parse(TokenArray* tokens);
-BOOL pp_eval_constant_expression(TokenArray* pp_tokens);
+bool pp_eval_constant_expression(TokenArray* pp_tokens);
 
 #endif

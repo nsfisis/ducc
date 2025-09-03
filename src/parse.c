@@ -190,7 +190,7 @@ static Token* consume_token_if(Parser* p, TokenKind expected) {
     }
 }
 
-static BOOL eof(Parser* p) {
+static bool eof(Parser* p) {
     return peek_token(p)->kind != TokenKind_eof;
 }
 
@@ -228,7 +228,7 @@ static int find_lvar(Parser* p, const char* name) {
     return -1;
 }
 
-static int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
+static int calc_stack_offset(Parser* p, Type* ty, bool is_param) {
     int align;
     if (is_param) {
         if (8 < type_sizeof(ty) || 8 < type_alignof(ty)) {
@@ -250,7 +250,7 @@ static int calc_stack_offset(Parser* p, Type* ty, BOOL is_param) {
     return to_aligned(offset, align);
 }
 
-static int add_lvar(Parser* p, const char* name, Type* ty, BOOL is_param) {
+static int add_lvar(Parser* p, const char* name, Type* ty, bool is_param) {
     int stack_offset = calc_stack_offset(p, ty, is_param);
     LocalVar* lvar = lvars_push_new(&p->lvars);
     lvar->name = name;
@@ -263,7 +263,7 @@ static int add_lvar(Parser* p, const char* name, Type* ty, BOOL is_param) {
 }
 
 static AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
-    int stack_offset = add_lvar(p, NULL, ty, FALSE);
+    int stack_offset = add_lvar(p, NULL, ty, false);
     AstNode* lvar = ast_new(AstNodeKind_lvar);
     lvar->name = NULL;
     lvar->node_stack_offset = stack_offset;
@@ -372,6 +372,10 @@ static AstNode* parse_primary_expr(Parser* p) {
     Token* t = next_token(p);
     if (t->kind == TokenKind_literal_int) {
         return ast_new_int(t->value.integer);
+    } else if (t->kind == TokenKind_keyword_true) {
+        return ast_new_int(1);
+    } else if (t->kind == TokenKind_keyword_false) {
+        return ast_new_int(0);
     } else if (t->kind == TokenKind_literal_str) {
         AstNode* e = ast_new(AstNodeKind_str_expr);
         e->node_idx = register_str_literal(p, t->value.string);
@@ -498,20 +502,21 @@ static AstNode* parse_postfix_expr(Parser* p) {
     return ret;
 }
 
-static BOOL is_typedef_name(Parser* p, Token* tok) {
+static bool is_typedef_name(Parser* p, Token* tok) {
     return tok->kind == TokenKind_ident && find_typedef(p, tok->value.string) != -1;
 }
 
-static BOOL is_type_token(Parser* p, Token* token) {
+static bool is_type_token(Parser* p, Token* token) {
     if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_short ||
         token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
-        token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_enum ||
-        token->kind == TokenKind_keyword_struct || token->kind == TokenKind_keyword_union ||
-        token->kind == TokenKind_keyword_const || token->kind == TokenKind_keyword_static) {
-        return TRUE;
+        token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_bool ||
+        token->kind == TokenKind_keyword_enum || token->kind == TokenKind_keyword_struct ||
+        token->kind == TokenKind_keyword_union || token->kind == TokenKind_keyword_const ||
+        token->kind == TokenKind_keyword_static) {
+        return true;
     }
     if (token->kind != TokenKind_ident) {
-        return FALSE;
+        return false;
     }
     return find_typedef(p, token->value.string) != -1;
 }
@@ -956,7 +961,7 @@ static AstNode* parse_parameter_list(Parser* p) {
 static AstNode* parse_parameter_type_list(Parser* p) {
     AstNode* params = parse_parameter_list(p);
 
-    BOOL has_void = FALSE;
+    bool has_void = false;
     for (int i = 0; i < params->node_len; ++i) {
         if (params->node_items[i].name && strcmp(params->node_items[i].name, "...") == 0) {
             if (i != params->node_len - 1) {
@@ -1096,7 +1101,7 @@ static AstNode* parse_var_decl(Parser* p) {
             // TODO: use name's location.
             fatal_error("%s:%d: '%s' redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line, decl->name);
         }
-        int stack_offset = add_lvar(p, decl->name, decl->ty, FALSE);
+        int stack_offset = add_lvar(p, decl->name, decl->ty, false);
 
         if (decl->node_init) {
             AstNode* lhs = ast_new(AstNodeKind_lvar);
@@ -1247,7 +1252,7 @@ static AstNode* parse_stmt(Parser* p) {
 static void register_params(Parser* p, AstNode* params) {
     for (int i = 0; i < params->node_len; ++i) {
         AstNode* param = params->node_items + i;
-        add_lvar(p, param->name, param->ty, TRUE);
+        add_lvar(p, param->name, param->ty, true);
     }
 }
 
@@ -1658,65 +1663,66 @@ typedef enum {
 } TypeSpecifierMask;
 
 static Type* distinguish_type_from_type_specifiers(int type_specifiers) {
-    if (type_specifiers == TypeSpecifierMask_void) {
+    if (type_specifiers == TypeSpecifierMask_void)
         return type_new(TypeKind_void);
-    } else if (type_specifiers == TypeSpecifierMask_char) {
+    else if (type_specifiers == TypeSpecifierMask_char)
         return type_new(TypeKind_char);
-    } else if (type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_char)) {
+    else if (type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_char))
         return type_new(TypeKind_schar);
-    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_char)) {
+    else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_char))
         return type_new(TypeKind_uchar);
-    } else if (type_specifiers == TypeSpecifierMask_short ||
-               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_short) ||
-               type_specifiers == (TypeSpecifierMask_short + TypeSpecifierMask_int) ||
-               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_short + TypeSpecifierMask_int)) {
+    else if (type_specifiers == TypeSpecifierMask_short ||
+             type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_short) ||
+             type_specifiers == (TypeSpecifierMask_short + TypeSpecifierMask_int) ||
+             type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_short + TypeSpecifierMask_int))
         return type_new(TypeKind_short);
-    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_short) ||
-               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_short + TypeSpecifierMask_int)) {
+    else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_short) ||
+             type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_short + TypeSpecifierMask_int))
         return type_new(TypeKind_ushort);
-    } else if (type_specifiers == TypeSpecifierMask_int || type_specifiers == TypeSpecifierMask_signed ||
-               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_int)) {
+    else if (type_specifiers == TypeSpecifierMask_int || type_specifiers == TypeSpecifierMask_signed ||
+             type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_int))
         return type_new(TypeKind_int);
-    } else if (type_specifiers == TypeSpecifierMask_unsigned ||
-               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_int)) {
+    else if (type_specifiers == TypeSpecifierMask_unsigned ||
+             type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_int))
         return type_new(TypeKind_uint);
-    } else if (type_specifiers == TypeSpecifierMask_long ||
-               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long) ||
-               type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_int) ||
-               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_int)) {
+    else if (type_specifiers == TypeSpecifierMask_long ||
+             type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long) ||
+             type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_int) ||
+             type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_int))
         return type_new(TypeKind_long);
-    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long) ||
-               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_int)) {
+    else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long) ||
+             type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_int))
         return type_new(TypeKind_ulong);
-    } else if (type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_long) ||
-               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_long) ||
-               type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_long + TypeSpecifierMask_int) ||
-               type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_long +
-                                   TypeSpecifierMask_int)) {
+    else if (type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_long) ||
+             type_specifiers == (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_long) ||
+             type_specifiers == (TypeSpecifierMask_long + TypeSpecifierMask_long + TypeSpecifierMask_int) ||
+             type_specifiers ==
+                 (TypeSpecifierMask_signed + TypeSpecifierMask_long + TypeSpecifierMask_long + TypeSpecifierMask_int))
         return type_new(TypeKind_llong);
-    } else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_long) ||
-               type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_long +
-                                   TypeSpecifierMask_int)) {
+    else if (type_specifiers == (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_long) ||
+             type_specifiers ==
+                 (TypeSpecifierMask_unsigned + TypeSpecifierMask_long + TypeSpecifierMask_long + TypeSpecifierMask_int))
         return type_new(TypeKind_ullong);
-    } else if (type_specifiers == TypeSpecifierMask_float) {
+    else if (type_specifiers == TypeSpecifierMask_float)
         return type_new(TypeKind_float);
-    } else if (type_specifiers == TypeSpecifierMask_double) {
+    else if (type_specifiers == TypeSpecifierMask_double)
         return type_new(TypeKind_double);
-    } else if (type_specifiers == TypeSpecifierMask_long + TypeSpecifierMask_double) {
+    else if (type_specifiers == TypeSpecifierMask_long + TypeSpecifierMask_double)
         return type_new(TypeKind_ldouble);
-    } else if (type_specifiers == TypeSpecifierMask_struct) {
+    else if (type_specifiers == TypeSpecifierMask_bool)
+        return type_new(TypeKind_bool);
+    else if (type_specifiers == TypeSpecifierMask_struct)
         return NULL;
-    } else if (type_specifiers == TypeSpecifierMask_union) {
+    else if (type_specifiers == TypeSpecifierMask_union)
         return NULL;
-    } else if (type_specifiers == TypeSpecifierMask_enum) {
+    else if (type_specifiers == TypeSpecifierMask_enum)
         return NULL;
-    } else if (type_specifiers == TypeSpecifierMask_typedef_name) {
+    else if (type_specifiers == TypeSpecifierMask_typedef_name)
         return NULL;
-    } else if (type_specifiers == 0) {
+    else if (type_specifiers == 0)
         fatal_error("no type specifiers");
-    } else {
+    else
         unimplemented();
-    }
 }
 
 // declaration-specifiers:
@@ -2280,7 +2286,7 @@ static int eval(AstNode* e) {
     }
 }
 
-BOOL pp_eval_constant_expression(TokenArray* pp_tokens) {
+bool pp_eval_constant_expression(TokenArray* pp_tokens) {
     TokenArray* tokens = tokenize(pp_tokens);
     Parser* p = parser_new(tokens);
     AstNode* e = parse_constant_expression(p);

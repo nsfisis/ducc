@@ -4,15 +4,15 @@
 struct JsonBuilder {
     StrBuilder buf;
     // not supported by ducc for now
-    // BOOL has_output_element[256];
-    BOOL* has_output_element;
+    // bool has_output_element[256];
+    bool* has_output_element;
     int depth;
 };
 
 JsonBuilder* jsonbuilder_new() {
     JsonBuilder* b = calloc(1, sizeof(JsonBuilder));
     strbuilder_init(&b->buf);
-    b->has_output_element = calloc(256, sizeof(BOOL));
+    b->has_output_element = calloc(256, sizeof(bool));
     return b;
 }
 
@@ -28,7 +28,7 @@ static void emit_comma_if_needed(JsonBuilder* b) {
 
 void jsonbuilder_object_start(JsonBuilder* b) {
     strbuilder_append_char(&b->buf, '{');
-    b->has_output_element[b->depth++] = FALSE;
+    b->has_output_element[b->depth++] = false;
 }
 
 void jsonbuilder_object_end(JsonBuilder* b) {
@@ -43,12 +43,12 @@ void jsonbuilder_object_member_start(JsonBuilder* b, const char* key) {
 }
 
 void jsonbuilder_object_member_end(JsonBuilder* b) {
-    b->has_output_element[b->depth - 1] = TRUE;
+    b->has_output_element[b->depth - 1] = true;
 }
 
 void jsonbuilder_array_start(JsonBuilder* b) {
     strbuilder_append_char(&b->buf, '[');
-    b->has_output_element[b->depth++] = FALSE;
+    b->has_output_element[b->depth++] = false;
 }
 
 void jsonbuilder_array_end(JsonBuilder* b) {
@@ -61,14 +61,14 @@ void jsonbuilder_array_element_start(JsonBuilder* b) {
 }
 
 void jsonbuilder_array_element_end(JsonBuilder* b) {
-    b->has_output_element[b->depth - 1] = TRUE;
+    b->has_output_element[b->depth - 1] = true;
 }
 
 void jsonbuilder_null(JsonBuilder* b) {
     strbuilder_append_string(&b->buf, "null");
 }
 
-void jsonbuilder_boolean(JsonBuilder* b, BOOL value) {
+void jsonbuilder_boolean(JsonBuilder* b, bool value) {
     strbuilder_append_string(&b->buf, value ? "true" : "false");
 }
 

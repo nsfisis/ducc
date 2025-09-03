@@ -35,6 +35,8 @@ const char* type_kind_stringify(TypeKind k) {
         return "double";
     else if (k == TypeKind_ldouble)
         return "long double";
+    else if (k == TypeKind_bool)
+        return "bool";
     else if (k == TypeKind_struct)
         return "struct";
     else if (k == TypeKind_union)
@@ -89,7 +91,7 @@ Type* type_new_func(Type* result, AstNode* params) {
     return ty;
 }
 
-BOOL type_is_unsized(Type* ty) {
+bool type_is_unsized(Type* ty) {
     return ty->kind == TypeKind_void || ty->kind == TypeKind_func;
 }
 
@@ -98,7 +100,8 @@ int type_sizeof(Type* ty) {
         fatal_error("type_sizeof: type size cannot be determined");
     }
 
-    if (ty->kind == TypeKind_char || ty->kind == TypeKind_schar || ty->kind == TypeKind_uchar)
+    if (ty->kind == TypeKind_char || ty->kind == TypeKind_schar || ty->kind == TypeKind_uchar ||
+        ty->kind == TypeKind_bool)
         return 1;
     else if (ty->kind == TypeKind_short || ty->kind == TypeKind_ushort)
         return 2;
@@ -126,7 +129,8 @@ int type_alignof(Type* ty) {
         fatal_error("type_alignof: type size cannot be determined");
     }
 
-    if (ty->kind == TypeKind_char || ty->kind == TypeKind_schar || ty->kind == TypeKind_uchar)
+    if (ty->kind == TypeKind_char || ty->kind == TypeKind_schar || ty->kind == TypeKind_uchar ||
+        ty->kind == TypeKind_bool)
         return 1;
     else if (ty->kind == TypeKind_short || ty->kind == TypeKind_ushort)
         return 2;
