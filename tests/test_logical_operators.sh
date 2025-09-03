@@ -1,0 +1,68 @@
+cat <<'EOF' > expected
+foo
+EOF
+test_diff <<'EOF'
+int printf();
+
+int foo() {
+    printf("foo\n");
+    return 0;
+}
+
+int bar() {
+    printf("bar\n");
+    return 1;
+}
+
+int main() {
+    if (foo() && bar()) {
+        printf("baz\n");
+    }
+
+    return 0;
+}
+EOF
+
+cat <<'EOF' > expected
+foo
+bar
+baz
+EOF
+test_diff <<'EOF'
+int printf();
+
+int foo() {
+    printf("foo\n");
+    return 0;
+}
+
+int bar() {
+    printf("bar\n");
+    return 1;
+}
+
+int main() {
+    if (foo() || bar()) {
+        printf("baz\n");
+    }
+
+    return 0;
+}
+EOF
+
+cat <<'EOF' > expected
+0
+1
+0
+EOF
+test_diff <<'EOF'
+int printf();
+
+int main() {
+    printf("%d\n", !1);
+    printf("%d\n", !0);
+    printf("%d\n", !23);
+    return 0;
+}
+EOF
+

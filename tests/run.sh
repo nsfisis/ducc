@@ -12,7 +12,7 @@ if [[ ! -f "$test_file" ]]; then
     exit 1
 fi
 
-source tests/test_helpers.sh
+source tests/helpers.sh
 
 echo "$test_file"
 mkdir -p "$tmp_dir"

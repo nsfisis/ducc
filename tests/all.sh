@@ -8,7 +8,7 @@ for filename in tests/*.sh; do
     testcase="${testcase_/%.sh/}"
     test_file="tests/$testcase.sh"
     case "$testcase" in
-        all|run|test_*)
+        all|run|helpers)
             ;;
         *)
             source tests/run.sh "$testcase"
