@@ -36,6 +36,10 @@
           pname = "ducc";
           version = "0.1.0";
           src = ./.;
+          # Disable some kinds of hardening to disable GCC optimization.
+          # cf. https://nixos.wiki/wiki/C#Hardening_flags
+          # TODO: provide release build?
+          hardeningDisable = [ "fortify" ];
           installPhase = ''
             mkdir -p $out/bin
             cp build/ducc $out/bin
@@ -46,6 +50,9 @@
           packages = [
             pkgs.just
           ];
+          # Disable some kinds of hardening to disable GCC optimization.
+          # cf. https://nixos.wiki/wiki/C#Hardening_flags
+          hardeningDisable = [ "fortify" ];
         };
 
         formatter = treefmt.config.build.wrapper;
