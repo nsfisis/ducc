@@ -391,7 +391,7 @@ static AstNode* parse_primary_expr(Parser* p) {
                 fatal_error("undefined function: %s", name);
             }
             e->name = name;
-            e->ty = p->funcs.data[func_idx].ty;
+            e->ty = p->funcs.data[func_idx].ty->result;
             return e;
         }
 
@@ -870,6 +870,119 @@ static Type* parse_pointer_opt(Parser* p, Type* ty) {
     return ty;
 }
 
+static Type* parse_array_declarator_suffix(Parser* p, Type* ty);
+static Type* parse_function_declarator_suffix(Parser* p, Type* ty);
+
+// declarator | abstract-declarator?:
+//     pointer? identifier TODO attribute-specifier-sequence? { direct-declarator-suffix }*
+//     pointer? '(' declarator ')' { direct-declarator-suffix }*
+//     pointer? '(' abstract-declarator ')' { direct-declarator-suffix }*
+//     pointer? { direct-declarator-suffix }*
+//
+// direct-declarator-suffix:
+//     array-declarator-suffix TODO attribute-specifier-sequence?
+//     function-declarator-suffix TODO attribute-specifier-sequence?
+static AstNode* parse_declarator_or_abstract_declarator_opt(Parser* p, Type* ty) {
+    ty = parse_pointer_opt(p, ty);
+
+    AstNode* decl;
+    if (peek_token(p)->kind == TokenKind_ident) {
+        decl = ast_new(AstNodeKind_declarator);
+        decl->name = parse_ident(p)->value.string;
+        decl->ty = ty;
+    } else if (peek_token(p)->kind == TokenKind_paren_l && !is_type_token(p, peek_token2(p))) {
+        next_token(p);
+        if (peek_token(p)->kind == TokenKind_paren_r) {
+            Token* tok = peek_token(p);
+            fatal_error("%s:%d: expected declarator, but got '%s'", tok->loc.filename, tok->loc.line,
+                        token_stringify(tok));
+        }
+        decl = parse_declarator_or_abstract_declarator_opt(p, ty);
+    } else {
+        decl = ast_new(AstNodeKind_declarator);
+        decl->ty = ty;
+    }
+
+    while (1) {
+        if (peek_token(p)->kind == TokenKind_bracket_l) {
+            decl->ty = parse_array_declarator_suffix(p, decl->ty);
+        } else if (peek_token(p)->kind == TokenKind_paren_l) {
+            decl->ty = parse_function_declarator_suffix(p, decl->ty);
+        } else {
+            break;
+        }
+    }
+
+    return decl;
+}
+
+static Type* parse_declaration_specifiers(Parser* p);
+
+// parameter-declaration:
+//     TODO attribute-specifier-sequence? declaration-specifiers declarator
+//     TODO attribute-specifier-sequence? declaration-specifiers abstract-declarator?
+static AstNode* parse_parameter_declaration(Parser* p) {
+    if (consume_token_if(p, TokenKind_ellipsis)) {
+        AstNode* decl = ast_new(AstNodeKind_declarator);
+        decl->name = "...";
+        return decl;
+    }
+
+    Type* base_ty = parse_declaration_specifiers(p);
+    return parse_declarator_or_abstract_declarator_opt(p, base_ty);
+}
+
+// parameter-list:
+//     { parameter-declaration | ',' }
+static AstNode* parse_parameter_list(Parser* p) {
+    AstNode* params = ast_new_list(4);
+
+    while (1) {
+        AstNode* param = parse_parameter_declaration(p);
+        ast_append(params, param);
+
+        if (!consume_token_if(p, TokenKind_comma)) {
+            break;
+        }
+    }
+
+    return params;
+}
+
+// parameter-type-list:
+//     parameter-list
+//     parameter-list ',' '...'
+//     '...'
+static AstNode* parse_parameter_type_list(Parser* p) {
+    AstNode* params = parse_parameter_list(p);
+
+    BOOL has_void = FALSE;
+    for (int i = 0; i < params->node_len; ++i) {
+        if (params->node_items[i].name && strcmp(params->node_items[i].name, "...") == 0) {
+            if (i != params->node_len - 1) {
+                fatal_error("...");
+            }
+            --params->node_len;
+            break;
+        }
+        // TODO: |= is not supported
+        // has_void |= params->node_items[i].ty->kind == TypeKind_void;
+        has_void = has_void | (params->node_items[i].ty->kind == TypeKind_void);
+    }
+
+    if (params->node_len > 6) {
+        fatal_error("too many parameters");
+    }
+    if (has_void) {
+        if (params->node_len != 1) {
+            fatal_error("invalid use of void param");
+        }
+        params->node_len = 0;
+    }
+
+    return params;
+}
+
 static int eval(AstNode* e);
 
 // array-declarator:
@@ -887,16 +1000,33 @@ static Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
     return type_new_array(ty, size);
 }
 
+// function-declarator:
+//     direct-declarator '(' parameter-type-list? ')'
+static Type* parse_function_declarator_suffix(Parser* p, Type* ty) {
+    next_token(p); // skip '('
+    AstNode* params;
+    if (consume_token_if(p, TokenKind_paren_r)) {
+        params = ast_new_list(1);
+    } else {
+        params = parse_parameter_type_list(p);
+        expect(p, TokenKind_paren_r);
+    }
+
+    return type_new_func(ty, params);
+}
+
 // direct-declarator:
 //     identifier TODO attribute-specifier-sequence?
 //     TODO '(' declarator ')'
 //     array-declarator TODO attribute-specifier-sequence?
-//     TODO function-declarator TODO attribute-specifier-sequence?
+//     function-declarator TODO attribute-specifier-sequence?
 static AstNode* parse_direct_declarator(Parser* p, Type* ty) {
     const Token* name = parse_ident(p);
     while (1) {
         if (peek_token(p)->kind == TokenKind_bracket_l) {
             ty = parse_array_declarator_suffix(p, ty);
+        } else if (peek_token(p)->kind == TokenKind_paren_l) {
+            ty = parse_function_declarator_suffix(p, ty);
         } else {
             break;
         }
@@ -1127,84 +1257,63 @@ static void register_func(Parser* p, const char* name, Type* ty) {
     func->ty = ty;
 }
 
-static AstNode* parse_param(Parser* p) {
-    Type* ty = parse_type_name(p);
-    const Token* name = NULL;
-    TokenKind tk = peek_token(p)->kind;
-    if (tk != TokenKind_comma && tk != TokenKind_paren_r) {
-        name = parse_ident(p);
-    }
-    AstNode* param = ast_new(AstNodeKind_param);
-    param->ty = ty;
-    if (name) {
-        param->name = name->value.string;
-    }
-    return param;
-}
-
-static AstNode* parse_param_list(Parser* p) {
-    BOOL has_void = FALSE;
-    AstNode* list = ast_new_list(6);
-    while (peek_token(p)->kind != TokenKind_paren_r) {
-        if (consume_token_if(p, TokenKind_ellipsis)) {
-            break;
-        }
-        AstNode* param = parse_param(p);
-        has_void = has_void || param->ty->kind == TypeKind_void;
-        ast_append(list, param);
-        if (!consume_token_if(p, TokenKind_comma)) {
-            break;
-        }
-    }
-    if (list->node_len > 6) {
-        fatal_error("too many parameters");
-    }
-    if (has_void) {
-        if (list->node_len != 1) {
-            fatal_error("invalid use of void param");
-        }
-        list->node_len = 0;
-    }
-    return list;
-}
-
-static AstNode* parse_global_var_decl(Parser* p, AstNode* decls) {
+static AstNode* parse_global_func_or_var_decl(Parser* p, AstNode* decls) {
     expect(p, TokenKind_semicolon);
 
     for (int i = 0; i < decls->node_len; ++i) {
         AstNode* decl = &decls->node_items[i];
 
-        if (find_gvar(p, decl->name) != -1) {
-            fatal_error("parse_global_var_decl: %s redeclared", decl->name);
-        }
-        GlobalVar* gvar = gvars_push_new(&p->gvars);
-        gvar->name = decl->name;
-        gvar->ty = decl->ty;
+        if (decl->ty->kind == TypeKind_func) {
+            if (decls->node_len != 1) {
+                fatal_error("parse_global_func_or_var_decl: todo");
+            }
+            // TODO: refactor
+            decl->ty->storage_class = decl->ty->result->storage_class;
+            decl->ty->result->storage_class = StorageClass_unspecified;
+            register_func(p, decl->name, decl->ty);
+            decl->kind = AstNodeKind_func_decl;
+        } else {
+            if (find_gvar(p, decl->name) != -1) {
+                fatal_error("parse_global_func_or_var_decl: %s redeclared", decl->name);
+            }
+            // TODO: refactor
+            Type* base_ty = decl->ty;
+            while (base_ty->base) {
+                base_ty = base_ty->base;
+            }
+            decl->ty->storage_class = base_ty->storage_class;
+            base_ty->storage_class = StorageClass_unspecified;
 
-        decl->kind = AstNodeKind_gvar_decl;
-        decl->node_expr = decl->node_init;
+            GlobalVar* gvar = gvars_push_new(&p->gvars);
+            gvar->name = decl->name;
+            gvar->ty = decl->ty;
+
+            if (decl->ty->storage_class == StorageClass_extern) {
+                decl->kind = AstNodeKind_nop;
+            } else {
+                decl->kind = AstNodeKind_gvar_decl;
+                decl->node_expr = decl->node_init;
+            }
+        }
     }
 
     return decls;
 }
 
-static AstNode* parse_func_decl_or_def(Parser* p, AstNode* decls) {
+static AstNode* parse_func_def(Parser* p, AstNode* decls) {
     if (decls->node_len != 1) {
-        fatal_error("parse_func_decl_or_def: invalid syntax");
+        fatal_error("parse_func_def: invalid syntax");
     }
     Type* ty = decls->node_items[0].ty;
     const char* name = decls->node_items[0].name;
+    AstNode* params = ty->params;
 
     register_func(p, name, ty);
-    AstNode* params = parse_param_list(p);
-    expect(p, TokenKind_paren_r);
-    if (consume_token_if(p, TokenKind_semicolon)) {
-        return ast_new(AstNodeKind_func_decl);
-    }
     enter_func(p);
     register_params(p, params);
     AstNode* body = parse_block_stmt(p);
     leave_func(p);
+
     AstNode* func = ast_new(AstNodeKind_func_def);
     func->ty = ty;
     func->name = name;
@@ -1216,7 +1325,6 @@ static AstNode* parse_func_decl_or_def(Parser* p, AstNode* decls) {
         func->node_stack_size =
             p->lvars.data[p->lvars.len - 1].stack_offset + type_sizeof(p->lvars.data[p->lvars.len - 1].ty);
     }
-    func->node_function_is_static = ty->storage_class == StorageClass_static;
     return func;
 }
 
@@ -1324,21 +1432,6 @@ void parse_typedef_decl(Parser* p, AstNode* decls) {
         typedef_->name = decl->name;
         typedef_->ty = decl->ty;
         ast_append(p->typedefs, typedef_);
-    }
-}
-
-void parse_extern_var_decl(Parser* p, AstNode* decls) {
-    expect(p, TokenKind_semicolon);
-
-    for (int i = 0; i < decls->node_len; ++i) {
-        AstNode* decl = &decls->node_items[i];
-
-        if (find_gvar(p, decl->name) != -1) {
-            fatal_error("parse_extern_var_decl: %s redeclared", decl->name);
-        }
-        GlobalVar* gvar = gvars_push_new(&p->gvars);
-        gvar->name = decl->name;
-        gvar->ty = decl->ty;
     }
 }
 
@@ -2081,18 +2174,15 @@ static AstNode* parse_toplevel(Parser* p) {
 
     AstNode* decls = parse_init_declarator_list(p, ty);
 
-    if (consume_token_if(p, TokenKind_paren_l)) {
-        return parse_func_decl_or_def(p, decls);
+    if (peek_token(p)->kind == TokenKind_brace_l) {
+        return parse_func_def(p, decls);
     }
 
     if (ty->storage_class == StorageClass_typedef) {
         parse_typedef_decl(p, decls);
         return NULL;
-    } else if (ty->storage_class == StorageClass_extern) {
-        parse_extern_var_decl(p, decls);
-        return NULL;
     } else {
-        return parse_global_var_decl(p, decls);
+        return parse_global_func_or_var_decl(p, decls);
     }
 }
 
@@ -2106,11 +2196,12 @@ Program* parse(TokenArray* tokens) {
             continue;
         if (n->kind == AstNodeKind_func_def) {
             ast_append(funcs, n);
-        } else if (n->kind == AstNodeKind_gvar_decl && n->ty) {
+        } else if (n->kind == AstNodeKind_gvar_decl) {
             ast_append(vars, n);
         } else if (n->kind == AstNodeKind_list) {
             for (int i = 0; i < n->node_len; ++i) {
-                ast_append(vars, &n->node_items[i]);
+                if (n->node_items[i].kind == AstNodeKind_gvar_decl)
+                    ast_append(vars, &n->node_items[i]);
             }
         }
     }

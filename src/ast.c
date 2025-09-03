@@ -45,6 +45,8 @@ const char* type_kind_stringify(TypeKind k) {
         return "<pointer>";
     else if (k == TypeKind_array)
         return "<array>";
+    else if (k == TypeKind_func)
+        return "<function>";
     else
         unreachable();
 }
@@ -60,16 +62,14 @@ Type* type_new(TypeKind kind) {
 }
 
 Type* type_new_ptr(Type* base) {
-    Type* ty = calloc(1, sizeof(Type));
-    ty->kind = TypeKind_ptr;
+    Type* ty = type_new(TypeKind_ptr);
     ty->base = base;
     return ty;
 }
 
-Type* type_new_array(Type* elem, int size) {
-    Type* ty = calloc(1, sizeof(Type));
-    ty->kind = TypeKind_array;
-    ty->base = elem;
+Type* type_new_array(Type* base, int size) {
+    Type* ty = type_new(TypeKind_array);
+    ty->base = base;
     ty->array_size = size;
     return ty;
 }
@@ -82,8 +82,15 @@ Type* type_array_to_ptr(Type* ty) {
     return type_new_ptr(ty->base);
 }
 
+Type* type_new_func(Type* result, AstNode* params) {
+    Type* ty = type_new(TypeKind_func);
+    ty->result = result;
+    ty->params = params;
+    return ty;
+}
+
 BOOL type_is_unsized(Type* ty) {
-    return ty->kind == TypeKind_void;
+    return ty->kind == TypeKind_void || ty->kind == TypeKind_func;
 }
 
 int type_sizeof(Type* ty) {

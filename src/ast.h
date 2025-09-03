@@ -37,6 +37,7 @@ typedef enum {
     TypeKind_enum,
     TypeKind_ptr,
     TypeKind_array,
+    TypeKind_func,
 } TypeKind;
 
 const char* type_kind_stringify(TypeKind k);
@@ -45,7 +46,7 @@ struct AstNode;
 typedef struct AstNode AstNode;
 
 typedef struct {
-    struct AstNode* defs;
+    AstNode* defs;
     size_t index;
 } TypeRef;
 
@@ -56,6 +57,8 @@ typedef struct Type {
     struct Type* base;
     int array_size;
     TypeRef ref;
+    struct Type* result;
+    AstNode* params;
 } Type;
 
 Type* type_new(TypeKind kind);
@@ -63,6 +66,7 @@ Type* type_new_ptr(Type* base);
 Type* type_new_array(Type* elem, int size);
 Type* type_new_static_string(int len);
 Type* type_array_to_ptr(Type* ty);
+Type* type_new_func(Type* result, AstNode* params);
 BOOL type_is_unsized(Type* ty);
 
 int type_sizeof_struct(Type* ty);
@@ -141,7 +145,6 @@ typedef enum {
 #define node_op __i1
 #define node_stack_offset __i1
 #define node_stack_size __i1
-#define node_function_is_static __i2
 
 struct AstNode {
     AstNodeKind kind;

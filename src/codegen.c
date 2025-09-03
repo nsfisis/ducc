@@ -548,7 +548,7 @@ static void codegen_stmt(CodeGen* g, AstNode* ast) {
 static void codegen_func(CodeGen* g, AstNode* ast) {
     g->current_func = ast;
 
-    if (!ast->node_function_is_static) {
+    if (ast->ty->result->storage_class != StorageClass_static) {
         fprintf(g->out, ".globl %s\n", ast->name);
     }
     fprintf(g->out, "%s:\n", ast->name);

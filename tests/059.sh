@@ -1,13 +1,21 @@
+# TODO: improve error message
+# cat <<'EOF' > expected
+# main.c:1: expected ';' or '{', but got '}'
+# EOF
 cat <<'EOF' > expected
-main.c:1: expected '{', but got '}'
+main.c:1: expected ';', but got '}'
 EOF
 
 test_compile_error <<'EOF'
 int main() }
 EOF
 
+# TODO: improve error message
+# cat <<'EOF' > expected
+# main.c:1: expected ';' or '{', but got '}'
+# EOF
 cat <<'EOF' > expected
-main.c:1: expected '{', but got '123'
+main.c:1: expected ';', but got '123'
 EOF
 
 test_compile_error <<'EOF'
