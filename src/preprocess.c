@@ -498,14 +498,11 @@ static void pplexer_tokenize_all(PpLexer* ppl) {
             tok->kind = TokenKind_literal_str;
             tok->value.string = builder.buf;
         } else if (isdigit(c)) {
+            // TODO: implement tokenization of pp-number.
             StrBuilder builder;
             strbuilder_init(&builder);
-            while (isdigit(infile_peek_char(ppl->src))) {
+            while (isalnum(infile_peek_char(ppl->src))) {
                 strbuilder_append_char(&builder, infile_peek_char(ppl->src));
-                infile_next_char(ppl->src);
-            }
-            // Skip integer suffix.
-            while (isalpha(infile_peek_char(ppl->src))) {
                 infile_next_char(ppl->src);
             }
             tok->kind = TokenKind_literal_int;
