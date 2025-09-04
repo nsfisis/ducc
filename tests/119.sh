@@ -1,5 +1,3 @@
-#!/bin/bash
-
 cat <<'EOF' > expected
 1,0
 1,1,1

@@ -68,3 +68,9 @@ int strings_push(StrArray* strings, const char* str) {
     strings->data[strings->len] = str;
     return ++strings->len;
 }
+
+void strings_pop(StrArray* strings) {
+    if (strings->len > 0) {
+        strings->len--;
+    }
+}

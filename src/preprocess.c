@@ -872,19 +872,49 @@ static Token* concat_two_tokens(Token* left, Token* right) {
     return result;
 }
 
-static bool expand_macro(Preprocessor* pp, bool skip_newline) {
-    int macro_name_pos = pp->pos;
-    Token* macro_name = peek_pp_token(pp);
-    int macro_idx = find_macro(pp, macro_name->value.string);
-    if (macro_idx == -1) {
-        return false;
+typedef struct MacroExpansionContext {
+    // Stack of macro names that have been already expanded.
+    StrArray already_expanded;
+} MacroExpansionContext;
+
+MacroExpansionContext* macroexpansioncontext_new() {
+    MacroExpansionContext* ctx = calloc(1, sizeof(MacroExpansionContext));
+    strings_init(&ctx->already_expanded);
+    return ctx;
+}
+
+static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionContext* ctx) {
+    if (ctx == NULL) {
+        ctx = macroexpansioncontext_new();
     }
 
+    int macro_name_pos = pp->pos;
+    Token* macro_name = peek_pp_token(pp);
+
+    // Supress expansion if the macro has already been expanded.
+    for (size_t i = 0; i < ctx->already_expanded.len; ++i) {
+        if (strcmp(ctx->already_expanded.data[i], macro_name->value.string) == 0) {
+            next_pp_token(pp);
+            return 1;
+        }
+    }
+
+    int macro_idx = find_macro(pp, macro_name->value.string);
+    if (macro_idx == -1) {
+        next_pp_token(pp);
+        return 1;
+    }
+
+    strings_push(&ctx->already_expanded, macro_name->value.string);
+
     SourceLocation original_loc = macro_name->loc;
+    size_t token_count_before_expansion;
+    size_t token_count_after_expansion;
     Macro* macro = &pp->macros->data[macro_idx];
     if (macro->kind == MacroKind_func) {
         next_pp_token(pp);
         MacroArgArray* args = pp_parse_macro_arguments(pp, skip_newline);
+        token_count_before_expansion = pp->pos - macro_name_pos;
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
 
         // Parameter substitution
@@ -935,13 +965,15 @@ static bool expand_macro(Preprocessor* pp, bool skip_newline) {
         for (size_t i = 0; i < token_count2; ++i) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
-        pp->pos = macro_name_pos;
+        token_count_after_expansion = token_count2;
     } else if (macro->kind == MacroKind_obj) {
         replace_pp_tokens(pp, macro_name_pos, macro_name_pos + 1, &macro->replacements);
         // Inherit a source location from the original macro token.
         for (size_t i = 0; i < macro->replacements.len; ++i) {
             pp_token_at(pp, macro_name_pos + i)->loc = original_loc;
         }
+        token_count_before_expansion = 1;
+        token_count_after_expansion = macro->replacements.len;
     } else if (macro->kind == MacroKind_builtin_file) {
         Token file_tok;
         file_tok.kind = TokenKind_literal_str;
@@ -949,6 +981,8 @@ static bool expand_macro(Preprocessor* pp, bool skip_newline) {
         file_tok.loc.filename = NULL;
         file_tok.loc.line = 0;
         replace_single_pp_token(pp, macro_name_pos, &file_tok);
+        token_count_before_expansion = 1;
+        token_count_after_expansion = 1;
     } else if (macro->kind == MacroKind_builtin_line) {
         Token line_tok;
         line_tok.kind = TokenKind_literal_int;
@@ -956,10 +990,25 @@ static bool expand_macro(Preprocessor* pp, bool skip_newline) {
         line_tok.loc.filename = NULL;
         line_tok.loc.line = 0;
         replace_single_pp_token(pp, macro_name_pos, &line_tok);
+        token_count_before_expansion = 1;
+        token_count_after_expansion = 1;
     } else {
         unreachable();
     }
-    return true;
+
+    // Recursive expansion.
+    pp->pos = macro_name_pos;
+    size_t processed_token_count = 0;
+    while (processed_token_count < token_count_after_expansion) {
+        if (peek_pp_token(pp)->kind == TokenKind_ident) {
+            processed_token_count += expand_macro(pp, skip_newline, ctx);
+        } else {
+            processed_token_count += 1;
+        }
+    }
+    strings_pop(&ctx->already_expanded);
+
+    return token_count_before_expansion;
 }
 
 typedef enum {
@@ -1019,13 +1068,7 @@ static bool preprocess_if_group_or_elif_group(Preprocessor* pp, bool did_include
                     defined_result->value.integer = is_defined;
                     pp->pos = replace_pp_tokens(pp, defined_pos, pp->pos, &defined_results);
                 } else {
-                    bool expanded = expand_macro(pp, false);
-                    if (expanded) {
-                        // A macro may expand to another macro. Re-scan the expanded tokens.
-                        // TODO: if the macro is defined recursively, it causes infinite loop.
-                    } else {
-                        next_pp_token(pp);
-                    }
+                    expand_macro(pp, false, NULL);
                 }
             } else {
                 next_pp_token(pp);
@@ -1290,13 +1333,7 @@ static void preprocess_text_line(Preprocessor* pp) {
             continue;
         }
 
-        bool expanded = expand_macro(pp, true);
-        if (expanded) {
-            // A macro may expand to another macro. Re-scan the expanded tokens.
-            // TODO: if the macro is defined recursively, it causes infinite loop.
-        } else {
-            next_pp_token(pp);
-        }
+        expand_macro(pp, true, NULL);
     }
     expect_pp_token(pp, TokenKind_newline);
 }

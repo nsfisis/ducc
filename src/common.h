@@ -35,5 +35,6 @@ typedef struct {
 void strings_init(StrArray* strings);
 void strings_reserve(StrArray* strings, size_t size);
 int strings_push(StrArray* strings, const char* str);
+void strings_pop(StrArray* strings);
 
 #endif
