@@ -1956,9 +1956,11 @@ static Type* parse_declaration_specifiers(Parser* p) {
             // TODO
             next_token(p);
         } else if (tok->kind == TokenKind_keyword_restrict) {
-            unimplemented();
+            // TODO
+            next_token(p);
         } else if (tok->kind == TokenKind_keyword_volatile) {
-            unimplemented();
+            // TODO
+            next_token(p);
         } else if (tok->kind == TokenKind_keyword__Atomic) {
             unimplemented();
         }
