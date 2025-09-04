@@ -1397,12 +1397,7 @@ static AstNode* parse_enum_member(Parser* p) {
     member->name = name->value.string;
 
     if (consume_token_if(p, TokenKind_assign)) {
-        // TODO: support other kinds of constant expression.
-        const Token* v = expect(p, TokenKind_literal_int);
-        member->node_int_value = v->value.integer;
-    } else {
-        // TODO: use another special value for placeholder because -1 is a valid value.
-        member->node_int_value = -1;
+        member->node_expr = parse_constant_expression(p);
     }
 
     return member;
@@ -1414,7 +1409,9 @@ static AstNode* parse_enum_members(Parser* p) {
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_enum_member(p);
 
-        if (member->node_int_value != -1) {
+        if (member->node_expr) {
+            member->node_int_value = eval(member->node_expr);
+            member->node_expr = NULL;
             next_value = member->node_int_value;
         } else {
             member->node_int_value = next_value;
@@ -1637,30 +1634,29 @@ static Type* parse_enum_specifier(Parser* p) {
 }
 
 typedef enum {
-    // TODO: define these constants with shift operators once ducc supports it.
-    TypeSpecifierMask_void = 1,
-    TypeSpecifierMask_char = 2,
-    TypeSpecifierMask_short = 4,
-    TypeSpecifierMask_int = 8,
-    TypeSpecifierMask_long = 16,
+    TypeSpecifierMask_void = 1 << 0,
+    TypeSpecifierMask_char = 1 << 1,
+    TypeSpecifierMask_short = 1 << 2,
+    TypeSpecifierMask_int = 1 << 3,
+    TypeSpecifierMask_long = 1 << 4,
     // 1 << 5 is used for second 'long'.
-    TypeSpecifierMask_float = 64,
-    TypeSpecifierMask_double = 128,
-    TypeSpecifierMask_signed = 256,
-    TypeSpecifierMask_unsigned = 512,
-    TypeSpecifierMask__BitInt = 1024,
-    TypeSpecifierMask_bool = 2048,
-    TypeSpecifierMask__Complex = 4096,
-    TypeSpecifierMask__Decimal32 = 8192,
-    TypeSpecifierMask__Decimal64 = 16384,
-    TypeSpecifierMask__Decimal128 = 32768,
-    TypeSpecifierMask__Atomic = 65536,
-    TypeSpecifierMask_struct = 131072,
-    TypeSpecifierMask_union = 262144,
-    TypeSpecifierMask_enum = 524288,
-    TypeSpecifierMask_typeof = 1048576,
-    TypeSpecifierMask_typeof_unqual = 2097152,
-    TypeSpecifierMask_typedef_name = 4194304,
+    TypeSpecifierMask_float = 1 << 6,
+    TypeSpecifierMask_double = 1 << 7,
+    TypeSpecifierMask_signed = 1 << 8,
+    TypeSpecifierMask_unsigned = 1 << 9,
+    TypeSpecifierMask__BitInt = 1 << 10,
+    TypeSpecifierMask_bool = 1 << 11,
+    TypeSpecifierMask__Complex = 1 << 12,
+    TypeSpecifierMask__Decimal32 = 1 << 13,
+    TypeSpecifierMask__Decimal64 = 1 << 14,
+    TypeSpecifierMask__Decimal128 = 1 << 15,
+    TypeSpecifierMask__Atomic = 1 << 16,
+    TypeSpecifierMask_struct = 1 << 17,
+    TypeSpecifierMask_union = 1 << 18,
+    TypeSpecifierMask_enum = 1 << 19,
+    TypeSpecifierMask_typeof = 1 << 20,
+    TypeSpecifierMask_typeof_unqual = 1 << 21,
+    TypeSpecifierMask_typedef_name = 1 << 22,
 } TypeSpecifierMask;
 
 static Type* distinguish_type_from_type_specifiers(int type_specifiers) {
