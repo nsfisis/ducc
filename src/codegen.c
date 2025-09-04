@@ -307,24 +307,29 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
     const char* func_name = ast->name;
 
     if (strcmp(func_name, "__ducc_va_start") == 0) {
-        int stack_size = g->current_func->node_stack_size;
         fprintf(g->out, "  # __ducc_va_start BEGIN\n");
-        for (int i = 0; i < 6; ++i) {
-            fprintf(g->out, "  mov rax, %s\n", param_reg(i));
-            fprintf(g->out, "  mov [rbp-%d], rax\n", 8 + (stack_size - 4 - i) * 8);
-        }
-        AstNode* va_list_args = ast->node_args->node_items;
-        codegen_expr(g, va_list_args, GenMode_lval);
+        AstNode* va_list_args = &ast->node_args->node_items[0];
+        codegen_expr(g, va_list_args, GenMode_rval);
         fprintf(g->out, "  pop rdi\n");
-        fprintf(g->out, "  mov rax, rbp\n");
-        fprintf(g->out, "  sub rax, %d\n", 8 + (stack_size - 1) * 8);
-        fprintf(g->out, "  mov [rdi], rax\n");
-        fprintf(g->out, "  mov DWORD PTR [rax], 8\n");
-        fprintf(g->out, "  mov DWORD PTR [rax+4], 0\n");
-        fprintf(g->out, "  mov QWORD PTR [rax+8], 0\n");
-        fprintf(g->out, "  mov rdi, rbp\n");
-        fprintf(g->out, "  sub rdi, %d\n", 8 + (stack_size - 4) * 8);
-        fprintf(g->out, "  mov QWORD PTR [rax+16], rdi\n");
+
+        // Allocate save area.
+        fprintf(g->out, "  sub rsp, 48\n");
+
+        fprintf(g->out, "  mov [rsp+ 0], rdi\n");
+        fprintf(g->out, "  mov [rsp+ 8], rsi\n");
+        fprintf(g->out, "  mov [rsp+16], rdx\n");
+        fprintf(g->out, "  mov [rsp+24], rcx\n");
+        fprintf(g->out, "  mov [rsp+32], r8\n");
+        fprintf(g->out, "  mov [rsp+40], r9\n");
+
+        // Initialize va_list.
+        fprintf(g->out, "  mov DWORD PTR [rdi], 8\n"); // gp_offset
+        fprintf(g->out, "  mov DWORD PTR [rdi+4], 0\n"); // fp_offset
+        fprintf(g->out, "  lea rax, [rbp+16]\n"); // overflow_arg_area
+        fprintf(g->out, "  mov QWORD PTR [rdi+8], rax\n");
+        fprintf(g->out, "  mov QWORD PTR [rdi+16], rsp\n"); // reg_save_area
+
+        fprintf(g->out, "  push 0\n"); // dummy return value
         fprintf(g->out, "  # __ducc_va_start END\n");
         return;
     }

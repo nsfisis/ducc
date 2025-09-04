@@ -12,9 +12,7 @@ struct __ducc_va_list {
     void* overflow_arg_area;
     void* reg_save_area;
 };
-// ducc currently does not support array type.
-// typedef struct __ducc_va_list va_list[1];
-typedef struct __ducc_va_list* va_list;
+typedef struct __ducc_va_list va_list[1];
 
 #define va_start(args, start) __ducc_va_start(args, start)
 #define va_end(args)

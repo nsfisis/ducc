@@ -1,5 +1,5 @@
 cat <<'EOF' > expected
-8
+24
 EOF
 
 test_diff <<'EOF'
