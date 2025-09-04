@@ -1,4 +1,5 @@
 #include "token.h"
+#include <stdio.h>
 #include "common.h"
 #include "json.h"
 

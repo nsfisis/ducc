@@ -1,4 +1,5 @@
 #include "preprocess.h"
+#include <stdio.h>
 #include "common.h"
 #include "parse.h"
 #include "sys.h"

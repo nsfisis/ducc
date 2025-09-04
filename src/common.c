@@ -1,4 +1,6 @@
 #include "common.h"
+#include <stdarg.h>
+#include <stdio.h>
 
 void fatal_error(const char* msg, ...) {
     va_list args;

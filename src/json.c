@@ -1,4 +1,5 @@
 #include "json.h"
+#include <stdio.h>
 #include "common.h"
 
 struct JsonBuilder {

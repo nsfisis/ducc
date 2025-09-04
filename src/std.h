@@ -3,19 +3,9 @@
 
 #include <stddef.h>
 
-typedef struct FILE FILE;
-
-extern FILE* stdin;
-extern FILE* stdout;
-extern FILE* stderr;
-
 int atoi(const char*);
 void* calloc(size_t, size_t);
 void exit(int);
-int fclose(FILE*);
-int fprintf(FILE*, const char*, ...);
-char* fgets(char*, int, FILE*);
-FILE* fopen(const char*, const char*);
 int getchar();
 int isalnum(int);
 int isalpha(int);
@@ -25,9 +15,7 @@ void* memcpy(void*, const void*, size_t);
 void* memmove(void*, const void*, size_t);
 void* memset(void*, int, size_t);
 int mkstemps(char*, int);
-int printf(const char*, ...);
 void* realloc(void*, size_t);
-int sprintf(char*, const char*, ...);
 int strcmp(const char*, const char*);
 size_t strlen(const char*);
 int strncmp(const char*, const char*, size_t);
@@ -45,18 +33,12 @@ int system(const char*);
         } \
     } while (0)
 
-#include <stdarg.h>
-
-int vfprintf(FILE*, const char*, va_list);
-
 #define F_OK 0
 #define R_OK 4
 int access(const char*, int);
 
 #define PATH_MAX 4096
 
-typedef long ssize_t;
-ssize_t readlink(const char*, char*, size_t);
 char* dirname(char*);
 
 #endif

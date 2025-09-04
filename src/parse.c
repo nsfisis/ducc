@@ -1,4 +1,5 @@
 #include "parse.h"
+#include <stdio.h>
 #include "common.h"
 #include "tokenize.h"
 

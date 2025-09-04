@@ -1,6 +1,10 @@
 #include "sys.h"
 #include "std.h"
 
+// TODO: #inclue some header.
+typedef long ssize_t;
+ssize_t readlink(const char*, char*, size_t);
+
 static char* get_self_path() {
     char* buf = calloc(PATH_MAX, sizeof(char));
     ssize_t len = readlink("/proc/self/exe", buf, PATH_MAX - 1);

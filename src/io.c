@@ -1,4 +1,5 @@
 #include "io.h"
+#include <stdio.h>
 #include "common.h"
 #include "json.h"
 

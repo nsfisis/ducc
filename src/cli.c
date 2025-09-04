@@ -1,4 +1,5 @@
 #include "cli.h"
+#include <stdio.h>
 #include "common.h"
 #include "version.h"
 
