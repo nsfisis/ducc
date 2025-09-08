@@ -949,8 +949,8 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
                     tokens_init(&single_token, 1);
                     *tokens_push_new(&single_token) = *concatenated;
                     replace_pp_tokens(pp, pos - 1, pos + 2, &single_token);
+                    token_count -= 2;
                     --i;
-                    ++token_count2;
                 } else {
                     fatal_error("invalid usage of ## operator");
                 }
@@ -1001,6 +1001,7 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
         if (peek_pp_token(pp)->kind == TokenKind_ident) {
             processed_token_count += expand_macro(pp, skip_newline, ctx);
         } else {
+            next_pp_token(pp);
             processed_token_count += 1;
         }
     }
