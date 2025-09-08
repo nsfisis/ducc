@@ -65,16 +65,23 @@ char infile_peek_char(InFile* f) {
         if (c2 == '\0') {
             fatal_error("%s:%d: <new-line> expected, but got <eof>", f->loc.filename, f->loc.line);
         }
-        // TODO: crlf
-        if (c2 == '\r' || c2 == '\n') {
-            f->pos += 2;
+        // Handle line continuation.
+        if (c2 == '\r') {
+            if (f->buf[f->pos + 2] == '\n') {
+                f->pos += 3; // Backslash + CRLF
+            } else {
+                f->pos += 2; // Backslash + CR
+            }
+            ++f->loc.line;
+            return infile_peek_char(f);
+        } else if (c2 == '\n') {
+            f->pos += 2; // Backslash + LF
             ++f->loc.line;
             return infile_peek_char(f);
         }
     }
 
     // Normalize new-line.
-    // TODO: crlf
     if (c == '\r')
         c = '\n';
     return c;
@@ -82,7 +89,17 @@ char infile_peek_char(InFile* f) {
 
 char infile_next_char(InFile* f) {
     char c = infile_peek_char(f);
-    ++f->pos;
+
+    if (f->buf[f->pos] == '\r') {
+        ++f->pos;
+        if (f->buf[f->pos] == '\n') {
+            ++f->pos; // CRLF
+        }
+        c = '\n';
+    } else {
+        ++f->pos;
+    }
+
     if (c == '\n')
         ++f->loc.line;
     return c;
