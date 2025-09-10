@@ -1,4 +1,6 @@
-test_exit_code 89 <<'EOF'
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
+
 int fib(int n) {
     if (n <= 1) {
         return 1;
@@ -8,7 +10,6 @@ int fib(int n) {
 }
 
 int main() {
-    return fib(10);
+    ASSERT_EQ(89, fib(10));
 }
 EOF
-

@@ -1,12 +1,8 @@
-cat <<'EOF' > expected
-2 5
-EOF
-
-test_diff <<'EOF'
-int printf();
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
 
 int main() {
-    printf("%d %d\n", 1 ? 2 : 3, 0 ? 4 : 5);
+    ASSERT_EQ(2, 1 ? 2 : 3);
+    ASSERT_EQ(5, 0 ? 4 : 5);
 }
 EOF
-

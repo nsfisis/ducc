@@ -1,20 +1,21 @@
-test_exit_code 12 <<'EOF'
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
+
 int main() {
+    int result1;
     if (1) {
-        return 12;
+        result1 = 12;
     } else {
-        return 34;
+        result1 = 34;
     }
-}
-EOF
+    ASSERT_EQ(12, result1);
 
-test_exit_code 34 <<'EOF'
-int main() {
+    int result2;
     if (1 + 1 != 2) {
-        return 12;
+        result2 = 12;
     } else {
-        return 34;
+        result2 = 34;
     }
+    ASSERT_EQ(34, result2);
 }
 EOF
-

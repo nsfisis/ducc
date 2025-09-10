@@ -1,65 +1,29 @@
-cat <<'EOF' > expected
-123
-460
-EOF
-
-test_diff <<'EOF'
-int printf();
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
 
 int main() {
-    printf("%d\n", 0 | 123);
-    printf("%d\n", 12 | 456);
-}
-EOF
+    ASSERT_EQ(123, 0 | 123);
+    ASSERT_EQ(460, 12 | 456);
 
-cat <<'EOF' > expected
-8
-336
-EOF
-test_diff <<'EOF'
-int printf();
-int main() {
-    printf("%d\n", 1 << 3);
-    printf("%d\n", 21 << 4);
-}
-EOF
+    ASSERT_EQ(8, 1 << 3);
+    ASSERT_EQ(336, 21 << 4);
+    ASSERT_EQ(13, 111 >> 3);
+    ASSERT_EQ(0, 15 >> 14);
 
-cat <<'EOF' > expected
-13
-0
-EOF
-test_diff <<'EOF'
-int printf();
-int main() {
-    printf("%d\n", 111 >> 3);
-    printf("%d\n", 15 >> 14);
-}
-EOF
-
-cat <<'EOF' > expected
-1
-7
-6
-4
-3 2 3 0
-EOF
-test_diff <<'EOF'
-int printf();
-
-int main() {
     int a = 5;
     int b = 3;
-
-    printf("%d\n", a & b);
-    printf("%d\n", a | b);
-    printf("%d\n", a ^ b);
-    printf("%d\n", 2 + 3 & 4);
+    ASSERT_EQ(1, a & b);
+    ASSERT_EQ(7, a | b);
+    ASSERT_EQ(6, a ^ b);
+    ASSERT_EQ(4, 2 + 3 & 4);
 
     int c = 1 + 2 & 3;
     int d = 4 & 5 ^ 6;
     int e = 1 ^ 2 | 3;
     int f = 0 | 1 & 2;
-    printf("%d %d %d %d\n", c, d, e, f);
+    ASSERT_EQ(3, c);
+    ASSERT_EQ(2, d);
+    ASSERT_EQ(3, e);
+    ASSERT_EQ(0, f);
 }
 EOF
-

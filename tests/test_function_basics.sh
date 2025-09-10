@@ -1,4 +1,6 @@
-test_exit_code 66 <<'EOF'
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
+
 int foo() {
     int i;
     int ret;
@@ -13,68 +15,38 @@ int foo() {
     return ret;
 }
 
-int main() {
-    return foo();
-}
-EOF
-
-test_exit_code 10 <<'EOF'
 int f(int a, int b, int c, int d, int e, int f) {
     return a;
 }
 
-int main() {
-    return 10 * f(1, 2, 3, 4, 5, 6);
-}
-EOF
-
-test_exit_code 20 <<'EOF'
-int f(int a, int b, int c, int d, int e, int f) {
+int f2(int a, int b, int c, int d, int e, int f) {
     return b;
 }
 
-int main() {
-    return 10 * f(1, 2, 3, 4, 5, 6);
-}
-EOF
-
-test_exit_code 30 <<'EOF'
-int f(int a, int b, int c, int d, int e, int f) {
+int f3(int a, int b, int c, int d, int e, int f) {
     return c;
 }
 
-int main() {
-    return 10 * f(1, 2, 3, 4, 5, 6);
-}
-EOF
-
-test_exit_code 40 <<'EOF'
-int f(int a, int b, int c, int d, int e, int f) {
+int f4(int a, int b, int c, int d, int e, int f) {
     return d;
 }
 
-int main() {
-    return 10 * f(1, 2, 3, 4, 5, 6);
-}
-EOF
-
-test_exit_code 50 <<'EOF'
-int f(int a, int b, int c, int d, int e, int f) {
+int f5(int a, int b, int c, int d, int e, int f) {
     return e;
 }
 
-int main() {
-    return 10 * f(1, 2, 3, 4, 5, 6);
-}
-EOF
-
-test_exit_code 60 <<'EOF'
-int f(int a, int b, int c, int d, int e, int f) {
+int f6(int a, int b, int c, int d, int e, int f) {
     return f;
 }
 
 int main() {
-    return 10 * f(1, 2, 3, 4, 5, 6);
+    ASSERT_EQ(66, foo());
+    ASSERT_EQ(10, 10 * f(1, 2, 3, 4, 5, 6));
+    ASSERT_EQ(20, 10 * f2(1, 2, 3, 4, 5, 6));
+    ASSERT_EQ(30, 10 * f3(1, 2, 3, 4, 5, 6));
+    ASSERT_EQ(40, 10 * f4(1, 2, 3, 4, 5, 6));
+    ASSERT_EQ(50, 10 * f5(1, 2, 3, 4, 5, 6));
+    ASSERT_EQ(60, 10 * f6(1, 2, 3, 4, 5, 6));
 }
 EOF
 
@@ -84,4 +56,3 @@ int main() {
     return 0;
 }
 EOF
-

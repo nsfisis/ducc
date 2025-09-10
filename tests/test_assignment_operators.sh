@@ -1,49 +1,26 @@
-cat <<'EOF' > expected
-0
-1
-2
-3
-4
-
-5
-4
-3
-2
-1
-0
-
-56088
-
-24
-
-3
-EOF
-test_diff <<'EOF'
-int printf();
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
 
 int main() {
     int i = 0;
-    for (; i < 5; i += 1) {
-        printf("%d\n", i);
-    }
-    printf("\n");
-    for (i = 5; i >= 0; i -= 1) {
-        printf("%d\n", i);
-    }
+    for (; i < 5; i += 1) {}
+    ASSERT_EQ(5, i);
+
+    for (i = 5; i >= 0; i -= 1);
+    ASSERT_EQ(-1, i);
 
     int x = 123;
     x *= 456;
-    printf("\n%d\n", x);
+    ASSERT_EQ(56088, x);
 
     int y = 120;
     y /= 5;
-    printf("\n%d\n", y);
+    ASSERT_EQ(24, y);
 
     int z = 17;
     z %= 7;
-    printf("\n%d\n", z);
+    ASSERT_EQ(3, z);
 
     return 0;
 }
 EOF
-

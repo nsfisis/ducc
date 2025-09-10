@@ -1,23 +1,15 @@
-test_exit_code 42 <<'EOF'
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
+
 int main() {
     int foo;
     foo = 42;
-    return foo;
-}
-EOF
+    ASSERT_EQ(42, foo);
 
-test_exit_code 70 <<'EOF'
-int main() {
-    int foo;
     int bar;
-    foo = 42;
     bar = 28;
-    return foo + bar;
-}
-EOF
+    ASSERT_EQ(70, foo + bar);
 
-test_exit_code 45 <<'EOF'
-int main() {
     int a1;
     int a2;
     int a3;
@@ -38,7 +30,7 @@ int main() {
     a8 = 8;
     a9 = 9;
 
-    return
+    ASSERT_EQ(45,
         a1 +
         a2 +
         a3 +
@@ -48,7 +40,7 @@ int main() {
         a7 +
         a8 +
         a9 +
-        0;
+        0);
 }
 EOF
 
@@ -64,4 +56,3 @@ int main() {
     return 0;
 }
 EOF
-
