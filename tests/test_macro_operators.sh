@@ -41,3 +41,19 @@ int main() {
 }
 EOF
 
+cat <<'EOF' > expected
+123
+EOF
+test_diff <<'EOF'
+int printf(const char*, ...);
+
+#define F(x) CHECK(G(x))
+#define G(x) CHECK(H(x))
+#define CHECK(x) x
+
+int H(int n) { return n; }
+
+int main() {
+    printf("%d\n", F(123));
+}
+EOF

@@ -881,6 +881,27 @@ MacroExpansionContext* macroexpansioncontext_new() {
     return ctx;
 }
 
+static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionContext* ctx);
+
+static void expand_macro_arg(Preprocessor* pp, MacroArg* arg, bool skip_newline, MacroExpansionContext* ctx) {
+    tokens_push_new(&arg->tokens)->kind = TokenKind_eof;
+
+    Preprocessor* pp2 = preprocessor_new(&arg->tokens, pp->include_depth, pp->macros, pp->included_files);
+
+    size_t arg_token_count = arg->tokens.len;
+    size_t processed_token_count = 0;
+    while (processed_token_count < arg_token_count) {
+        if (peek_pp_token(pp2)->kind == TokenKind_ident) {
+            processed_token_count += expand_macro(pp2, skip_newline, ctx);
+        } else {
+            next_pp_token(pp2);
+            processed_token_count += 1;
+        }
+    }
+
+    tokens_pop(&arg->tokens);
+}
+
 static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionContext* ctx) {
     if (ctx == NULL) {
         ctx = macroexpansioncontext_new();
@@ -888,6 +909,7 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
 
     int macro_name_pos = pp->pos;
     Token* macro_name = peek_pp_token(pp);
+    const char* macro_name_str = macro_name->value.string;
 
     // Supress expansion if the macro has already been expanded.
     for (size_t i = 0; i < ctx->already_expanded.len; ++i) {
@@ -903,8 +925,6 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
         return 1;
     }
 
-    strings_push(&ctx->already_expanded, macro_name->value.string);
-
     SourceLocation original_loc = macro_name->loc;
     size_t token_count_before_expansion;
     size_t token_count_after_expansion;
@@ -914,6 +934,32 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
         MacroArgArray* args = pp_parse_macro_arguments(pp, skip_newline);
         token_count_before_expansion = pp->pos - macro_name_pos;
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
+
+        bool* no_expand = calloc(macro->parameters.len, sizeof(bool));
+        for (size_t i = 0; i < macro->replacements.len; ++i) {
+            if (i == 0 || i == macro->replacements.len - 1)
+                continue;
+            if (macro->replacements.data[i].kind == TokenKind_hashhash) {
+                Token* lhs = &macro->replacements.data[i - 1];
+                Token* rhs = &macro->replacements.data[i + 1];
+                int param1 = macro_find_param(macro, lhs);
+                int param2 = macro_find_param(macro, rhs);
+                if (param1 != -1) {
+                    no_expand[param1] = true;
+                }
+                if (param2 != -1) {
+                    no_expand[param2] = true;
+                }
+            }
+        }
+
+        // Argument expansion
+        for (size_t i = 0; i < args->len; ++i) {
+            if (no_expand[i])
+                continue;
+            MacroArg* arg = &args->data[i];
+            expand_macro_arg(pp, arg, skip_newline, ctx);
+        }
 
         // Parameter substitution
         size_t token_count = 0;
@@ -995,6 +1041,7 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
     }
 
     // Recursive expansion.
+    strings_push(&ctx->already_expanded, macro_name_str);
     pp->pos = macro_name_pos;
     size_t processed_token_count = 0;
     while (processed_token_count < token_count_after_expansion) {
