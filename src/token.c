@@ -12,6 +12,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "##";
     else if (k == TokenKind_whitespace)
         return "<whitespace>";
+    else if (k == TokenKind_removed)
+        return "<removed>";
     else if (k == TokenKind_newline)
         return "<new-line>";
     else if (k == TokenKind_other)

@@ -1,9 +1,16 @@
 cat <<'EOF' > expected
-A is defined
-A is undefined
+int printf ();
+
+int main () {
+
+ printf ( A is defined\n);
+
+
+ printf ( A is undefined\n);
+}
 EOF
 
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf();
 
 int main() {
@@ -24,4 +31,3 @@ int main() {
 #endif
 }
 EOF
-

@@ -1,10 +1,21 @@
 cat <<'EOF' > expected
-__ducc__ is defined.
-A is defined.
-B is undefined.
+int printf ();
+
+
+int main () {
+
+ printf ( __ducc__ is defined.\n);
+
+ printf ( A is defined.\n);
+
+ printf ( B is undefined.\n);
+
+
+ return 0;
+}
 EOF
 
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf();
 
 #define A 123
@@ -36,12 +47,23 @@ int main() {
 EOF
 
 cat <<'EOF' > expected
-__ducc__ is defined.
-A is defined.
-B is undefined.
+int printf ();
+
+
+int main () {
+
+ printf ( __ducc__ is defined.\n);
+
+ printf ( A is defined.\n);
+
+ printf ( B is undefined.\n);
+
+
+ return 0;
+}
 EOF
 
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf();
 
 #define A 123
@@ -71,4 +93,3 @@ int main() {
     return 0;
 }
 EOF
-

@@ -10,8 +10,9 @@ static void print_version() {
 CliArgs* parse_cli_args(int argc, char** argv) {
     const char* output_filename = NULL;
     int positional_arguments_start = -1;
-    bool only_compile = false;
-    bool generate_deps = false;
+    bool opt_c = false;
+    bool opt_E = false;
+    bool opt_MMD = false;
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] != '-') {
@@ -34,9 +35,11 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             output_filename = argv[i + 1];
             ++i;
         } else if (c == 'c') {
-            only_compile = true;
+            opt_c = true;
+        } else if (c == 'E') {
+            opt_E = true;
         } else if (strcmp(argv[i], "-MMD") == 0) {
-            generate_deps = true;
+            opt_MMD = true;
         } else if (strcmp(argv[i], "--version") == 0) {
             print_version();
             exit(0);
@@ -54,10 +57,11 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     a->input_filename = argv[positional_arguments_start];
     a->output_filename = output_filename;
     a->output_assembly = !output_filename || str_ends_with(output_filename, ".s");
-    a->only_compile = only_compile;
+    a->only_compile = opt_c;
+    a->preprocess_only = opt_E;
     a->totally_deligate_to_gcc = false;
     a->gcc_command = NULL;
-    a->generate_deps = generate_deps;
+    a->generate_deps = opt_MMD;
 
     if (!a->only_compile && str_ends_with(a->input_filename, ".o")) {
         a->totally_deligate_to_gcc = true;

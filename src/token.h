@@ -11,6 +11,7 @@ typedef enum {
     TokenKind_hash,
     TokenKind_hashhash,
     TokenKind_whitespace,
+    TokenKind_removed,
     TokenKind_newline,
     TokenKind_other,
     TokenKind_character_constant,

@@ -8,6 +8,7 @@ typedef struct {
     const char* output_filename;
     bool output_assembly;
     bool only_compile;
+    bool preprocess_only;
     bool generate_deps;
     bool totally_deligate_to_gcc;
     const char* gcc_command;

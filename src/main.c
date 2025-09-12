@@ -22,6 +22,16 @@ int main(int argc, char** argv) {
     strings_init(&included_files);
 
     TokenArray* pp_tokens = preprocess(source, &included_files);
+
+    if (cli_args->preprocess_only) {
+        FILE* output_file = cli_args->output_filename ? fopen(cli_args->output_filename, "w") : stdout;
+        if (!output_file) {
+            fatal_error("Cannot open output file: %s", cli_args->output_filename);
+        }
+        print_token_to_file(output_file, pp_tokens);
+        return 0;
+    }
+
     TokenArray* tokens = tokenize(pp_tokens);
     Program* prog = parse(tokens);
 

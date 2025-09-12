@@ -1,8 +1,13 @@
 cat <<'EOF' > expected
-1
+int printf ();
+
+
+int main () {
+ printf ( 1\n);
+}
 EOF
 
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf();
 
 #define A
@@ -18,13 +23,20 @@ int main() {
 EOF
 
 cat <<'EOF' > expected
-1
-1
-2
-3
+int printf ();
+
+int main () {
+ printf ( 1\n);
+
+ printf ( 1\n);
+
+ printf ( 2\n);
+
+ printf ( 3\n);
+}
 EOF
 
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf();
 
 int main() {
@@ -63,17 +75,28 @@ int main() {
 EOF
 
 cat <<'EOF' > expected
-1
-1
-2
-2
-3
-4
-3
-4
+int printf ();
+
+int main () {
+ printf ( 1\n);
+
+ printf ( 1\n);
+
+ printf ( 2\n);
+
+ printf ( 2\n);
+
+ printf ( 3\n);
+
+ printf ( 4\n);
+
+ printf ( 3\n);
+
+ printf ( 4\n);
+}
 EOF
 
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf();
 
 int main() {
@@ -190,4 +213,3 @@ int main() {
 #endif
 }
 EOF
-

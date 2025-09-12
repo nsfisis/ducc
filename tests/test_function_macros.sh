@@ -83,19 +83,24 @@ int main() {
 EOF
 
 cat <<'EOF' > expected
-42
-123
+int printf ( const char *, ...);
+
+int main () {
+ int foo = 42;
+ printf ( %d\n, foo);
+
+ int a = 123;
+ printf ( %d\n, a);
+}
 EOF
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf(const char*, ...);
 
 int main() {
-    // TODO: check if "foo" is expanded to "foo" or not once '#' operator is implemented.
 #define foo foo
     int foo = 42;
     printf("%d\n", foo);
 
-    // TODO: check if "a" is expanded to "a" or not once '#' operator is implemented.
 #define a b
 #define b c
 #define c a
@@ -103,4 +108,3 @@ int main() {
     printf("%d\n", a);
 }
 EOF
-

@@ -1,14 +1,31 @@
 cat <<'EOF' > expected
-foobar=100
-prefix_test=200
-test_suffix=300
-var_1=10
-var_2=20
-var_A=30
-number_12=12
+int printf ();
+
+
+int foobar = 100;
+int prefix_test = 200;
+int test_suffix = 300;
+
+int var_1 = 10;
+int var_2 = 20;
+
+int var_A = 30;
+
+int number_12 = 12;
+
+int main () {
+ printf ( foobar=%d\n, foobar);
+ printf ( prefix_test=%d\n, prefix_test);
+ printf ( test_suffix=%d\n, test_suffix);
+ printf ( var_1=%d\n, var_1);
+ printf ( var_2=%d\n, var_2);
+ printf ( var_A=%d\n, var_A);
+ printf ( number_12=%d\n, number_12);
+ return 0;
+}
 EOF
 
-test_diff <<'EOF'
+test_cpp <<'EOF'
 int printf();
 
 #define CONCAT(a, b) a##b
@@ -42,9 +59,17 @@ int main() {
 EOF
 
 cat <<'EOF' > expected
-123
+int printf ( const char *, ...);
+
+
+int H ( int n) { return n; }
+
+int main () {
+ printf ( %d\n, H ( 123));
+}
 EOF
-test_diff <<'EOF'
+
+test_cpp <<'EOF'
 int printf(const char*, ...);
 
 #define F(x) CHECK(G(x))

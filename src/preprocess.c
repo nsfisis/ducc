@@ -661,10 +661,10 @@ static void seek_to_next_newline(Preprocessor* pp) {
         ;
 }
 
-static void make_tokens_whitespaces(Preprocessor* pp, int start, int end) {
+static void make_tokens_removed(Preprocessor* pp, int start, int end) {
     for (int i = start; i < end; ++i) {
         Token* tok = pp_token_at(pp, i);
-        tok->kind = TokenKind_whitespace;
+        tok->kind = TokenKind_removed;
         tok->value.string = NULL;
     }
 }
@@ -1468,7 +1468,7 @@ static void skip_group_opt(Preprocessor* pp, GroupDelimiterKind delimiter_kind) 
         int first_pos = pp->pos;
         seek_to_next_newline(pp);
         expect_pp_token(pp, TokenKind_newline);
-        make_tokens_whitespaces(pp, first_pos, pp->pos);
+        make_tokens_removed(pp, first_pos, pp->pos);
     }
 
     expect_pp_token(pp, TokenKind_pp_directive_endif);
@@ -1491,7 +1491,7 @@ static void preprocess_preprocessing_file(Preprocessor* pp) {
 static void remove_pp_directive(Preprocessor* pp, int directive_token_pos) {
     seek_to_next_newline(pp);
     skip_pp_token(pp, TokenKind_newline);
-    make_tokens_whitespaces(pp, directive_token_pos, pp->pos);
+    make_tokens_removed(pp, directive_token_pos, pp->pos);
 }
 
 static void remove_pp_directives(Preprocessor* pp) {
@@ -1529,4 +1529,35 @@ TokenArray* preprocess(InFile* src, StrArray* included_files) {
     add_predefined_macros(macros);
     strings_push(included_files, src->loc.filename);
     return do_preprocess(src, 0, macros, included_files);
+}
+
+void print_token_to_file(FILE* out, TokenArray* pp_tokens) {
+    for (size_t i = 0; i < pp_tokens->len; ++i) {
+        Token* tok = &pp_tokens->data[i];
+
+        if (tok->kind == TokenKind_whitespace) {
+            // TODO: preserve indent?
+            fprintf(out, " ");
+        } else if (tok->kind == TokenKind_removed) {
+            // Output nothing for removed tokens
+        } else if (tok->kind == TokenKind_newline) {
+            // TODO: remove adjacent newlines?
+            fprintf(out, "\n");
+        } else if (tok->kind != TokenKind_eof) {
+            // TODO: string literal
+            fprintf(out, "%s", token_stringify(tok));
+            // Add space after token if next token is not punctuation
+            // TODO: apply stricter approach
+            if (i + 1 < pp_tokens->len) {
+                Token* next = &pp_tokens->data[i + 1];
+                if (next->kind != TokenKind_newline && next->kind != TokenKind_whitespace &&
+                    next->kind != TokenKind_removed && next->kind != TokenKind_eof && next->kind != TokenKind_comma &&
+                    next->kind != TokenKind_semicolon && next->kind != TokenKind_paren_r &&
+                    next->kind != TokenKind_bracket_r && next->kind != TokenKind_brace_r &&
+                    next->kind != TokenKind_dot) {
+                    fprintf(out, " ");
+                }
+            }
+        }
+    }
 }

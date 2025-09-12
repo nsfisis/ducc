@@ -49,6 +49,13 @@ function test_compile_error() {
     diff -u expected output
 }
 
+function test_cpp() {
+    cat > main.c
+
+    "$ducc" -E main.c > output
+    diff -u -Z expected output
+}
+
 function test_example() {
     filename="../../../examples/$1.c"
 
