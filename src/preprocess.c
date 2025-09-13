@@ -938,16 +938,31 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
 
         bool* no_expand = calloc(macro->parameters.len, sizeof(bool));
         for (size_t i = 0; i < macro->replacements.len; ++i) {
-            if (i == 0 || i == macro->replacements.len - 1)
+            if (macro->replacements.data[i].kind != TokenKind_hashhash)
                 continue;
-            if (macro->replacements.data[i].kind == TokenKind_hashhash) {
-                Token* lhs = &macro->replacements.data[i - 1];
-                Token* rhs = &macro->replacements.data[i + 1];
+
+            Token* lhs = NULL;
+            for (int j = i - 1; j >= 0; --j) {
+                if (macro->replacements.data[j].kind != TokenKind_whitespace) {
+                    lhs = &macro->replacements.data[j];
+                    break;
+                }
+            }
+            Token* rhs = NULL;
+            for (int j = i + 1; j < macro->replacements.len; ++j) {
+                if (macro->replacements.data[j].kind != TokenKind_whitespace) {
+                    rhs = &macro->replacements.data[j];
+                    break;
+                }
+            }
+            if (lhs) {
                 int param1 = macro_find_param(macro, lhs);
-                int param2 = macro_find_param(macro, rhs);
                 if (param1 != -1) {
                     no_expand[param1] = true;
                 }
+            }
+            if (rhs) {
+                int param2 = macro_find_param(macro, rhs);
                 if (param2 != -1) {
                     no_expand[param2] = true;
                 }
@@ -986,21 +1001,33 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
             Token* tok = pp_token_at(pp, pos);
             if (tok->kind == TokenKind_hashhash) {
                 // Concatenate previous and next tokens
-                if (0 < i && i < token_count - 1) {
-                    Token* left = pp_token_at(pp, pos - 1);
-                    Token* right = pp_token_at(pp, pos + 1);
-                    Token* concatenated = concat_two_tokens(left, right);
-
-                    // Replace the three tokens (left ## right) with the concatenated one
-                    TokenArray single_token;
-                    tokens_init(&single_token, 1);
-                    *tokens_push_new(&single_token) = *concatenated;
-                    replace_pp_tokens(pp, pos - 1, pos + 2, &single_token);
-                    token_count -= 2;
-                    --i;
-                } else {
+                int lhs_pos = -1;
+                for (int j = pos - 1; j >= macro_name_pos; --j) {
+                    if (pp_token_at(pp, j)->kind != TokenKind_whitespace) {
+                        lhs_pos = j;
+                        break;
+                    }
+                }
+                int rhs_pos = -1;
+                for (size_t j = pos + 1; j < macro_name_pos + token_count; ++j) {
+                    if (pp_token_at(pp, j)->kind != TokenKind_whitespace) {
+                        rhs_pos = j;
+                        break;
+                    }
+                }
+                if (lhs_pos == -1 || rhs_pos == -1) {
                     fatal_error("invalid usage of ## operator");
                 }
+                Token* concatenated = concat_two_tokens(pp_token_at(pp, lhs_pos), pp_token_at(pp, rhs_pos));
+
+                // Replace the three tokens (lhs ## rhs) with the concatenated one
+                TokenArray single_token;
+                tokens_init(&single_token, 1);
+                *tokens_push_new(&single_token) = *concatenated;
+                replace_pp_tokens(pp, lhs_pos, rhs_pos + 1, &single_token);
+                token_count -= rhs_pos - lhs_pos;
+                i -= pos - lhs_pos;
+                token_count2 -= pos - lhs_pos - 1;
             } else {
                 ++token_count2;
             }

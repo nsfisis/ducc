@@ -13,6 +13,8 @@ int var_A = 30;
 
 int number_12 = 12;
 
+int bazqux = 42;
+
 int main () {
  printf ( foobar=%d\n, foobar);
  printf ( prefix_test=%d\n, prefix_test);
@@ -45,6 +47,9 @@ int MAKE_VAR(A) = 30;
 
 #define NUMBER(x, y) number_##x##y
 int NUMBER(1, 2) = 12;
+
+#define CONCAT2(a, b) a ## b
+int CONCAT2(baz, qux) = 42;
 
 int main() {
     printf("foobar=%d\n", foobar);
