@@ -1008,8 +1008,11 @@ static int eval(AstNode* e);
 static Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
     next_token(p); // skip '['
 
-    AstNode* size_expr = parse_assignment_expr(p);
-    int size = eval(size_expr);
+    int size = -1;
+    if (peek_token(p)->kind != TokenKind_bracket_r) {
+        AstNode* size_expr = parse_assignment_expr(p);
+        size = eval(size_expr);
+    }
     expect(p, TokenKind_bracket_r);
 
     return type_new_array(ty, size);
