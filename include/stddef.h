@@ -4,6 +4,7 @@
 #define NULL 0
 
 typedef unsigned long size_t;
+typedef int wchar_t;
 
 // TODO:
 // - max_align_t (C11)
