@@ -1,4 +1,5 @@
 #include "preprocess.h"
+#include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>

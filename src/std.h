@@ -6,13 +6,6 @@
 // TODO: <stdlib.h>
 int mkstemps(char*, int);
 
-#define assert(x) \
-    do { \
-        if (!(x)) { \
-            fatal_error("%s:%d: assertion failed", __FILE__, __LINE__); \
-        } \
-    } while (0)
-
 #define F_OK 0
 #define R_OK 4
 int access(const char*, int);
