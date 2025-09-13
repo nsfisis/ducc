@@ -1,4 +1,5 @@
 #include "fs.h"
+#include <string.h>
 #include "std.h"
 
 // 'ext' must include '.'.

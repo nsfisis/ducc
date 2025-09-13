@@ -1,6 +1,7 @@
 #include "preprocess.h"
 #include <ctype.h>
 #include <stdio.h>
+#include <string.h>
 #include "common.h"
 #include "parse.h"
 #include "sys.h"

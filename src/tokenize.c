@@ -1,4 +1,5 @@
 #include "tokenize.h"
+#include <string.h>
 #include "common.h"
 
 typedef struct {

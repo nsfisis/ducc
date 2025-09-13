@@ -1,3 +1,4 @@
+#include <string.h>
 #include "ast.h"
 #include "cli.h"
 #include "codegen.h"
