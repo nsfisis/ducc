@@ -89,6 +89,7 @@ typedef enum {
     AstNodeKind_assign_expr,
     AstNodeKind_binary_expr,
     AstNodeKind_break_stmt,
+    AstNodeKind_cast_expr,
     AstNodeKind_cond_expr,
     AstNodeKind_continue_stmt,
     AstNodeKind_deref_expr,
@@ -178,5 +179,6 @@ AstNode* ast_new_assign_sub_expr(AstNode* lhs, AstNode* rhs);
 AstNode* ast_new_ref_expr(AstNode* operand);
 AstNode* ast_new_deref_expr(AstNode* operand);
 AstNode* ast_new_member_access_expr(AstNode* obj, const char* name);
+AstNode* ast_new_cast_expr(AstNode* operand, Type* result_ty);
 
 #endif

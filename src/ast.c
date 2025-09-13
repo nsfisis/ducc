@@ -282,6 +282,13 @@ AstNode* ast_new_member_access_expr(AstNode* obj, const char* name) {
     return e;
 }
 
+AstNode* ast_new_cast_expr(AstNode* operand, Type* result_ty) {
+    AstNode* e = ast_new(AstNodeKind_cast_expr);
+    e->node_operand = operand;
+    e->ty = result_ty;
+    return e;
+}
+
 int type_sizeof_struct(Type* ty) {
     int next_offset = 0;
     int struct_align = 0;

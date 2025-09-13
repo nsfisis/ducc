@@ -134,6 +134,46 @@ static void codegen_deref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     }
 }
 
+static void codegen_cast_expr(CodeGen* g, AstNode* ast) {
+    codegen_expr(g, ast->node_operand, GenMode_rval);
+
+    int src_size = type_sizeof(ast->node_operand->ty);
+    int dst_size = type_sizeof(ast->ty);
+
+    if (src_size == dst_size)
+        return;
+
+    fprintf(g->out, "  pop rax\n");
+
+    if (dst_size == 1) {
+        fprintf(g->out, "  movsx rax, al\n");
+    } else if (dst_size == 2) {
+        if (src_size == 1) {
+            fprintf(g->out, "  movsx rax, al\n");
+        } else {
+            fprintf(g->out, "  movsx rax, ax\n");
+        }
+    } else if (dst_size == 4) {
+        if (src_size == 1) {
+            fprintf(g->out, "  movsx rax, al\n");
+        } else if (src_size == 2) {
+            fprintf(g->out, "  movsx rax, ax\n");
+        } else {
+            fprintf(g->out, "  movsxd rax, eax\n");
+        }
+    } else if (dst_size == 8) {
+        if (src_size == 1) {
+            fprintf(g->out, "  movsx rax, al\n");
+        } else if (src_size == 2) {
+            fprintf(g->out, "  movsx rax, ax\n");
+        } else if (src_size == 4) {
+            fprintf(g->out, "  movsxd rax, eax\n");
+        }
+    }
+
+    fprintf(g->out, "  push rax\n");
+}
+
 static void codegen_logical_expr(CodeGen* g, AstNode* ast) {
     int label = codegen_new_label(g);
 
@@ -406,6 +446,8 @@ static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
         codegen_ref_expr(g, ast, gen_mode);
     } else if (ast->kind == AstNodeKind_deref_expr) {
         codegen_deref_expr(g, ast, gen_mode);
+    } else if (ast->kind == AstNodeKind_cast_expr) {
+        codegen_cast_expr(g, ast);
     } else if (ast->kind == AstNodeKind_binary_expr) {
         codegen_binary_expr(g, ast, gen_mode);
     } else if (ast->kind == AstNodeKind_cond_expr) {

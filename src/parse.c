@@ -577,8 +577,7 @@ static AstNode* parse_cast_expr(Parser* p) {
 
         // TODO: check whether the original type can be casted to the result type.
         AstNode* e = parse_cast_expr(p);
-        e->ty = ty;
-        return e;
+        return ast_new_cast_expr(e, ty);
     }
     return parse_prefix_expr(p);
 }
