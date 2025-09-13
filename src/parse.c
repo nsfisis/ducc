@@ -507,19 +507,27 @@ static bool is_typedef_name(Parser* p, Token* tok) {
     return tok->kind == TokenKind_ident && find_typedef(p, tok->value.string) != -1;
 }
 
-static bool is_type_token(Parser* p, Token* token) {
-    if (token->kind == TokenKind_keyword_int || token->kind == TokenKind_keyword_short ||
-        token->kind == TokenKind_keyword_long || token->kind == TokenKind_keyword_char ||
-        token->kind == TokenKind_keyword_void || token->kind == TokenKind_keyword_bool ||
-        token->kind == TokenKind_keyword_enum || token->kind == TokenKind_keyword_struct ||
-        token->kind == TokenKind_keyword_union || token->kind == TokenKind_keyword_const ||
-        token->kind == TokenKind_keyword_static) {
+static bool is_type_token(Parser* p, Token* tok) {
+    if (tok->kind == TokenKind_keyword_void || tok->kind == TokenKind_keyword_char ||
+        tok->kind == TokenKind_keyword_short || tok->kind == TokenKind_keyword_int ||
+        tok->kind == TokenKind_keyword_long || tok->kind == TokenKind_keyword_float ||
+        tok->kind == TokenKind_keyword_double || tok->kind == TokenKind_keyword_signed ||
+        tok->kind == TokenKind_keyword_unsigned || tok->kind == TokenKind_keyword__BitInt ||
+        tok->kind == TokenKind_keyword_bool || tok->kind == TokenKind_keyword__Complex ||
+        tok->kind == TokenKind_keyword__Decimal32 || tok->kind == TokenKind_keyword__Decimal64 ||
+        tok->kind == TokenKind_keyword__Decimal128 || tok->kind == TokenKind_keyword__Atomic ||
+        tok->kind == TokenKind_keyword_struct || tok->kind == TokenKind_keyword_union ||
+        tok->kind == TokenKind_keyword_enum || tok->kind == TokenKind_keyword_typeof ||
+        tok->kind == TokenKind_keyword_typeof_unqual || tok->kind == TokenKind_keyword_const ||
+        tok->kind == TokenKind_keyword_restrict || tok->kind == TokenKind_keyword_volatile ||
+        tok->kind == TokenKind_keyword__Atomic || tok->kind == TokenKind_keyword_alignas ||
+        tok->kind == TokenKind_keyword_inline || tok->kind == TokenKind_keyword__Noreturn) {
         return true;
     }
-    if (token->kind != TokenKind_ident) {
+    if (tok->kind != TokenKind_ident) {
         return false;
     }
-    return find_typedef(p, token->value.string) != -1;
+    return find_typedef(p, tok->value.string) != -1;
 }
 
 static Type* parse_type_name(Parser* p);
