@@ -2304,6 +2304,8 @@ static int eval(AstNode* e) {
         } else {
             return eval(e->node_else);
         }
+    } else if (e->kind == AstNodeKind_cast_expr) {
+        return eval(e->node_operand);
     } else {
         unimplemented();
     }
