@@ -912,6 +912,7 @@ static AstNode* parse_declarator_or_abstract_declarator_opt(Parser* p, Type* ty)
                         token_stringify(tok));
         }
         decl = parse_declarator_or_abstract_declarator_opt(p, ty);
+        expect(p, TokenKind_paren_r);
     } else {
         decl = ast_new(AstNodeKind_declarator);
         decl->ty = ty;
@@ -1029,26 +1030,41 @@ static Type* parse_function_declarator_suffix(Parser* p, Type* ty) {
     return type_new_func(ty, params);
 }
 
+static AstNode* parse_declarator(Parser* p, Type* ty);
+
 // direct-declarator:
 //     identifier TODO attribute-specifier-sequence?
-//     TODO '(' declarator ')'
+//     '(' declarator ')'
 //     array-declarator TODO attribute-specifier-sequence?
 //     function-declarator TODO attribute-specifier-sequence?
 static AstNode* parse_direct_declarator(Parser* p, Type* ty) {
-    const Token* name = parse_ident(p);
+    AstNode* decl;
+    if (peek_token(p)->kind == TokenKind_ident) {
+        decl = ast_new(AstNodeKind_declarator);
+        decl->name = parse_ident(p)->value.string;
+        decl->ty = ty;
+    } else if (peek_token(p)->kind == TokenKind_paren_l && !is_type_token(p, peek_token2(p))) {
+        next_token(p);
+        decl = parse_declarator(p, ty);
+        expect(p, TokenKind_paren_r);
+    } else {
+        decl = ast_new(AstNodeKind_declarator);
+        decl->ty = ty;
+    }
+
     while (1) {
         if (peek_token(p)->kind == TokenKind_bracket_l) {
-            ty = parse_array_declarator_suffix(p, ty);
+            decl->ty = parse_array_declarator_suffix(p, decl->ty);
         } else if (peek_token(p)->kind == TokenKind_paren_l) {
-            ty = parse_function_declarator_suffix(p, ty);
+            decl->ty = parse_function_declarator_suffix(p, decl->ty);
         } else {
             break;
         }
     }
 
     AstNode* ret = ast_new(AstNodeKind_declarator);
-    ret->name = name->value.string;
-    ret->ty = ty;
+    ret->name = decl->name;
+    ret->ty = decl->ty;
     return ret;
 }
 
