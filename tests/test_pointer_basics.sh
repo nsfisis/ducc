@@ -17,6 +17,7 @@ int main() {
     char*** a20;
     long*** a22;
     void*** a24;
+    int* const* const* a25;
     return 0;
 }
 EOF

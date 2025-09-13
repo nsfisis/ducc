@@ -873,13 +873,28 @@ static AstNode* parse_if_stmt(Parser* p) {
     return stmt;
 }
 
+// type-qualifier-list:
+//     { type-qualifier }+
+static void parse_type_qualifier_list_opt(Parser* p) {
+    while (1) {
+        Token* tok = peek_token(p);
+        if (tok->kind == TokenKind_keyword_const || tok->kind == TokenKind_keyword_restrict ||
+            tok->kind == TokenKind_keyword_volatile || tok->kind == TokenKind_keyword__Atomic) {
+            // TODO: currently type qualifiers are just ignored.
+            next_token(p);
+        } else {
+            break;
+        }
+    }
+}
+
 // pointer:
-//     '*' TODO attribute-specifier-sequence? TODO type-qualifier-list?
-//     '*' TODO attribute-specifier-sequence? TODO type-qualifier-list? pointer
+//     { '*' TODO attribute-specifier-sequence? type-qualifier-list? }+
 static Type* parse_pointer_opt(Parser* p, Type* ty) {
     while (peek_token(p)->kind == TokenKind_star) {
         next_token(p);
         ty = type_new_ptr(ty);
+        parse_type_qualifier_list_opt(p);
     }
     return ty;
 }
@@ -1744,7 +1759,7 @@ static Type* distinguish_type_from_type_specifiers(int type_specifiers) {
     else if (type_specifiers == TypeSpecifierMask_typedef_name)
         return NULL;
     else if (type_specifiers == 0)
-        fatal_error("no type specifiers");
+        return NULL;
     else
         unimplemented();
 }
@@ -1828,8 +1843,9 @@ static Type* parse_declaration_specifiers(Parser* p) {
     int type_specifiers = 0;
     Type* ty = NULL;
 
+    Token* tok;
     while (1) {
-        Token* tok = peek_token(p);
+        tok = peek_token(p);
 
         // storage-class-spciefier
         if (tok->kind == TokenKind_keyword_auto) {
@@ -2009,6 +2025,9 @@ static Type* parse_declaration_specifiers(Parser* p) {
     Type* ty_ = distinguish_type_from_type_specifiers(type_specifiers);
     if (ty_) {
         ty = ty_;
+    }
+    if (!ty) {
+        fatal_error("%s:%d: no type specifiers", tok->loc.filename, tok->loc.line);
     }
 
     ty->storage_class = storage_class;
