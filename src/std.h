@@ -6,11 +6,6 @@
 int atoi(const char*);
 void* calloc(size_t, size_t);
 void exit(int);
-int getchar();
-int isalnum(int);
-int isalpha(int);
-int isdigit(int);
-int isspace(int);
 void* memcpy(void*, const void*, size_t);
 void* memmove(void*, const void*, size_t);
 void* memset(void*, int, size_t);
