@@ -53,6 +53,15 @@
           # Disable some kinds of hardening to disable GCC optimization.
           # cf. https://nixos.wiki/wiki/C#Hardening_flags
           hardeningDisable = [ "fortify" ];
+          shellHook = ''
+            export CFLAGS="$(
+              gcc -E -Wp,-v -xc /dev/null 2>&1 |
+              sed -n '/#include <...>/,/End of search list/p' |
+              sed '1d;$d' |
+              awk '{ print "-I"$1; }' |
+              xargs
+            )"
+          '';
         };
 
         formatter = treefmt.config.build.wrapper;

@@ -3,15 +3,18 @@ build N="1":
     set -e
     if [[ {{N}} = 1 ]]; then
         cc=gcc
+        cflags=
         target=ducc
     elif [[ {{N}} = 2 ]]; then
         cc=./build/ducc
+        cflags="${CFLAGS:-}"
         target=ducc{{N}}
     else
         cc="./build/ducc$(({{N}} - 1))"
+        cflags="${CFLAGS:-}"
         target=ducc{{N}}
     fi
-    CC="$cc" TARGET="$target" make
+    CC="$cc" CFLAGS="$cflags" TARGET="$target" make
 
 build-upto-5-gen:
     just build 1

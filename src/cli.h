@@ -1,6 +1,7 @@
 #ifndef DUCC_CLI_H
 #define DUCC_CLI_H
 
+#include "common.h"
 #include "std.h"
 
 typedef struct {
@@ -12,6 +13,7 @@ typedef struct {
     bool generate_deps;
     bool totally_deligate_to_gcc;
     const char* gcc_command;
+    StrArray include_dirs;
 } CliArgs;
 
 CliArgs* parse_cli_args(int argc, char** argv);

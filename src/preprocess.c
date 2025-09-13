@@ -562,7 +562,8 @@ typedef struct {
     StrArray* included_files;
 } Preprocessor;
 
-static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files);
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files,
+                                 StrArray* user_include_dirs);
 
 static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros,
                                       StrArray* included_files) {
@@ -744,7 +745,7 @@ static void expand_include_directive(Preprocessor* pp, const char* include_name,
     }
 
     TokenArray* include_pp_tokens =
-        do_preprocess(include_source, pp->include_depth + 1, pp->macros, pp->included_files);
+        do_preprocess(include_source, pp->include_depth + 1, pp->macros, pp->included_files, NULL);
     tokens_pop(include_pp_tokens); // pop EOF token
     pp->pos = insert_pp_tokens(pp, pp->pos, include_pp_tokens);
 }
@@ -1541,23 +1542,33 @@ static char* get_ducc_include_path() {
     return buf;
 }
 
-static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files) {
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files,
+                                 StrArray* user_include_dirs) {
     TokenArray* pp_tokens = pp_tokenize(src);
     Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros, included_files);
+
+    // Ducc's built-in headers has highest priority.
     add_include_path(pp, get_ducc_include_path());
+
+    if (user_include_dirs) {
+        for (size_t i = 0; i < user_include_dirs->len; ++i) {
+            add_include_path(pp, user_include_dirs->data[i]);
+        }
+    }
     add_include_path(pp, "/usr/local/include");
     add_include_path(pp, "/usr/include/x86_64-linux-gnu");
     add_include_path(pp, "/usr/include");
+
     preprocess_preprocessing_file(pp);
     remove_pp_directives(pp);
     return pp->pp_tokens;
 }
 
-TokenArray* preprocess(InFile* src, StrArray* included_files) {
+TokenArray* preprocess(InFile* src, StrArray* included_files, StrArray* user_include_dirs) {
     MacroArray* macros = macros_new();
     add_predefined_macros(macros);
     strings_push(included_files, src->loc.filename);
-    return do_preprocess(src, 0, macros, included_files);
+    return do_preprocess(src, 0, macros, included_files, user_include_dirs);
 }
 
 void print_token_to_file(FILE* out, TokenArray* pp_tokens) {
