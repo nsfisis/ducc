@@ -3,13 +3,8 @@
 
 #include <stddef.h>
 
-int atoi(const char*);
-void* calloc(size_t, size_t);
-void exit(int);
+// TODO: <stdlib.h>
 int mkstemps(char*, int);
-void* realloc(void*, size_t);
-long strtol(const char*, char**, int);
-int system(const char*);
 
 #define assert(x) \
     do { \

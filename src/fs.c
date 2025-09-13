@@ -1,4 +1,5 @@
 #include "fs.h"
+#include <stdlib.h>
 #include <string.h>
 #include "std.h"
 
