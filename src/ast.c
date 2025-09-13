@@ -4,6 +4,27 @@
 #include "common.h"
 #include "preprocess.h"
 
+const char* storageclass_stringify(StorageClass s) {
+    if (s == StorageClass_unspecified)
+        return "";
+    if (s == StorageClass_auto)
+        return "auto";
+    if (s == StorageClass_constexpr)
+        return "constexpr";
+    if (s == StorageClass_extern)
+        return "extern";
+    if (s == StorageClass_register)
+        return "register";
+    if (s == StorageClass_static)
+        return "static";
+    if (s == StorageClass_thread_local)
+        return "thread_local";
+    if (s == StorageClass_typedef)
+        return "typedef";
+    else
+        unreachable();
+}
+
 const char* type_kind_stringify(TypeKind k) {
     if (k == TypeKind_unknown)
         return "<unknown>";

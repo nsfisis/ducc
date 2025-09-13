@@ -1039,12 +1039,16 @@ static Type* parse_array_declarator_suffix(Parser* p, Type* ty) {
 static Type* parse_function_declarator_suffix(Parser* p, Type* ty) {
     next_token(p); // skip '('
     AstNode* params;
+
+    // FIXME: save and restore ty->storage_class because it will be modified somewhere for some reason.
+    StorageClass FIXME_storage_class = ty->storage_class;
     if (consume_token_if(p, TokenKind_paren_r)) {
         params = ast_new_list(1);
     } else {
         params = parse_parameter_type_list(p);
         expect(p, TokenKind_paren_r);
     }
+    ty->storage_class = FIXME_storage_class;
 
     return type_new_func(ty, params);
 }
@@ -1353,7 +1357,10 @@ static AstNode* parse_func_def(Parser* p, AstNode* decls) {
     if (decls->node_len != 1) {
         fatal_error("parse_func_def: invalid syntax");
     }
+
     Type* ty = decls->node_items[0].ty;
+    ty->storage_class = ty->result->storage_class;
+    ty->result->storage_class = StorageClass_unspecified;
     const char* name = decls->node_items[0].name;
     AstNode* params = ty->params;
 

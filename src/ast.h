@@ -14,6 +14,8 @@ typedef enum {
     StorageClass_typedef,
 } StorageClass;
 
+const char* storageclass_stringify(StorageClass s);
+
 typedef enum {
     TypeKind_unknown,
 
