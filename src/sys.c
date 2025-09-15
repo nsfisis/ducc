@@ -1,4 +1,6 @@
 #include "sys.h"
+#include <libgen.h>
+#include <linux/limits.h>
 #include <stdlib.h>
 #include "std.h"
 

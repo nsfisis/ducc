@@ -6,8 +6,4 @@
 // TODO: <stdlib.h>
 int mkstemps(char*, int);
 
-#define PATH_MAX 4096
-
-char* dirname(char*);
-
 #endif
