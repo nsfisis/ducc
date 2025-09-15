@@ -2342,7 +2342,7 @@ static int eval(AstNode* e) {
 }
 
 bool pp_eval_constant_expression(TokenArray* pp_tokens) {
-    TokenArray* tokens = tokenize(pp_tokens);
+    TokenArray* tokens = convert_pp_tokens_to_tokens(pp_tokens);
     Parser* p = parser_new(tokens);
     AstNode* e = parse_constant_expression(p);
     return eval(e) != 0;

@@ -1,30 +1,412 @@
 #include "tokenize.h"
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include "common.h"
 
 typedef struct {
-    TokenArray* src;
+    InFile* src;
+    bool at_bol;
+    bool expect_header_name;
     TokenArray* tokens;
 } Lexer;
 
-static Lexer* lexer_new(TokenArray* pp_tokens) {
+static Lexer* lexer_new(InFile* src) {
     Lexer* l = calloc(1, sizeof(Lexer));
-    l->src = pp_tokens;
+
+    l->src = src;
+    l->at_bol = true;
+    l->expect_header_name = false;
     l->tokens = calloc(1, sizeof(TokenArray));
-    // l->tokens need not store whitespace tokens.
-    tokens_init(l->tokens, pp_tokens->len / 2);
+    tokens_init(l->tokens, 1024 * 16);
+
     return l;
 }
 
-static void tokenize_all(Lexer* l) {
-    for (size_t pos = 0; pos < l->src->len; ++pos) {
-        Token* pp_tok = &l->src->data[pos];
+static void pplexer_tokenize_pp_directive(Lexer* l, Token* tok) {
+    // Skip whitespaces after '#'.
+    char c;
+    while (isspace((c = infile_peek_char(l->src)))) {
+        if (c == '\n')
+            break;
+        infile_next_char(l->src);
+    }
+    // '#' new-line
+    if (c == '\n') {
+        tok->kind = TokenKind_pp_directive_nop;
+        return;
+    }
+
+    StrBuilder builder;
+    strbuilder_init(&builder);
+    while (isalnum(infile_peek_char(l->src))) {
+        strbuilder_append_char(&builder, infile_peek_char(l->src));
+        infile_next_char(l->src);
+    }
+    const char* pp_directive_name = builder.buf;
+
+    if (builder.len == 0) {
+        tok->kind = TokenKind_hash;
+    } else if (strcmp(pp_directive_name, "define") == 0) {
+        tok->kind = TokenKind_pp_directive_define;
+    } else if (strcmp(pp_directive_name, "elif") == 0) {
+        tok->kind = TokenKind_pp_directive_elif;
+    } else if (strcmp(pp_directive_name, "elifdef") == 0) {
+        tok->kind = TokenKind_pp_directive_elifdef;
+    } else if (strcmp(pp_directive_name, "elifndef") == 0) {
+        tok->kind = TokenKind_pp_directive_elifndef;
+    } else if (strcmp(pp_directive_name, "else") == 0) {
+        tok->kind = TokenKind_pp_directive_else;
+    } else if (strcmp(pp_directive_name, "embed") == 0) {
+        tok->kind = TokenKind_pp_directive_embed;
+    } else if (strcmp(pp_directive_name, "endif") == 0) {
+        tok->kind = TokenKind_pp_directive_endif;
+    } else if (strcmp(pp_directive_name, "error") == 0) {
+        tok->kind = TokenKind_pp_directive_error;
+    } else if (strcmp(pp_directive_name, "if") == 0) {
+        tok->kind = TokenKind_pp_directive_if;
+    } else if (strcmp(pp_directive_name, "ifdef") == 0) {
+        tok->kind = TokenKind_pp_directive_ifdef;
+    } else if (strcmp(pp_directive_name, "ifndef") == 0) {
+        tok->kind = TokenKind_pp_directive_ifndef;
+    } else if (strcmp(pp_directive_name, "include") == 0) {
+        l->expect_header_name = true;
+        tok->kind = TokenKind_pp_directive_include;
+    } else if (strcmp(pp_directive_name, "line") == 0) {
+        tok->kind = TokenKind_pp_directive_line;
+    } else if (strcmp(pp_directive_name, "pragma") == 0) {
+        tok->kind = TokenKind_pp_directive_pragma;
+    } else if (strcmp(pp_directive_name, "undef") == 0) {
+        tok->kind = TokenKind_pp_directive_undef;
+    } else if (strcmp(pp_directive_name, "warning") == 0) {
+        tok->kind = TokenKind_pp_directive_warning;
+    } else {
+        tok->kind = TokenKind_pp_directive_non_directive;
+        tok->value.string = pp_directive_name;
+    }
+}
+
+static void do_tokenize_all(Lexer* l) {
+    while (!infile_eof(l->src)) {
+        Token* tok = tokens_push_new(l->tokens);
+        tok->loc = l->src->loc;
+        char c = infile_peek_char(l->src);
+
+        if (l->expect_header_name && c == '"') {
+            infile_next_char(l->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            strbuilder_append_char(&builder, '"');
+            while (1) {
+                char ch = infile_peek_char(l->src);
+                if (ch == '"')
+                    break;
+                strbuilder_append_char(&builder, ch);
+                if (ch == '\\') {
+                    infile_next_char(l->src);
+                    strbuilder_append_char(&builder, infile_peek_char(l->src));
+                }
+                infile_next_char(l->src);
+            }
+            strbuilder_append_char(&builder, '"');
+            infile_next_char(l->src);
+            tok->kind = TokenKind_header_name;
+            tok->value.string = builder.buf;
+            l->expect_header_name = false;
+        } else if (l->expect_header_name && c == '<') {
+            infile_next_char(l->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            strbuilder_append_char(&builder, '<');
+            while (1) {
+                char ch = infile_peek_char(l->src);
+                if (ch == '>')
+                    break;
+                strbuilder_append_char(&builder, ch);
+                infile_next_char(l->src);
+            }
+            strbuilder_append_char(&builder, '>');
+            infile_next_char(l->src);
+            tok->kind = TokenKind_header_name;
+            tok->value.string = builder.buf;
+            l->expect_header_name = false;
+        } else if (c == '(') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_paren_l;
+        } else if (c == ')') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_paren_r;
+        } else if (c == '{') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_brace_l;
+        } else if (c == '}') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_brace_r;
+        } else if (c == '[') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_bracket_l;
+        } else if (c == ']') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_bracket_r;
+        } else if (c == ',') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_comma;
+        } else if (c == ':') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_colon;
+        } else if (c == ';') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_semicolon;
+        } else if (c == '^') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_xor;
+            } else {
+                tok->kind = TokenKind_xor;
+            }
+        } else if (c == '?') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_question;
+        } else if (c == '~') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_tilde;
+        } else if (c == '+') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_add;
+            } else if (infile_consume_if(l->src, '+')) {
+                tok->kind = TokenKind_plusplus;
+            } else {
+                tok->kind = TokenKind_plus;
+            }
+        } else if (c == '|') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_or;
+            } else if (infile_consume_if(l->src, '|')) {
+                tok->kind = TokenKind_oror;
+            } else {
+                tok->kind = TokenKind_or;
+            }
+        } else if (c == '&') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_and;
+            } else if (infile_consume_if(l->src, '&')) {
+                tok->kind = TokenKind_andand;
+            } else {
+                tok->kind = TokenKind_and;
+            }
+        } else if (c == '-') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '>')) {
+                tok->kind = TokenKind_arrow;
+            } else if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_sub;
+            } else if (infile_consume_if(l->src, '-')) {
+                tok->kind = TokenKind_minusminus;
+            } else {
+                tok->kind = TokenKind_minus;
+            }
+        } else if (c == '*') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_mul;
+            } else {
+                tok->kind = TokenKind_star;
+            }
+        } else if (c == '/') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_div;
+            } else if (infile_consume_if(l->src, '/')) {
+                while (!infile_eof(l->src) && infile_peek_char(l->src) != '\n') {
+                    infile_next_char(l->src);
+                }
+                tok->kind = TokenKind_whitespace;
+            } else if (infile_consume_if(l->src, '*')) {
+                while (infile_peek_char(l->src)) {
+                    if (infile_consume_if(l->src, '*')) {
+                        if (infile_consume_if(l->src, '/')) {
+                            break;
+                        }
+                        continue;
+                    }
+                    infile_next_char(l->src);
+                }
+                tok->kind = TokenKind_whitespace;
+            } else {
+                tok->kind = TokenKind_slash;
+            }
+        } else if (c == '%') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_assign_mod;
+            } else {
+                tok->kind = TokenKind_percent;
+            }
+        } else if (c == '.') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '.')) {
+                if (infile_consume_if(l->src, '.')) {
+                    tok->kind = TokenKind_ellipsis;
+                } else {
+                    tok->kind = TokenKind_other;
+                    tok->value.string = "..";
+                }
+            } else {
+                tok->kind = TokenKind_dot;
+            }
+        } else if (c == '!') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_ne;
+            } else {
+                tok->kind = TokenKind_not;
+            }
+        } else if (c == '=') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_eq;
+            } else {
+                tok->kind = TokenKind_assign;
+            }
+        } else if (c == '<') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_le;
+            } else if (infile_consume_if(l->src, '<')) {
+                if (infile_consume_if(l->src, '=')) {
+                    tok->kind = TokenKind_assign_lshift;
+                } else {
+                    tok->kind = TokenKind_lshift;
+                }
+            } else {
+                tok->kind = TokenKind_lt;
+            }
+        } else if (c == '>') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '=')) {
+                tok->kind = TokenKind_ge;
+            } else if (infile_consume_if(l->src, '>')) {
+                if (infile_consume_if(l->src, '=')) {
+                    tok->kind = TokenKind_assign_rshift;
+                } else {
+                    tok->kind = TokenKind_rshift;
+                }
+            } else {
+                tok->kind = TokenKind_gt;
+            }
+        } else if (c == '#') {
+            infile_next_char(l->src);
+            if (infile_consume_if(l->src, '#')) {
+                tok->kind = TokenKind_hashhash;
+            } else {
+                if (l->at_bol) {
+                    pplexer_tokenize_pp_directive(l, tok);
+                } else {
+                    tok->kind = TokenKind_hash;
+                }
+            }
+        } else if (c == '\'') {
+            infile_next_char(l->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            strbuilder_append_char(&builder, '\'');
+            strbuilder_append_char(&builder, infile_peek_char(l->src));
+            if (infile_peek_char(l->src) == '\\') {
+                infile_next_char(l->src);
+                strbuilder_append_char(&builder, infile_peek_char(l->src));
+            }
+            strbuilder_append_char(&builder, '\'');
+            infile_next_char(l->src);
+            infile_next_char(l->src);
+            tok->kind = TokenKind_character_constant;
+            tok->value.string = builder.buf;
+        } else if (c == '"') {
+            infile_next_char(l->src);
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            while (1) {
+                char ch = infile_peek_char(l->src);
+                if (ch == '"')
+                    break;
+                strbuilder_append_char(&builder, ch);
+                if (ch == '\\') {
+                    infile_next_char(l->src);
+                    strbuilder_append_char(&builder, infile_peek_char(l->src));
+                }
+                infile_next_char(l->src);
+            }
+            infile_next_char(l->src);
+            tok->kind = TokenKind_literal_str;
+            tok->value.string = builder.buf;
+        } else if (isdigit(c)) {
+            // TODO: implement tokenization of pp-number.
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            while (isalnum(infile_peek_char(l->src))) {
+                strbuilder_append_char(&builder, infile_peek_char(l->src));
+                infile_next_char(l->src);
+            }
+            tok->kind = TokenKind_literal_int;
+            tok->value.integer = atoi(builder.buf);
+        } else if (isalpha(c) || c == '_') {
+            StrBuilder builder;
+            strbuilder_init(&builder);
+            while (isalnum(infile_peek_char(l->src)) || infile_peek_char(l->src) == '_') {
+                strbuilder_append_char(&builder, infile_peek_char(l->src));
+                infile_next_char(l->src);
+            }
+            tok->kind = TokenKind_ident;
+            tok->value.string = builder.buf;
+        } else if (c == '\n') {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_newline;
+        } else if (isspace(c)) {
+            while (isspace((c = infile_peek_char(l->src)))) {
+                if (c == '\n')
+                    break;
+                infile_next_char(l->src);
+            }
+            if (l->at_bol && infile_peek_char(l->src) == '#') {
+                infile_next_char(l->src);
+                pplexer_tokenize_pp_directive(l, tok);
+            } else {
+                tok->kind = TokenKind_whitespace;
+            }
+        } else {
+            infile_next_char(l->src);
+            tok->kind = TokenKind_other;
+            char* buf = calloc(2, sizeof(char));
+            buf[0] = c;
+            tok->value.string = buf;
+        }
+        l->at_bol = tok->kind == TokenKind_newline;
+    }
+    Token* eof_tok = tokens_push_new(l->tokens);
+    eof_tok->loc = l->src->loc;
+    eof_tok->kind = TokenKind_eof;
+}
+
+TokenArray* tokenize(InFile* src) {
+    Lexer* l = lexer_new(src);
+    do_tokenize_all(l);
+    return l->tokens;
+}
+
+TokenArray* convert_pp_tokens_to_tokens(TokenArray* pp_tokens) {
+    TokenArray* tokens = calloc(1, sizeof(TokenArray));
+    // tokens need not store whitespace tokens.
+    tokens_init(tokens, pp_tokens->len / 2);
+
+    for (size_t pos = 0; pos < pp_tokens->len; ++pos) {
+        Token* pp_tok = &pp_tokens->data[pos];
         TokenKind k = pp_tok->kind;
         if (k == TokenKind_removed || k == TokenKind_whitespace || k == TokenKind_newline) {
             continue;
         }
-        Token* tok = tokens_push_new(l->tokens);
+        Token* tok = tokens_push_new(tokens);
         tok->loc = pp_tok->loc;
         if (k == TokenKind_character_constant) {
             tok->kind = TokenKind_literal_int;
@@ -170,10 +552,6 @@ static void tokenize_all(Lexer* l) {
             tok->value = pp_tok->value;
         }
     }
-}
 
-TokenArray* tokenize(TokenArray* pp_tokens) {
-    Lexer* l = lexer_new(pp_tokens);
-    tokenize_all(l);
-    return l->tokens;
+    return tokens;
 }

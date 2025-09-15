@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    TokenArray* tokens = tokenize(pp_tokens);
+    TokenArray* tokens = convert_pp_tokens_to_tokens(pp_tokens);
     Program* prog = parse(tokens);
 
     const char* assembly_filename;
