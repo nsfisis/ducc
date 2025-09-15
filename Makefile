@@ -26,10 +26,12 @@ $(BUILD_DIR):
 
 # TODO: provide release build?
 $(BUILD_ROOT_DIR)/$(TARGET): $(OBJECTS)
-	$(CC) -Wall -MMD -g -O0 --std=c23 -o $@ $^
+	# TODO: use --std=c23 instead of --std=gnu23
+	$(CC) -Wall -MMD -g -O0 --std=gnu23 -o $@ $^
 
 # TODO: provide release build?
 $(BUILD_DIR)/%.o: src/%.c
-	$(CC) -c $(CFLAGS) -Wall -MMD -g -O0 --std=c23 -o $@ $<
+	# TODO: use --std=c23 instead of --std=gnu23
+	$(CC) -c $(CFLAGS) -Wall -MMD -g -O0 --std=gnu23 -o $@ $<
 
 -include $(BUILD_DIR)/*.d

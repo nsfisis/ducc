@@ -1,6 +1,7 @@
 #ifndef DUCC_TOKEN_H
 #define DUCC_TOKEN_H
 
+#include <stddef.h>
 #include "io.h"
 #include "json.h"
 

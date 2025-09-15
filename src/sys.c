@@ -2,13 +2,7 @@
 #include <libgen.h>
 #include <linux/limits.h>
 #include <stdlib.h>
-#include "std.h"
-
-// TODO: #inclue some header.
-#ifndef __ducc__
-typedef long ssize_t;
-#endif
-ssize_t readlink(const char*, char*, size_t);
+#include <unistd.h>
 
 static char* get_self_path() {
     char* buf = calloc(PATH_MAX, sizeof(char));

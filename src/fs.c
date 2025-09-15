@@ -1,7 +1,6 @@
 #include "fs.h"
 #include <stdlib.h>
 #include <string.h>
-#include "std.h"
 
 // 'ext' must include '.'.
 char* replace_extension(const char* file_name, const char* ext) {

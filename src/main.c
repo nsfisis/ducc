@@ -8,7 +8,6 @@
 #include "io.h"
 #include "parse.h"
 #include "preprocess.h"
-#include "std.h"
 #include "tokenize.h"
 
 int main(int argc, char** argv) {

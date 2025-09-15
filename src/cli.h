@@ -2,7 +2,6 @@
 #define DUCC_CLI_H
 
 #include "common.h"
-#include "std.h"
 
 typedef struct {
     const char* input_filename;

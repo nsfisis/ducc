@@ -1,8 +1,6 @@
 #ifndef DUCC_JSON_H
 #define DUCC_JSON_H
 
-#include "std.h"
-
 struct JsonBuilder;
 typedef struct JsonBuilder JsonBuilder;
 

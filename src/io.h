@@ -2,7 +2,6 @@
 #define DUCC_IO_H
 
 #include "json.h"
-#include "std.h"
 
 typedef struct {
     const char* filename;
