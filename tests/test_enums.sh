@@ -21,7 +21,7 @@ EOF
 
 cat <<'EOF' > expected
 10,11,20,21
-0,5,6
+0,5,6,6
 EOF
 
 test_diff <<'EOF'
@@ -37,12 +37,12 @@ enum E1 {
 enum E2 {
     E,
     F = 5,
-    G
+    G,
+    H = G,
 };
 
 int main() {
     printf("%d,%d,%d,%d\n", A, B, C, D);
-    printf("%d,%d,%d\n", E, F, G);
+    printf("%d,%d,%d,%d\n", E, F, G, H);
 }
 EOF
-

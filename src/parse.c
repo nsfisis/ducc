@@ -1453,9 +1453,14 @@ static AstNode* parse_enum_member(Parser* p) {
     return member;
 }
 
-static AstNode* parse_enum_members(Parser* p) {
+static void parse_enum_members(Parser* p, int enum_idx) {
     int next_value = 0;
     AstNode* list = ast_new_list(16);
+
+    if (!p->enums->node_items[enum_idx].node_members) {
+        p->enums->node_items[enum_idx].node_members = list;
+    }
+
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* member = parse_enum_member(p);
 
@@ -1469,11 +1474,11 @@ static AstNode* parse_enum_members(Parser* p) {
         ++next_value;
 
         ast_append(list, member);
+
         if (!consume_token_if(p, TokenKind_comma)) {
             break;
         }
     }
-    return list;
 }
 
 void parse_typedef_decl(Parser* p, AstNode* decls) {
@@ -1673,9 +1678,8 @@ static Type* parse_enum_specifier(Parser* p) {
         enum_idx = p->enums->node_len - 1;
     }
 
-    AstNode* members = parse_enum_members(p);
+    parse_enum_members(p, enum_idx);
     expect(p, TokenKind_brace_r);
-    p->enums->node_items[enum_idx].node_members = members;
 
     Type* ty = type_new(TypeKind_enum);
     ty->ref.defs = p->enums;
