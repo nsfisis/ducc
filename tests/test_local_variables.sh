@@ -44,15 +44,13 @@ int main() {
 }
 EOF
 
-cat <<'EOF' > expected
-42
-EOF
-test_diff <<'EOF'
-int printf();
+test_exit_code 0 <<'EOF'
+#include "../../helpers.h"
 
 int main() {
-    int a = 42;
-    printf("%d\n", a);
-    return 0;
+    int d = 2, e = d, f = d + e;
+    ASSERT_EQ(2, d);
+    ASSERT_EQ(2, e);
+    ASSERT_EQ(4, f);
 }
 EOF

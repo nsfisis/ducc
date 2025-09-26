@@ -1118,6 +1118,8 @@ static AstNode* parse_init_declarator(Parser* p, Type* ty) {
     return decl;
 }
 
+static void declare_func_or_var(Parser* p, AstNode* decl);
+
 // init-declarator-list:
 //     init-declarator
 //     init-declarator-list ',' init-declarator
@@ -1129,40 +1131,22 @@ static AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
         if (!consume_token_if(p, TokenKind_comma)) {
             break;
         }
+
+        if (ty->storage_class == StorageClass_typedef) {
+            continue;
+        }
+        // Immediately declare to allow following initializer to access previous variables. For example,
+        //   int a = 1, b = a;
+        declare_func_or_var(p, &list->node_items[list->node_len - 1]);
     }
     return list;
 }
 
 static AstNode* parse_var_decl(Parser* p) {
     Type* base_ty = parse_type_name(p);
-    if (type_is_unsized(base_ty)) {
-        fatal_error("parse_var_decl: invalid type for variable");
-    }
-
     AstNode* decls = parse_init_declarator_list(p, base_ty);
     expect(p, TokenKind_semicolon);
-
-    for (int i = 0; i < decls->node_len; ++i) {
-        AstNode* decl = &decls->node_items[i];
-
-        if (find_lvar_in_current_scope(p, decl->name) != -1) {
-            // TODO: use name's location.
-            fatal_error("%s:%d: '%s' redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line, decl->name);
-        }
-        int stack_offset = add_lvar(p, decl->name, decl->ty, false);
-
-        if (decl->node_init) {
-            AstNode* lhs = ast_new(AstNodeKind_lvar);
-            lhs->name = decl->name;
-            lhs->node_stack_offset = stack_offset;
-            lhs->ty = decl->ty;
-            AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, decl->node_init);
-            decl->kind = AstNodeKind_expr_stmt;
-            decl->node_expr = assign;
-        } else {
-            decl->kind = AstNodeKind_nop;
-        }
-    }
+    declare_func_or_var(p, &decls->node_items[decls->node_len - 1]);
     return decls;
 }
 
@@ -1310,24 +1294,39 @@ static void register_func(Parser* p, const char* name, Type* ty) {
     func->ty = ty;
 }
 
-static AstNode* parse_global_func_or_var_decl(Parser* p, AstNode* decls) {
-    expect(p, TokenKind_semicolon);
+static void declare_func_or_var(Parser* p, AstNode* decl) {
+    if (decl->ty->kind == TypeKind_func) {
+        // TODO: refactor
+        decl->ty->storage_class = decl->ty->result->storage_class;
+        decl->ty->result->storage_class = StorageClass_unspecified;
+        register_func(p, decl->name, decl->ty);
+        decl->kind = AstNodeKind_func_decl;
+    } else {
+        if (type_is_unsized(decl->ty)) {
+            fatal_error("declare_func_or_var: invalid type for variable");
+        }
 
-    for (int i = 0; i < decls->node_len; ++i) {
-        AstNode* decl = &decls->node_items[i];
-
-        if (decl->ty->kind == TypeKind_func) {
-            if (decls->node_len != 1) {
-                fatal_error("parse_global_func_or_var_decl: todo");
+        if (p->scope) {
+            if (find_lvar_in_current_scope(p, decl->name) != -1) {
+                // TODO: use name's location.
+                fatal_error("%s:%d: '%s' redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line, decl->name);
             }
-            // TODO: refactor
-            decl->ty->storage_class = decl->ty->result->storage_class;
-            decl->ty->result->storage_class = StorageClass_unspecified;
-            register_func(p, decl->name, decl->ty);
-            decl->kind = AstNodeKind_func_decl;
+            int stack_offset = add_lvar(p, decl->name, decl->ty, false);
+
+            if (decl->node_init) {
+                AstNode* lhs = ast_new(AstNodeKind_lvar);
+                lhs->name = decl->name;
+                lhs->node_stack_offset = stack_offset;
+                lhs->ty = decl->ty;
+                AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, decl->node_init);
+                decl->kind = AstNodeKind_expr_stmt;
+                decl->node_expr = assign;
+            } else {
+                decl->kind = AstNodeKind_nop;
+            }
         } else {
             if (find_gvar(p, decl->name) != -1) {
-                fatal_error("parse_global_func_or_var_decl: %s redeclared", decl->name);
+                fatal_error("declare_func_or_var: %s redeclared", decl->name);
             }
             // TODO: refactor
             Type* base_ty = decl->ty;
@@ -1349,8 +1348,6 @@ static AstNode* parse_global_func_or_var_decl(Parser* p, AstNode* decls) {
             }
         }
     }
-
-    return decls;
 }
 
 static AstNode* parse_func_def(Parser* p, AstNode* decls) {
@@ -2245,7 +2242,9 @@ static AstNode* parse_toplevel(Parser* p) {
         parse_typedef_decl(p, decls);
         return NULL;
     } else {
-        return parse_global_func_or_var_decl(p, decls);
+        expect(p, TokenKind_semicolon);
+        declare_func_or_var(p, &decls->node_items[decls->node_len - 1]);
+        return decls;
     }
 }
 
