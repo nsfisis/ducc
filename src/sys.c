@@ -1,8 +1,8 @@
 #include "sys.h"
 #include <libgen.h>
 #include <linux/limits.h>
-#include <stdlib.h>
 #include <unistd.h>
+#include "ducc.h"
 
 static char* get_self_path() {
     char* buf = calloc(PATH_MAX, sizeof(char));

@@ -1,7 +1,7 @@
 #ifndef DUCC_COMMON_H
 #define DUCC_COMMON_H
 
-#include <stddef.h>
+#include "ducc.h"
 
 _Noreturn void fatal_error(const char* msg, ...);
 

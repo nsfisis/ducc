@@ -1,7 +1,7 @@
 #ifndef DUCC_AST_H
 #define DUCC_AST_H
 
-#include <stddef.h>
+#include "ducc.h"
 
 typedef enum {
     StorageClass_unspecified,
