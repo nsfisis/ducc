@@ -149,6 +149,7 @@ typedef struct {
     AstNode* typedefs;
     StrArray str_literals;
     int anonymous_user_type_counter;
+    AstNode* current_switch;
 } Parser;
 
 static Parser* parser_new(TokenArray* tokens) {
@@ -1214,6 +1215,31 @@ static AstNode* parse_do_while_stmt(Parser* p) {
     return stmt;
 }
 
+static AstNode* parse_switch_stmt(Parser* p) {
+    expect(p, TokenKind_keyword_switch);
+    expect(p, TokenKind_paren_l);
+    AstNode* expr = parse_expr(p);
+    expect(p, TokenKind_paren_r);
+
+    AstNode* tmp_var = generate_temporary_lvar(p, expr->ty);
+    AstNode* assignment = ast_new_assign_expr(TokenKind_assign, tmp_var, expr);
+    AstNode* assign_stmt = ast_new(AstNodeKind_expr_stmt);
+    assign_stmt->node_expr = assignment;
+
+    AstNode* switch_stmt = ast_new(AstNodeKind_switch_stmt);
+    switch_stmt->node_expr = tmp_var;
+
+    AstNode* prev_switch = p->current_switch;
+    p->current_switch = switch_stmt;
+    switch_stmt->node_body = parse_stmt(p);
+    p->current_switch = prev_switch;
+
+    AstNode* list = ast_new_list(2);
+    ast_append(list, assign_stmt);
+    ast_append(list, switch_stmt);
+    return list;
+}
+
 static AstNode* parse_break_stmt(Parser* p) {
     expect(p, TokenKind_keyword_break);
     expect(p, TokenKind_semicolon);
@@ -1254,10 +1280,37 @@ static AstNode* parse_empty_stmt(Parser* p) {
 
 static AstNode* parse_stmt(Parser* p) {
     Token* t = peek_token(p);
-    if (t->kind == TokenKind_keyword_return) {
+
+    if (t->kind == TokenKind_keyword_case) {
+        if (!p->current_switch) {
+            fatal_error("%s:%d: 'case' label not within a switch statement", t->loc.filename, t->loc.line);
+        }
+        expect(p, TokenKind_keyword_case);
+        AstNode* value = parse_constant_expression(p);
+        expect(p, TokenKind_colon);
+        AstNode* stmt = parse_stmt(p);
+
+        AstNode* case_label = ast_new(AstNodeKind_case_label);
+        case_label->node_int_value = eval(value);
+        case_label->node_body = stmt;
+        return case_label;
+    } else if (t->kind == TokenKind_keyword_default) {
+        if (!p->current_switch) {
+            fatal_error("%s:%d: 'default' label not within a switch statement", t->loc.filename, t->loc.line);
+        }
+        expect(p, TokenKind_keyword_default);
+        expect(p, TokenKind_colon);
+        AstNode* stmt = parse_stmt(p);
+
+        AstNode* default_label = ast_new(AstNodeKind_default_label);
+        default_label->node_body = stmt;
+        return default_label;
+    } else if (t->kind == TokenKind_keyword_return) {
         return parse_return_stmt(p);
     } else if (t->kind == TokenKind_keyword_if) {
         return parse_if_stmt(p);
+    } else if (t->kind == TokenKind_keyword_switch) {
+        return parse_switch_stmt(p);
     } else if (t->kind == TokenKind_keyword_for) {
         return parse_for_stmt(p);
     } else if (t->kind == TokenKind_keyword_while) {
