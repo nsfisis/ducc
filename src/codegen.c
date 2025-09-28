@@ -736,14 +736,32 @@ void codegen(Program* prog, FILE* out) {
     for (int i = 0; i < prog->vars->node_len; ++i) {
         AstNode* var = prog->vars->node_items + i;
         if (var->node_expr) {
-            if (type_sizeof(var->ty) == 1)
+            if (type_sizeof(var->ty) == 1) {
+                if (var->node_expr->kind != AstNodeKind_int_expr)
+                    unimplemented();
                 fprintf(g->out, "  %s: .byte %d\n", var->name, var->node_expr->node_int_value);
-            else if (type_sizeof(var->ty) == 2)
+            } else if (type_sizeof(var->ty) == 2) {
+                if (var->node_expr->kind != AstNodeKind_int_expr)
+                    unimplemented();
                 fprintf(g->out, "  %s: .word %d\n", var->name, var->node_expr->node_int_value);
-            else if (type_sizeof(var->ty) == 4)
+            } else if (type_sizeof(var->ty) == 4) {
+                if (var->node_expr->kind != AstNodeKind_int_expr)
+                    unimplemented();
                 fprintf(g->out, "  %s: .int %d\n", var->name, var->node_expr->node_int_value);
-            else
+            } else if (var->ty->kind == TypeKind_ptr) {
+                if (var->node_expr->kind == AstNodeKind_ref_expr) {
+                    if (var->node_expr->node_operand->kind != AstNodeKind_gvar) {
+                        unimplemented();
+                    }
+                    fprintf(g->out, "  %s: .quad %s\n", var->name, var->node_expr->node_operand->name);
+                } else if (var->node_expr->kind == AstNodeKind_gvar) {
+                    fprintf(g->out, "  %s: .quad %s\n", var->name, var->node_expr->name);
+                } else {
+                    unimplemented();
+                }
+            } else {
                 unimplemented();
+            }
         } else {
             fprintf(g->out, "  %s: .zero %d\n", var->name, type_sizeof(var->ty));
         }
