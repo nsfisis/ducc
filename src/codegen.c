@@ -87,6 +87,10 @@ static void codegen_unary_expr(CodeGen* g, AstNode* ast) {
         fprintf(g->out, "  sete al\n");
         fprintf(g->out, "  movzb rax, al\n");
         fprintf(g->out, "  push rax\n");
+    } else if (ast->node_op == TokenKind_tilde) {
+        fprintf(g->out, "  pop rax\n");
+        fprintf(g->out, "  not rax\n");
+        fprintf(g->out, "  push rax\n");
     } else {
         unreachable();
     }

@@ -25,5 +25,16 @@ int main() {
     ASSERT_EQ(2, d);
     ASSERT_EQ(3, e);
     ASSERT_EQ(0, f);
+
+    ASSERT_EQ(-1, ~0);
+    ASSERT_EQ(-2, ~1);
+    ASSERT_EQ(-6, ~5);
+    ASSERT_EQ(0, ~(-1));
+    ASSERT_EQ(5, ~(-6));
+
+    int x = 10;
+    ASSERT_EQ(-11, ~x);
+    ASSERT_EQ(-1, ~(x & 0));
+    ASSERT_EQ(-16, ~(x | 5));
 }
 EOF

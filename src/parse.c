@@ -547,6 +547,9 @@ static AstNode* parse_prefix_expr(Parser* p) {
     } else if (consume_token_if(p, TokenKind_not)) {
         AstNode* operand = parse_prefix_expr(p);
         return ast_new_unary_expr(op, operand);
+    } else if (consume_token_if(p, TokenKind_tilde)) {
+        AstNode* operand = parse_prefix_expr(p);
+        return ast_new_unary_expr(op, operand);
     } else if (consume_token_if(p, TokenKind_and)) {
         AstNode* operand = parse_prefix_expr(p);
         return ast_new_ref_expr(operand);
