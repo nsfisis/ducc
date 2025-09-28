@@ -439,6 +439,11 @@ static void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     }
 }
 
+static void codegen_func_ref(CodeGen* g, AstNode* ast) {
+    fprintf(g->out, "  lea rax, %s[rip]\n", ast->name);
+    fprintf(g->out, "  push rax\n");
+}
+
 static void codegen_composite_expr(CodeGen* g, AstNode* ast) {
     // Standard C does not have composite expression, but ducc internally has.
     for (int i = 0; i < ast->node_len; ++i) {
@@ -478,6 +483,8 @@ static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
         codegen_lvar(g, ast, gen_mode);
     } else if (ast->kind == AstNodeKind_gvar) {
         codegen_gvar(g, ast, gen_mode);
+    } else if (ast->kind == AstNodeKind_func) {
+        codegen_func_ref(g, ast);
     } else if (ast->kind == AstNodeKind_list) {
         codegen_composite_expr(g, ast);
     } else {

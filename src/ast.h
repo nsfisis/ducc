@@ -102,6 +102,7 @@ typedef enum {
     AstNodeKind_enum_member,
     AstNodeKind_expr_stmt,
     AstNodeKind_for_stmt,
+    AstNodeKind_func,
     AstNodeKind_func_call,
     AstNodeKind_func_decl,
     AstNodeKind_func_def,

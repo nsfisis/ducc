@@ -406,7 +406,14 @@ static AstNode* parse_primary_expr(Parser* p) {
             if (gvar_idx == -1) {
                 int enum_member_idx = find_enum_member(p, name);
                 if (enum_member_idx == -1) {
-                    fatal_error("undefined variable: %s", name);
+                    int func_idx = find_func(p, name);
+                    if (func_idx == -1) {
+                        fatal_error("undefined variable: %s", name);
+                    }
+                    AstNode* e = ast_new(AstNodeKind_func);
+                    e->name = name;
+                    e->ty = p->funcs.data[func_idx].ty;
+                    return e;
                 }
                 int enum_idx = enum_member_idx / 1000;
                 int n = enum_member_idx % 1000;
