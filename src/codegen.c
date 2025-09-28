@@ -292,6 +292,18 @@ static void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
         fprintf(g->out, "  cqo\n");
         fprintf(g->out, "  idiv rdi\n");
         fprintf(g->out, "  mov rax, rdx\n");
+    } else if (ast->node_op == TokenKind_assign_or) {
+        fprintf(g->out, "  or rax, rdi\n");
+    } else if (ast->node_op == TokenKind_assign_and) {
+        fprintf(g->out, "  and rax, rdi\n");
+    } else if (ast->node_op == TokenKind_assign_xor) {
+        fprintf(g->out, "  xor rax, rdi\n");
+    } else if (ast->node_op == TokenKind_assign_lshift) {
+        fprintf(g->out, "  mov rcx, rdi\n");
+        fprintf(g->out, "  shl rax, cl\n");
+    } else if (ast->node_op == TokenKind_assign_rshift) {
+        fprintf(g->out, "  mov rcx, rdi\n");
+        fprintf(g->out, "  sar rax, cl\n");
     } else {
         unreachable();
     }

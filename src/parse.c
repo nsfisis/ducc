@@ -801,7 +801,8 @@ static AstNode* parse_assignment_expr(Parser* p) {
         TokenKind op = peek_token(p)->kind;
         // TODO: check if the lhs is unary expression.
         if (op == TokenKind_assign || op == TokenKind_assign_mul || op == TokenKind_assign_div ||
-            op == TokenKind_assign_mod) {
+            op == TokenKind_assign_mod || op == TokenKind_assign_or || op == TokenKind_assign_and ||
+            op == TokenKind_assign_xor || op == TokenKind_assign_lshift || op == TokenKind_assign_rshift) {
             next_token(p);
             AstNode* rhs = parse_assignment_expr(p);
             lhs = ast_new_assign_expr(op, lhs, rhs);
