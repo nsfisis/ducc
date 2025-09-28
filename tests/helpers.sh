@@ -43,6 +43,7 @@ function test_compile_error() {
 
     if [[ $exit_code -eq 0 ]]; then
         echo "expected to fail" >&2
+        cat expected >&2
         exit 1
     fi
 

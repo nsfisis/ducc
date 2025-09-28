@@ -1331,12 +1331,30 @@ static AstNode* parse_stmt(Parser* p) {
         return parse_break_stmt(p);
     } else if (t->kind == TokenKind_keyword_continue) {
         return parse_continue_stmt(p);
+    } else if (t->kind == TokenKind_keyword_goto) {
+        expect(p, TokenKind_keyword_goto);
+        Token* label_token = expect(p, TokenKind_ident);
+        expect(p, TokenKind_semicolon);
+
+        AstNode* goto_stmt = ast_new(AstNodeKind_goto_stmt);
+        goto_stmt->name = label_token->value.string;
+        return goto_stmt;
     } else if (t->kind == TokenKind_brace_l) {
         return parse_block_stmt(p);
     } else if (t->kind == TokenKind_semicolon) {
         return parse_empty_stmt(p);
     } else if (is_type_token(p, t)) {
         return parse_var_decl(p);
+    } else if (t->kind == TokenKind_ident && peek_token2(p)->kind == TokenKind_colon) {
+        // Label statement
+        Token* label_token = expect(p, TokenKind_ident);
+        expect(p, TokenKind_colon);
+        AstNode* stmt = parse_stmt(p);
+
+        AstNode* label_stmt = ast_new(AstNodeKind_label_stmt);
+        label_stmt->name = label_token->value.string;
+        label_stmt->node_body = stmt;
+        return label_stmt;
     } else {
         return parse_expr_stmt(p);
     }

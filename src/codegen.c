@@ -578,6 +578,15 @@ static void codegen_continue_stmt(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  jmp .Lcontinue%d\n", label);
 }
 
+static void codegen_goto_stmt(CodeGen* g, AstNode* ast) {
+    fprintf(g->out, "  jmp .L%s__%s\n", g->current_func->name, ast->name);
+}
+
+static void codegen_label_stmt(CodeGen* g, AstNode* ast) {
+    fprintf(g->out, ".L%s__%s:\n", g->current_func->name, ast->name);
+    codegen_stmt(g, ast->node_body);
+}
+
 // Helper to collect case values from the switch body
 static void collect_cases(AstNode* stmt, int* case_values, int* case_labels, int* n_cases) {
     if (!stmt)
@@ -694,6 +703,10 @@ static void codegen_stmt(CodeGen* g, AstNode* ast) {
         codegen_break_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_continue_stmt) {
         codegen_continue_stmt(g, ast);
+    } else if (ast->kind == AstNodeKind_goto_stmt) {
+        codegen_goto_stmt(g, ast);
+    } else if (ast->kind == AstNodeKind_label_stmt) {
+        codegen_label_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_expr_stmt) {
         codegen_expr_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_lvar_decl) {
