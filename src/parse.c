@@ -1005,9 +1005,7 @@ static AstNode* parse_parameter_type_list(Parser* p) {
             --params->node_len;
             break;
         }
-        // TODO: |= is not supported
-        // has_void |= params->node_items[i].ty->kind == TypeKind_void;
-        has_void = has_void | (params->node_items[i].ty->kind == TypeKind_void);
+        has_void |= params->node_items[i].ty->kind == TypeKind_void;
     }
 
     if (params->node_len > 6) {

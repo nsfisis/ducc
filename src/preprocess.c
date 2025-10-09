@@ -825,10 +825,7 @@ static bool preprocess_elif_groups_opt(Preprocessor* pp, bool did_include) {
         Token* tok = peek_pp_token(pp);
         if (tok->kind == TokenKind_pp_directive_elif || tok->kind == TokenKind_pp_directive_elifdef ||
             tok->kind == TokenKind_pp_directive_elifndef) {
-            // TODO: | and |= is not supported
-            // did_include |= preprocess_elif_group(pp, pp->pos, did_include);
-            bool a = preprocess_elif_group(pp, did_include);
-            did_include = did_include ? true : a;
+            did_include |= preprocess_elif_group(pp, did_include);
         } else {
             break;
         }
