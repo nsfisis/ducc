@@ -8,7 +8,6 @@ OBJECTS := \
 	$(BUILD_DIR)/ast.o \
 	$(BUILD_DIR)/cli.o \
 	$(BUILD_DIR)/codegen.o \
-	$(BUILD_DIR)/codegen_wasm.o \
 	$(BUILD_DIR)/common.o \
 	$(BUILD_DIR)/fs.o \
 	$(BUILD_DIR)/io.o \

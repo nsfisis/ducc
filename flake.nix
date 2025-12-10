@@ -49,7 +49,6 @@
         devShells.default = pkgs.mkShell {
           packages = [
             pkgs.just
-            pkgs.wabt
           ];
           # Disable some kinds of hardening to disable GCC optimization.
           # cf. https://nixos.wiki/wiki/C#Hardening_flags

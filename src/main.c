@@ -1,7 +1,6 @@
 #include "ast.h"
 #include "cli.h"
 #include "codegen.h"
-#include "codegen_wasm.h"
 #include "common.h"
 #include "fs.h"
 #include "io.h"
@@ -45,16 +44,8 @@ int main(int argc, char** argv) {
         assembly_filename = temp_filename;
     }
     FILE* assembly_file = assembly_filename ? fopen(assembly_filename, "wb") : stdout;
-    if (cli_args->wasm) {
-        codegen_wasm(prog, assembly_file);
-    } else {
-        codegen(prog, assembly_file);
-    }
+    codegen(prog, assembly_file);
     fclose(assembly_file);
-
-    if (cli_args->wasm) {
-        return 0;
-    }
 
     if (!cli_args->output_assembly) {
         char cmd_buf[256];

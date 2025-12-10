@@ -14,7 +14,6 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     int positional_arguments_start = -1;
     bool opt_c = false;
     bool opt_E = false;
-    bool opt_wasm = false;
     bool opt_MMD = false;
     StrArray include_dirs;
     strings_init(&include_dirs);
@@ -63,8 +62,6 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             exit(0);
         } else if (strcmp(argv[i], "--std=gnu23") == 0) {
             // ignore --std=gnu23
-        } else if (strcmp(argv[i], "--wasm") == 0) {
-            opt_wasm = true;
         } else {
             fatal_error("unknown option: %s", argv[i]);
         }
@@ -76,11 +73,10 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     CliArgs* a = calloc(1, sizeof(CliArgs));
     a->input_filename = argv[positional_arguments_start];
     a->output_filename = output_filename;
-    a->output_assembly = !output_filename || str_ends_with(output_filename, ".s") || opt_wasm;
+    a->output_assembly = !output_filename || str_ends_with(output_filename, ".s");
     a->only_compile = opt_c;
     a->preprocess_only = opt_E;
     a->totally_deligate_to_gcc = false;
-    a->wasm = opt_wasm;
     a->gcc_command = NULL;
     a->generate_deps = opt_MMD;
     a->include_dirs = include_dirs;
