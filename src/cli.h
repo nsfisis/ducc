@@ -11,6 +11,7 @@ typedef struct {
     bool preprocess_only;
     bool generate_deps;
     bool totally_deligate_to_gcc;
+    bool wasm;
     const char* gcc_command;
     StrArray include_dirs;
 } CliArgs;
