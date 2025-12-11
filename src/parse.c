@@ -1433,8 +1433,12 @@ static AstNode* parse_func_def(Parser* p, AstNode* decls) {
     }
 
     Type* ty = decls->node_items[0].ty;
-    ty->storage_class = ty->result->storage_class;
-    ty->result->storage_class = StorageClass_unspecified;
+    Type* base_ty = ty->result;
+    while (base_ty->base) {
+        base_ty = base_ty->base;
+    }
+    ty->storage_class = base_ty->storage_class;
+    base_ty->storage_class = StorageClass_unspecified;
     const char* name = decls->node_items[0].name;
     AstNode* params = ty->params;
 
