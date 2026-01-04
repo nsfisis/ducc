@@ -23,6 +23,21 @@ int main() {
 EOF
 
 cat <<'EOF' > expected
+abc
+defghijkl
+EOF
+
+test_diff <<'EOF'
+int printf();
+
+int main() {
+    printf("abc\n");
+    printf("def" "ghi"
+    "jkl\n");
+}
+EOF
+
+cat <<'EOF' > expected
 h
 l
 ,
@@ -54,4 +69,3 @@ int main() {
     }
 }
 EOF
-

@@ -1177,6 +1177,34 @@ TokenArray* preprocess(InFile* src, StrArray* included_files, StrArray* user_inc
     return do_preprocess(src, 0, macros, included_files, user_include_dirs);
 }
 
+void concat_adjacent_string_literals(TokenArray* pp_tokens) {
+    size_t last_nonempty_token_pos = 0;
+    TokenKind last_nonempty_token_kind = TokenKind_eof;
+    for (size_t pos = 0; pos < pp_tokens->len; ++pos) {
+        Token* pp_tok = &pp_tokens->data[pos];
+        TokenKind k = pp_tok->kind;
+        if (k == TokenKind_removed || k == TokenKind_whitespace || k == TokenKind_newline) {
+            continue;
+        }
+        if (k == TokenKind_literal_str && last_nonempty_token_kind == TokenKind_literal_str) {
+            // Concatenate adjacent string literals.
+            Token* last_pp_tok = &pp_tokens->data[last_nonempty_token_pos];
+            const char* s1 = last_pp_tok->value.string;
+            size_t l1 = strlen(s1);
+            const char* s2 = pp_tok->value.string;
+            size_t l2 = strlen(s2);
+            char* buf = calloc(l1 + l2 + 1, sizeof(char));
+            memcpy(buf, s1, l1);
+            memcpy(buf + l1, s2, l2);
+            last_pp_tok->value.string = buf;
+            pp_tok->kind = TokenKind_removed;
+        } else {
+            last_nonempty_token_pos = pos;
+            last_nonempty_token_kind = k;
+        }
+    }
+}
+
 void print_token_to_file(FILE* out, TokenArray* pp_tokens) {
     for (size_t i = 0; i < pp_tokens->len; ++i) {
         Token* tok = &pp_tokens->data[i];
