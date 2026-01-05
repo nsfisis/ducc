@@ -21,5 +21,7 @@ int main() {
     ASSERT_EQ(11, '\v');
 
     ASSERT_EQ(0, '\0');
+
+    ASSERT_EQ(27, '\e');
 }
 EOF

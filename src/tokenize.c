@@ -427,9 +427,28 @@ TokenArray* convert_pp_tokens_to_tokens(TokenArray* pp_tokens) {
                     ch = '\v';
                 } else if (ch == '0') {
                     ch = '\0';
+                } else if (ch == 'e') {
+                    // \e is not a part of Standard C, but commonly supported.
+                    ch = 27;
                 }
             }
             tok->value.integer = ch;
+        } else if (k == TokenKind_literal_str) {
+            tok->kind = pp_tok->kind;
+
+            size_t len = strlen(pp_tok->value.string);
+            char* buf = calloc(len + 1, sizeof(char));
+            size_t j = 0;
+            for (size_t i = 0; i < len; i++, j++) {
+                if (pp_tok->value.string[i] == '\\' && pp_tok->value.string[i + 1] == 'e') {
+                    // \e is not a part of Standard C, but commonly supported.
+                    buf[j] = 033;
+                    i++;
+                } else {
+                    buf[j] = pp_tok->value.string[i];
+                }
+            }
+            tok->value.string = buf;
         } else if (k == TokenKind_ident) {
             if (strcmp(pp_tok->value.string, "alignas") == 0) {
                 tok->kind = TokenKind_keyword_alignas;
