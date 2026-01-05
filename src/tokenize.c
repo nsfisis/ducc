@@ -348,7 +348,7 @@ static void do_tokenize_all(Lexer* l) {
                 infile_next_char(l->src);
             }
             tok->kind = TokenKind_literal_int;
-            tok->value.integer = atoi(builder.buf);
+            tok->value.integer = strtol(builder.buf, NULL, 0);
         } else if (isalpha(c) || c == '_') {
             StrBuilder builder;
             strbuilder_init(&builder);
