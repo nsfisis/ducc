@@ -50,6 +50,10 @@ $ just test
 $ just test-self-hosted
 ```
 
+```
+$ just test-all
+```
+
 
 ## License
 
