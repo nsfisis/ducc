@@ -139,3 +139,20 @@ int main() {
 }
 EOF
 
+cat <<'EOF' > expected
+0 1
+1 3
+2 5
+3 7
+4 9
+EOF
+
+test_diff <<'EOF'
+int printf();
+
+int main() {
+    for (int i = 0, j = 1; i < 5; i++, j += 2) {
+        printf("%d %d\n", i, j);
+    }
+}
+EOF

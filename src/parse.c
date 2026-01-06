@@ -1166,7 +1166,15 @@ static AstNode* parse_for_stmt(Parser* p) {
     enter_scope(p);
     if (peek_token(p)->kind != TokenKind_semicolon) {
         if (is_type_token(p, peek_token(p))) {
-            init = parse_var_decl(p)->node_items[0].node_expr;
+            AstNode* decls = parse_var_decl(p);
+            AstNode* initializers = ast_new_list(1);
+            for (size_t i = 0; i < decls->node_len; i++) {
+                AstNode* initializer = decls->node_items[i].node_expr;
+                if (initializer) {
+                    ast_append(initializers, initializer);
+                }
+            }
+            init = initializers;
         } else {
             init = parse_expr(p);
             expect(p, TokenKind_semicolon);
