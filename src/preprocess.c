@@ -104,6 +104,49 @@ static void add_predefined_macros(MacroArray* macros) {
     define_macro_to_1(macros, "__LP64__");
 }
 
+// Accept "FOO" or "FOO=value"
+static void define_macro_from_string(MacroArray* macros, const char* def) {
+    Macro* m = macros_push_new(macros);
+    m->kind = MacroKind_obj;
+
+    const char* eq = strchr(def, '=');
+    if (eq) {
+        // FOO=value format
+        size_t name_len = eq - def;
+        char* name = calloc(name_len + 1, sizeof(char));
+        memcpy(name, def, name_len);
+        m->name = name;
+
+        const char* value = eq + 1;
+        tokens_init(&m->replacements, 1);
+        Token* tok = tokens_push_new(&m->replacements);
+
+        // Try to parse as integer
+        char* num_end;
+        long int_val = strtol(value, &num_end, 10);
+        if (value[0] != '\0' && *num_end == '\0') {
+            tok->kind = TokenKind_literal_int;
+            tok->value.integer = int_val;
+        } else {
+            tok->kind = TokenKind_ident;
+            tok->value.string = value;
+        }
+    } else {
+        // FOO format (equivalent to FOO=1)
+        m->name = def;
+        tokens_init(&m->replacements, 1);
+        Token* tok = tokens_push_new(&m->replacements);
+        tok->kind = TokenKind_literal_int;
+        tok->value.integer = 1;
+    }
+}
+
+static void add_user_defines(MacroArray* macros, StrArray* user_defines) {
+    for (size_t i = 0; i < user_defines->len; ++i) {
+        define_macro_from_string(macros, user_defines->data[i]);
+    }
+}
+
 typedef struct {
     TokenArray tokens;
 } MacroArg;
@@ -1170,9 +1213,10 @@ static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, Str
     return pp->pp_tokens;
 }
 
-TokenArray* preprocess(InFile* src, StrArray* included_files, StrArray* user_include_dirs) {
+TokenArray* preprocess(InFile* src, StrArray* included_files, StrArray* user_include_dirs, StrArray* user_defines) {
     MacroArray* macros = macros_new();
     add_predefined_macros(macros);
+    add_user_defines(macros, user_defines);
     strings_push(included_files, src->loc.filename);
     return do_preprocess(src, 0, macros, included_files, user_include_dirs);
 }

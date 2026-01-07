@@ -14,6 +14,7 @@ typedef struct {
     bool wasm;
     const char* gcc_command;
     StrArray include_dirs;
+    StrArray defines;
 } CliArgs;
 
 CliArgs* parse_cli_args(int argc, char** argv);

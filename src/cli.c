@@ -18,6 +18,8 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     bool opt_MMD = false;
     StrArray include_dirs;
     strings_init(&include_dirs);
+    StrArray defines;
+    strings_init(&defines);
 
     for (int i = 1; i < argc; ++i) {
         if (argv[i][0] != '-') {
@@ -46,6 +48,19 @@ CliArgs* parse_cli_args(int argc, char** argv) {
                 fatal_error("-I requires directory");
             }
             strings_push(&include_dirs, dir);
+        } else if (c == 'D') {
+            const char* def = NULL;
+            if (argv[i][2] != '\0') {
+                // -DFOO or -DFOO=value format
+                def = argv[i] + 2;
+            } else if (argc > i + 1) {
+                // -D FOO or -D FOO=value format
+                def = argv[i + 1];
+                ++i;
+            } else {
+                fatal_error("-D requires macro definition");
+            }
+            strings_push(&defines, def);
         } else if (c == 'o') {
             if (argc <= i + 1) {
                 fatal_error("-o requires filename");
@@ -84,6 +99,7 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     a->gcc_command = NULL;
     a->generate_deps = opt_MMD;
     a->include_dirs = include_dirs;
+    a->defines = defines;
 
     if (!a->only_compile && str_ends_with(a->input_filename, ".o")) {
         a->totally_deligate_to_gcc = true;
