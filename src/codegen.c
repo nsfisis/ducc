@@ -74,7 +74,7 @@ static void codegen_int_expr(CodeGen* g, AstNode* ast) {
 }
 
 static void codegen_str_expr(CodeGen* g, AstNode* ast) {
-    fprintf(g->out, "  mov rax, OFFSET FLAG:.Lstr__%d\n", ast->node_idx);
+    fprintf(g->out, "  lea rax, .Lstr__%d[rip]\n", ast->node_idx);
     fprintf(g->out, "  push rax\n");
 }
 
