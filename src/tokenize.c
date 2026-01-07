@@ -361,6 +361,16 @@ static void do_tokenize_all(Lexer* l) {
         } else if (c == '\n') {
             infile_next_char(l->src);
             tok->kind = TokenKind_newline;
+
+            // Reset expect_header_name at the end of line. It handles cases like:
+            //
+            // #ifdef ADDITIONAL_HEADER
+            // #include ADDITIONAL_HEADER
+            // #endif
+            //
+            // Even if ADDITIONAL_HEADER is undefined, this include directive line is tokenized. If the flag were not
+            // reset, the next occurrence of '<' or '"' would be recognized as part of a header name.
+            l->expect_header_name = false;
         } else if (isspace(c)) {
             while (isspace((c = infile_peek_char(l->src)))) {
                 if (c == '\n')

@@ -50,3 +50,14 @@ test_compile_error <<'EOF'
 #include <hoge.h>
 EOF
 
+cat <<'EOF' > expected
+42
+EOF
+
+test_exit_code 0 <<'EOF'
+#ifdef FOO
+#include FOO
+#endif
+
+int main() { 1 < 2; }
+EOF
