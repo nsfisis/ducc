@@ -27,7 +27,11 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             break;
         }
         char c = argv[i][1];
-        if (c == 'g') {
+        if (c == 'f') {
+            // ignore
+        } else if (c == 'g') {
+            // ignore
+        } else if (c == 'm') {
             // ignore
         } else if (c == 'O') {
             // ignore
