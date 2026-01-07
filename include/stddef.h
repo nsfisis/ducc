@@ -5,11 +5,11 @@
 
 typedef unsigned long size_t;
 typedef int wchar_t;
+typedef long ptrdiff_t;
 
 // TODO:
 // - max_align_t (C11)
 // - nullptr_t (C23)
 // - offsetof
-// - ptrdiff_t
 
 #endif
