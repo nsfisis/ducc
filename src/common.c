@@ -13,6 +13,14 @@ void fatal_error(const char* msg, ...) {
     exit(1);
 }
 
+bool str_starts_with(const char* s, const char* prefix) {
+    size_t l1 = strlen(s);
+    size_t l2 = strlen(prefix);
+    if (l1 < l2)
+        return false;
+    return strncmp(s, prefix, l2) == 0;
+}
+
 bool str_ends_with(const char* s, const char* suffix) {
     size_t l1 = strlen(s);
     size_t l2 = strlen(suffix);

@@ -61,8 +61,8 @@ CliArgs* parse_cli_args(int argc, char** argv) {
         } else if (strcmp(argv[i], "--version") == 0) {
             print_version();
             exit(0);
-        } else if (strcmp(argv[i], "-std=gnu23") == 0) {
-            // ignore -std=gnu23
+        } else if (str_starts_with(argv[i], "-std=")) {
+            // ignore -std=*
         } else if (strcmp(argv[i], "--wasm") == 0) {
             opt_wasm = true;
         } else {

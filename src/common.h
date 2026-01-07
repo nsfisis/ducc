@@ -12,6 +12,7 @@ _Noreturn void fatal_error(const char* msg, ...);
 
 #define unimplemented() fatal_error("%s:%d: unimplemented", __FILE__, __LINE__)
 
+bool str_starts_with(const char* s, const char* prefix);
 bool str_ends_with(const char* s, const char* suffix);
 
 typedef struct {
