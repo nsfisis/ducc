@@ -33,10 +33,8 @@ $ nix develop
 
 ```
 $ just build
-```
-
-```
-$ just build-upto-5-gen
+$ just build 2
+$ just build 3
 ```
 
 
@@ -44,13 +42,7 @@ $ just build-upto-5-gen
 
 ```
 $ just test
-```
-
-```
 $ just test-self-hosted
-```
-
-```
 $ just test-all
 ```
 

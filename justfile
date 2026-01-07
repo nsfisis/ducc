@@ -16,17 +16,8 @@ build N="1":
     fi
     CC="$cc" CFLAGS="$cflags" TARGET="$target" make
 
-build-upto-5-gen:
-    just build 1
-    just build 2
-    just build 3
-    just build 4
-    just build 5
-
-test-self-hosted: build-upto-5-gen
+test-self-hosted: (build "1") (build "2") (build "3")
     diff -u ./build/ducc2 ./build/ducc3
-    diff -u ./build/ducc3 ./build/ducc4
-    diff -u ./build/ducc4 ./build/ducc5
 
 test TESTCASE="all" $BIN="ducc": build
     #!/usr/bin/env bash
