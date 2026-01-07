@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased (TBD)
+## v0.3.0 (2026-01-08)
 
-WebAssembly backend is experimentally added.
+WebAssembly backend is experimentally added. For now, very limited operations are supported.
 
 
 ## v0.2.0 (2025-09-03)
