@@ -1,7 +1,7 @@
 function test_exit_code() {
     cat > main.c
 
-    "$ducc" "${CFLAGS:-}" -o a.out main.c
+    "$ducc" "${CFLAGS:-}" -I ../../../tests -o a.out main.c
     set +e
     ./a.out
     exit_code=$?
@@ -18,7 +18,7 @@ function test_exit_code() {
 function test_diff() {
     cat > main.c
 
-    "$ducc" "${CFLAGS:-}" -o a.out main.c
+    "$ducc" "${CFLAGS:-}" -I ../../../tests -o a.out main.c
     if [[ ! -f input ]]; then
         touch input
     fi
@@ -37,7 +37,7 @@ function test_compile_error() {
     cat > main.c
 
     set +e
-    "$ducc" "${CFLAGS:-}" main.c > /dev/null 2> output
+    "$ducc" "${CFLAGS:-}" -I ../../../tests main.c > /dev/null 2> output
     exit_code=$?
     set -e
 
@@ -53,14 +53,14 @@ function test_compile_error() {
 function test_cpp() {
     cat > main.c
 
-    "$ducc" "${CFLAGS:-}" -E main.c > output
+    "$ducc" "${CFLAGS:-}" -I ../../../tests -E main.c > output
     diff -u -Z expected output
 }
 
 function test_example() {
     filename="../../../examples/$1.c"
 
-    "$ducc" "${CFLAGS:-}" -o a.out "$filename"
+    "$ducc" "${CFLAGS:-}" -I ../../../tests -o a.out "$filename"
     if [[ ! -f input ]]; then
         touch input
     fi

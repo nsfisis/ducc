@@ -15,7 +15,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int a;
 int* b = &a;

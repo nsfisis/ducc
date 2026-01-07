@@ -1,5 +1,4 @@
-test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int result1;
@@ -18,4 +17,3 @@ int main() {
     }
     ASSERT_EQ(34, result2);
 }
-EOF

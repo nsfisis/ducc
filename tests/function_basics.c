@@ -1,5 +1,4 @@
-test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int foo() {
     int i;
@@ -48,11 +47,3 @@ int main() {
     ASSERT_EQ(50, 10 * f5(1, 2, 3, 4, 5, 6));
     ASSERT_EQ(60, 10 * f6(1, 2, 3, 4, 5, 6));
 }
-EOF
-
-touch expected
-test_diff <<'EOF'
-int main() {
-    return 0;
-}
-EOF

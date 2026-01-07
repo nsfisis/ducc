@@ -1,5 +1,4 @@
-test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int fib(int n) {
     if (n <= 1) {
@@ -12,4 +11,3 @@ int fib(int n) {
 int main() {
     ASSERT_EQ(89, fib(10));
 }
-EOF

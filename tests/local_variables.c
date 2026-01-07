@@ -1,5 +1,4 @@
-test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int foo;
@@ -30,27 +29,10 @@ int main() {
     a8 = 8;
     a9 = 9;
 
-    ASSERT_EQ(45,
-        a1 +
-        a2 +
-        a3 +
-        a4 +
-        a5 +
-        a6 +
-        a7 +
-        a8 +
-        a9 +
-        0);
-}
-EOF
+    ASSERT_EQ(45, a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + 0);
 
-test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
-
-int main() {
     int d = 2, e = d, f = d + e;
     ASSERT_EQ(2, d);
     ASSERT_EQ(2, e);
     ASSERT_EQ(4, f);
 }
-EOF

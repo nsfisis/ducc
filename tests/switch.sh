@@ -1,7 +1,7 @@
 #!/bin/bash
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int x = 2;
@@ -24,7 +24,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int x = 5;
@@ -47,7 +47,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int x = 2;
@@ -68,7 +68,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int x = 1;
@@ -96,7 +96,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int a = 3;
@@ -120,7 +120,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int x = 2;
@@ -148,7 +148,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int x = 1;
@@ -172,7 +172,7 @@ int main() {
 EOF
 
 test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     int x = 10;

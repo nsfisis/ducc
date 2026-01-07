@@ -1,5 +1,4 @@
-test_exit_code 0 <<'EOF'
-#include "../../helpers.h"
+#include <helpers.h>
 
 int main() {
     bool b1 = true, b0 = false;
@@ -9,4 +8,3 @@ int main() {
     ASSERT_EQ(1, sizeof(b0));
     ASSERT_EQ(1, sizeof(bool));
 }
-EOF
