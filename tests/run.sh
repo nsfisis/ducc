@@ -14,7 +14,7 @@ if [[ -f "$c_test_file" ]]; then
     echo "$c_test_file"
     mkdir -p "$tmp_dir"
     cd "$tmp_dir"
-    test_exit_code < "../../../$c_test_file"
+    test_exit_code 0 < "../../../$c_test_file"
     cd "../../.."
 elif [[ -f "$sh_test_file" ]]; then
     source tests/helpers.sh

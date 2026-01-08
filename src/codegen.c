@@ -56,7 +56,7 @@ static const char* param_reg(int n) {
 static void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  push rbp\n");
     fprintf(g->out, "  mov rbp, rsp\n");
-    for (int i = 0; i < ast->node_params->node_len; ++i) {
+    for (int i = 0; i < ast->node_params->node_len && i < 6; ++i) {
         fprintf(g->out, "  push %s\n", param_reg(i));
     }
     // Note: rsp must be aligned to 8.
@@ -363,6 +363,17 @@ static void codegen_assign_expr(CodeGen* g, AstNode* ast) {
     }
 }
 
+static void codegen_args(CodeGen* g, AstNode* args) {
+    // Evaluate arguments in the reverse order (right to left).
+    for (int i = args->node_len - 1; i >= 0; --i) {
+        AstNode* arg = &args->node_items[i];
+        codegen_expr(g, arg, GenMode_rval);
+    }
+    for (int i = 0; i < args->node_len && i < 6; ++i) {
+        fprintf(g->out, "  pop %s\n", param_reg(i));
+    }
+}
+
 static void codegen_func_call(CodeGen* g, AstNode* ast) {
     const char* func_name = ast->name;
 
@@ -395,41 +406,41 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
     }
 
     AstNode* args = ast->node_args;
-    // Evaluate arguments in the reverse order (right to left).
-    for (int i = args->node_len - 1; i >= 0; --i) {
-        AstNode* arg = &args->node_items[i];
-        codegen_expr(g, arg, GenMode_rval);
-    }
-    for (int i = 0; i < args->node_len && i < 6; ++i) {
-        fprintf(g->out, "  pop %s\n", param_reg(i));
-    }
+    int overflow_args_count = args->node_len <= 6 ? 0 : args->node_len - 6;
 
     int label = codegen_new_label(g);
 
     fprintf(g->out, "  mov rax, rsp\n");
+    if (overflow_args_count % 2 == 1) {
+        fprintf(g->out, "  add rax, 8\n");
+    }
     fprintf(g->out, "  and rax, 15\n");
     fprintf(g->out, "  cmp rax, 0\n");
     fprintf(g->out, "  je .Laligned%d\n", label);
 
-    fprintf(g->out, "  mov rax, 0\n");
     fprintf(g->out, "  sub rsp, 8\n");
+    codegen_args(g, args);
+    fprintf(g->out, "  mov rax, 0\n");
     fprintf(g->out, "  call %s\n", func_name);
     fprintf(g->out, "  add rsp, 8\n");
-    fprintf(g->out, "  push rax\n");
 
     fprintf(g->out, "  jmp .Lend%d\n", label);
     fprintf(g->out, ".Laligned%d:\n", label);
 
+    codegen_args(g, args);
     fprintf(g->out, "  mov rax, 0\n");
     fprintf(g->out, "  call %s\n", func_name);
-    fprintf(g->out, "  push rax\n");
 
     fprintf(g->out, ".Lend%d:\n", label);
+    // Pop pass-by-stack arguments.
+    for (int i = 0; i < overflow_args_count; i++) {
+        fprintf(g->out, "  add rsp, 8\n");
+    }
+    fprintf(g->out, "  push rax\n");
 }
 
 static void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
-    fprintf(g->out, "  mov rax, rbp\n");
-    fprintf(g->out, "  sub rax, %d\n", ast->node_stack_offset);
+    fprintf(g->out, "  lea rax, %d[rbp]\n", -ast->node_stack_offset);
     fprintf(g->out, "  push rax\n");
     if (gen_mode == GenMode_rval) {
         codegen_lval2rval(g, ast->ty);

@@ -230,25 +230,33 @@ static int find_lvar(Parser* p, const char* name) {
 }
 
 static int calc_stack_offset(Parser* p, Type* ty, bool is_param) {
-    int align;
     if (is_param) {
         if (8 < type_sizeof(ty) || 8 < type_alignof(ty)) {
             fatal_error("too large");
         }
-        align = 8;
+        int offset;
+        if (p->lvars.len == 0) {
+            offset = 0;
+        } else {
+            offset = p->lvars.data[p->lvars.len - 1].stack_offset;
+        }
+        if (offset < 0) {
+            return offset - 8;
+        } else if (offset >= 6 * 8) {
+            return -16;
+        } else {
+            return offset + 8;
+        }
     } else {
-        align = type_alignof(ty);
+        int offset = 0;
+        for (size_t i = 0; i < p->lvars.len; i++) {
+            int o = p->lvars.data[i].stack_offset;
+            if (offset < o) {
+                offset = o;
+            }
+        }
+        return to_aligned(offset + type_sizeof(ty), type_alignof(ty));
     }
-
-    int offset;
-    if (p->lvars.len == 0) {
-        offset = 0;
-    } else {
-        offset = p->lvars.data[p->lvars.len - 1].stack_offset;
-    }
-
-    offset += type_sizeof(ty);
-    return to_aligned(offset, align);
 }
 
 static int add_lvar(Parser* p, const char* name, Type* ty, bool is_param) {
@@ -447,9 +455,6 @@ static AstNode* parse_arg_list(Parser* p) {
         if (!consume_token_if(p, TokenKind_comma)) {
             break;
         }
-    }
-    if (list->node_len > 6) {
-        fatal_error("too many arguments");
     }
     return list;
 }
@@ -1008,9 +1013,6 @@ static AstNode* parse_parameter_type_list(Parser* p) {
         has_void |= params->node_items[i].ty->kind == TypeKind_void;
     }
 
-    if (params->node_len > 6) {
-        fatal_error("too many parameters");
-    }
     if (has_void) {
         if (params->node_len != 1) {
             fatal_error("invalid use of void param");
@@ -1464,8 +1466,14 @@ static AstNode* parse_func_def(Parser* p, AstNode* decls) {
     if (p->lvars.len == 0) {
         func->node_stack_size = 0;
     } else {
-        func->node_stack_size =
-            p->lvars.data[p->lvars.len - 1].stack_offset + type_sizeof(p->lvars.data[p->lvars.len - 1].ty);
+        int stack_size = 0;
+        for (size_t i = 0; i < p->lvars.len; i++) {
+            int s = p->lvars.data[i].stack_offset + type_sizeof(p->lvars.data[i].ty);
+            if (stack_size < s) {
+                stack_size = s;
+            }
+        }
+        func->node_stack_size = stack_size;
     }
     return func;
 }

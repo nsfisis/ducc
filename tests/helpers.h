@@ -10,7 +10,7 @@ extern FILE* stderr;
 #define ASSERT(a, file, line) \
     do { \
         if (!(a)) { \
-            fprintf(stderr, "%s:%d: assert failed", file, line); \
+            fprintf(stderr, "%s:%d: assert failed\n", file, line); \
             exit(1); \
         } \
     } while (0)
