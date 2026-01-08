@@ -118,3 +118,20 @@ int main() {
     return 0;
 }
 EOF
+
+test_exit_code 0 <<'EOF'
+#include <helpers.h>
+
+struct S {
+    int a, b;
+};
+
+struct T {
+    short *a, b, c[12];
+};
+
+int main() {
+    ASSERT_EQ(8, sizeof(struct S));
+    ASSERT_EQ(40, sizeof(struct T));
+}
+EOF

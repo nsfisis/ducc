@@ -1515,24 +1515,23 @@ static AstNode* parse_member_declaration(Parser* p) {
 
     expect(p, TokenKind_semicolon);
 
-    if (decls->node_len != 1)
-        unimplemented();
-
-    AstNode* m = ast_new(AstNodeKind_struct_member);
-    m->name = decls->node_items[0].name;
-    m->ty = decls->node_items[0].ty;
-    return m;
+    for (size_t i = 0; i < decls->node_len; i++) {
+        decls->node_items[i].kind = AstNodeKind_struct_member;
+    }
+    return decls;
 }
 
 // member-declaration-list:
 //     { member-declaration }+
 static AstNode* parse_member_declaration_list(Parser* p) {
-    AstNode* list = ast_new_list(4);
+    AstNode* members = ast_new_list(4);
     while (peek_token(p)->kind != TokenKind_brace_r) {
-        AstNode* member = parse_member_declaration(p);
-        ast_append(list, member);
+        AstNode* decls = parse_member_declaration(p);
+        for (size_t i = 0; i < decls->node_len; i++) {
+            ast_append(members, &decls->node_items[i]);
+        }
     }
-    return list;
+    return members;
 }
 
 static AstNode* parse_enum_member(Parser* p) {
