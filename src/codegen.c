@@ -395,11 +395,12 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
     }
 
     AstNode* args = ast->node_args;
-    for (int i = 0; i < args->node_len; ++i) {
-        AstNode* arg = args->node_items + i;
+    // Evaluate arguments in the reverse order (right to left).
+    for (int i = args->node_len - 1; i >= 0; --i) {
+        AstNode* arg = &args->node_items[i];
         codegen_expr(g, arg, GenMode_rval);
     }
-    for (int i = args->node_len - 1; i >= 0; --i) {
+    for (int i = 0; i < args->node_len && i < 6; ++i) {
         fprintf(g->out, "  pop %s\n", param_reg(i));
     }
 
