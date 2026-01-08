@@ -2283,7 +2283,8 @@ static Type* parse_specifier_qualifier_list(Parser* p) {
         } else if (tok->kind == TokenKind_keyword_restrict) {
             unimplemented();
         } else if (tok->kind == TokenKind_keyword_volatile) {
-            unimplemented();
+            // TODO
+            next_token(p);
         } else if (tok->kind == TokenKind_keyword__Atomic) {
             unimplemented();
         }
