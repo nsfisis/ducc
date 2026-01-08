@@ -525,6 +525,44 @@ static Token* concat_two_tokens(Token* left, Token* right) {
     return result;
 }
 
+static Token* stringify_tokens(TokenArray* tokens) {
+    StrBuilder builder;
+    strbuilder_init(&builder);
+
+    bool prev_whitespace = false;
+    for (size_t i = 0; i < tokens->len; ++i) {
+        Token* tok = &tokens->data[i];
+        if (tok->kind == TokenKind_whitespace) {
+            prev_whitespace = true;
+            continue;
+        }
+
+        if (prev_whitespace && builder.len > 0) {
+            strbuilder_append_char(&builder, ' ');
+        }
+        prev_whitespace = false;
+
+        const char* str = token_stringify(tok);
+
+        // For string literals and char constants, we need to escape quotes.
+        if (tok->kind == TokenKind_literal_str || tok->kind == TokenKind_character_constant) {
+            for (const char* p = str; *p; ++p) {
+                if (*p == '\\' || *p == '"') {
+                    strbuilder_append_char(&builder, '\\');
+                }
+                strbuilder_append_char(&builder, *p);
+            }
+        } else {
+            strbuilder_append_string(&builder, str);
+        }
+    }
+
+    Token* result = calloc(1, sizeof(Token));
+    result->kind = TokenKind_literal_str;
+    result->value.string = builder.buf;
+    return result;
+}
+
 typedef struct MacroExpansionContext {
     // Stack of macro names that have been already expanded.
     StrArray already_expanded;
@@ -590,35 +628,50 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
         token_count_before_expansion = pp->pos - macro_name_pos;
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
 
+        // Operands of # and ## operators should not be expanded.
         bool* no_expand = calloc(macro->parameters.len, sizeof(bool));
         for (size_t i = 0; i < macro->replacements.len; ++i) {
-            if (macro->replacements.data[i].kind != TokenKind_hashhash)
-                continue;
-
-            Token* lhs = NULL;
-            for (int j = i - 1; j >= 0; --j) {
-                if (macro->replacements.data[j].kind != TokenKind_whitespace) {
-                    lhs = &macro->replacements.data[j];
-                    break;
+            TokenKind kind = macro->replacements.data[i].kind;
+            if (kind == TokenKind_hashhash) {
+                Token* lhs = NULL;
+                for (int j = i - 1; j >= 0; --j) {
+                    if (macro->replacements.data[j].kind != TokenKind_whitespace) {
+                        lhs = &macro->replacements.data[j];
+                        break;
+                    }
                 }
-            }
-            Token* rhs = NULL;
-            for (int j = i + 1; j < macro->replacements.len; ++j) {
-                if (macro->replacements.data[j].kind != TokenKind_whitespace) {
-                    rhs = &macro->replacements.data[j];
-                    break;
+                Token* rhs = NULL;
+                for (int j = i + 1; j < macro->replacements.len; ++j) {
+                    if (macro->replacements.data[j].kind != TokenKind_whitespace) {
+                        rhs = &macro->replacements.data[j];
+                        break;
+                    }
                 }
-            }
-            if (lhs) {
-                int param1 = macro_find_param(macro, lhs);
-                if (param1 != -1) {
-                    no_expand[param1] = true;
+                if (lhs) {
+                    int param1 = macro_find_param(macro, lhs);
+                    if (param1 != -1) {
+                        no_expand[param1] = true;
+                    }
                 }
-            }
-            if (rhs) {
-                int param2 = macro_find_param(macro, rhs);
-                if (param2 != -1) {
-                    no_expand[param2] = true;
+                if (rhs) {
+                    int param2 = macro_find_param(macro, rhs);
+                    if (param2 != -1) {
+                        no_expand[param2] = true;
+                    }
+                }
+            } else if (kind == TokenKind_hash) {
+                Token* operand = NULL;
+                for (int j = i + 1; j < macro->replacements.len; ++j) {
+                    if (macro->replacements.data[j].kind != TokenKind_whitespace) {
+                        operand = &macro->replacements.data[j];
+                        break;
+                    }
+                }
+                if (operand) {
+                    int param = macro_find_param(macro, operand);
+                    if (param != -1) {
+                        no_expand[param] = true;
+                    }
                 }
             }
         }
@@ -636,6 +689,37 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
         size_t offset = 0;
         for (size_t i = 0; i < macro->replacements.len; ++i) {
             Token* tok = pp_token_at(pp, macro_name_pos + i + offset);
+
+            // Handle # operator (stringification)
+            if (tok->kind == TokenKind_hash) {
+                size_t param_idx_in_replacements = 0;
+                for (size_t j = i + 1; j < macro->replacements.len; ++j) {
+                    if (macro->replacements.data[j].kind != TokenKind_whitespace) {
+                        param_idx_in_replacements = j;
+                        break;
+                    }
+                }
+
+                Token* param_tok = &macro->replacements.data[param_idx_in_replacements];
+                int macro_param_idx = macro_find_param(macro, param_tok);
+                if (macro_param_idx != -1) {
+                    Token* stringified = stringify_tokens(&args->data[macro_param_idx].tokens);
+
+                    // Replace ('#' <whitespace>* <param>) with stringified token.
+                    TokenArray single_token;
+                    tokens_init(&single_token, 1);
+                    *tokens_push_new(&single_token) = *stringified;
+
+                    size_t tokens_to_replace = param_idx_in_replacements - i + 1;
+                    replace_pp_tokens(pp, macro_name_pos + i + offset, macro_name_pos + i + offset + tokens_to_replace,
+                                      &single_token);
+                    token_count += 1;
+                    offset += 1 - tokens_to_replace;
+                    i = param_idx_in_replacements; // Skip to after the parameter
+                    continue;
+                }
+            }
+
             int macro_param_idx = macro_find_param(macro, tok);
             if (macro_param_idx != -1) {
                 size_t arg_token_count = args->data[macro_param_idx].tokens.len;

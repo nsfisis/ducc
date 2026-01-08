@@ -87,3 +87,23 @@ int main() {
     printf("%d\n", F(123));
 }
 EOF
+
+test_exit_code 0 <<'EOF'
+#include <helpers.h>
+
+int strcmp(const char*, const char*);
+
+#define FOO 42
+
+#define TO_STRING(x) TO_STRING_HELPER(x)
+#define TO_STRING_HELPER(x) #x
+#define BAR TO_STRING(FOO)
+
+#define TO_STRING2(x) #x
+#define BAZ TO_STRING2(FOO)
+
+int main() {
+    ASSERT_EQ(0, strcmp("42", BAR));
+    ASSERT_EQ(0, strcmp("FOO", BAZ));
+}
+EOF
