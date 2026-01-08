@@ -31,4 +31,3 @@ int main() {
     printf("%d\n", x.a[4]);
 }
 EOF
-

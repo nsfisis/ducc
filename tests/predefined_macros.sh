@@ -52,4 +52,3 @@ int main() {
     printf("%d %d\n", A, A);
 }
 EOF
-

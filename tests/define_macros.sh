@@ -89,4 +89,3 @@ int main() {
     printf("%d\n", bar());
 }
 EOF
-

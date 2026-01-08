@@ -71,4 +71,3 @@ test_compile_error <<'EOF'
 
 int main() {}
 EOF
-

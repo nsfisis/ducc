@@ -14,4 +14,3 @@ int main() {
     printf("%zu %hd\n", sizeof(b), *b);
 }
 EOF
-

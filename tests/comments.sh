@@ -22,4 +22,3 @@ lorem ipsum
 int/**/main() {
 }
 EOF
-

@@ -20,4 +20,3 @@ int main() {
     printf("%ld\n", u.l);
 }
 EOF
-

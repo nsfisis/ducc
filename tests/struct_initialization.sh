@@ -105,4 +105,3 @@ int main() {
     printf("%d %d\n", s2.a, s2.b);
 }
 EOF
-

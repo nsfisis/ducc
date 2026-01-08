@@ -19,4 +19,3 @@ char* strstr(const char*, const char*);
 
 int main() { return 0; }
 EOF
-

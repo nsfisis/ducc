@@ -160,4 +160,3 @@ int main() {
     printf("%zu\n", sizeof(c));
 }
 EOF
-

@@ -24,4 +24,3 @@ test_compile_error <<'EOF'
 
 #error "foo"
 EOF
-

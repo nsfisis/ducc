@@ -82,4 +82,3 @@ int main() {
     printf("%zu\n", sizeof(E));
 }
 EOF
-

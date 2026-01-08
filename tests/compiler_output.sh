@@ -14,4 +14,3 @@ if [[ $exit_code -ne 0 ]]; then
     echo "invalid exit code: $exit_code" >&2
     exit 1
 fi
-
