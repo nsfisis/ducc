@@ -447,6 +447,48 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
         return;
     }
 
+    if (strcmp(func_name, "__ducc_va_arg") == 0) {
+        fprintf(g->out, "  # __ducc_va_arg BEGIN\n");
+
+        // Evaluate va_list argument (first argument)
+        AstNode* va_list_arg = &ast->node_args->node_items[0];
+        codegen_expr(g, va_list_arg, GenMode_rval);
+        fprintf(g->out, "  pop rdi\n"); // rdi = pointer to va_list
+
+        // Evaluate size argument (second argument)
+        AstNode* size_arg = &ast->node_args->node_items[1];
+        codegen_expr(g, size_arg, GenMode_rval);
+        fprintf(g->out, "  pop rsi\n"); // rsi = size
+
+        int label = codegen_new_label(g);
+
+        // Check if gp_offset < 48 (6 registers * 8 bytes)
+        fprintf(g->out, "  mov eax, DWORD PTR [rdi]\n"); // eax = gp_offset
+        fprintf(g->out, "  cmp eax, 48\n");
+        fprintf(g->out, "  jae .Lva_arg_overflow%d\n", label);
+
+        // Fetch from register save area
+        fprintf(g->out, "  mov rcx, QWORD PTR [rdi+16]\n"); // rcx = reg_save_area
+        fprintf(g->out, "  movsx rdx, eax\n");              // rdx = gp_offset (sign-extended)
+        fprintf(g->out, "  add rcx, rdx\n");                // rcx = reg_save_area + gp_offset
+        fprintf(g->out, "  add eax, 8\n");                  // gp_offset += 8
+        fprintf(g->out, "  mov DWORD PTR [rdi], eax\n");    // store updated gp_offset
+        fprintf(g->out, "  mov rax, rcx\n");                // return pointer to argument
+        fprintf(g->out, "  jmp .Lva_arg_end%d\n", label);
+
+        // Fetch from overflow area (stack)
+        fprintf(g->out, ".Lva_arg_overflow%d:\n", label);
+        fprintf(g->out, "  mov rcx, QWORD PTR [rdi+8]\n"); // rcx = overflow_arg_area
+        fprintf(g->out, "  mov rax, rcx\n");               // return pointer to argument
+        fprintf(g->out, "  add rcx, 8\n");                 // overflow_arg_area += 8
+        fprintf(g->out, "  mov QWORD PTR [rdi+8], rcx\n"); // store updated overflow_arg_area
+
+        fprintf(g->out, ".Lva_arg_end%d:\n", label);
+        fprintf(g->out, "  push rax\n");
+        fprintf(g->out, "  # __ducc_va_arg END\n");
+        return;
+    }
+
     AstNode* args = ast->node_args;
 
     int gp_regs = 6;

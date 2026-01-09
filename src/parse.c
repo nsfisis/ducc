@@ -165,8 +165,11 @@ static Parser* parser_new(TokenArray* tokens) {
 
     Func* va_start_func = funcs_push_new(&p->funcs);
     va_start_func->name = "__ducc_va_start";
-    va_start_func->ty = calloc(1, sizeof(Type));
-    va_start_func->ty->kind = TypeKind_void;
+    va_start_func->ty = type_new_func(type_new(TypeKind_void), NULL);
+
+    Func* va_arg_func = funcs_push_new(&p->funcs);
+    va_arg_func->name = "__ducc_va_arg";
+    va_arg_func->ty = type_new_func(type_new_ptr(type_new(TypeKind_void)), NULL);
 
     return p;
 }
@@ -524,6 +527,7 @@ static bool is_type_token(Parser* p, Token* tok) {
 }
 
 static Type* parse_type_name(Parser* p);
+static AstNode* parse_cast_expr(Parser* p);
 
 static AstNode* parse_prefix_expr(Parser* p) {
     TokenKind op = peek_token(p)->kind;
@@ -540,7 +544,7 @@ static AstNode* parse_prefix_expr(Parser* p) {
         AstNode* operand = parse_prefix_expr(p);
         return ast_new_ref_expr(operand);
     } else if (consume_token_if(p, TokenKind_star)) {
-        AstNode* operand = parse_prefix_expr(p);
+        AstNode* operand = parse_cast_expr(p);
         return ast_new_deref_expr(operand);
     } else if (consume_token_if(p, TokenKind_plusplus)) {
         AstNode* operand = parse_prefix_expr(p);
