@@ -113,7 +113,7 @@ Type* type_new_func(Type* result, AstNode* params) {
 }
 
 bool type_is_unsized(Type* ty) {
-    return ty->kind == TypeKind_void || ty->kind == TypeKind_func;
+    return ty->kind == TypeKind_void;
 }
 
 int type_sizeof(Type* ty) {
@@ -141,6 +141,8 @@ int type_sizeof(Type* ty) {
         return 8;
     else if (ty->kind == TypeKind_array)
         return type_sizeof(ty->base) * ty->array_size;
+    else if (ty->kind == TypeKind_func)
+        return 8;
     else
         unreachable();
 }
@@ -170,6 +172,8 @@ int type_alignof(Type* ty) {
         return 8;
     else if (ty->kind == TypeKind_array)
         return type_alignof(ty->base);
+    else if (ty->kind == TypeKind_func)
+        return 8;
     else
         unreachable();
 }

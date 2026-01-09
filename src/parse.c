@@ -229,38 +229,19 @@ static int find_lvar(Parser* p, const char* name) {
     return -1;
 }
 
-static int calc_stack_offset(Parser* p, Type* ty, bool is_param) {
-    if (is_param) {
-        if (8 < type_sizeof(ty) || 8 < type_alignof(ty)) {
-            fatal_error("too large");
-        }
-        int offset;
-        if (p->lvars.len == 0) {
-            offset = 0;
-        } else {
-            offset = p->lvars.data[p->lvars.len - 1].stack_offset;
-        }
-        if (offset < 0) {
-            return offset - 8;
-        } else if (offset >= 6 * 8) {
-            return -16;
-        } else {
-            return offset + 8;
-        }
+static int calc_lvar_stack_offset(Parser* p, Type* ty) {
+    int offset;
+    if (p->lvars.len == 0) {
+        offset = 0;
     } else {
-        int offset = 0;
-        for (size_t i = 0; i < p->lvars.len; i++) {
-            int o = p->lvars.data[i].stack_offset;
-            if (offset < o) {
-                offset = o;
-            }
-        }
-        return to_aligned(offset + type_sizeof(ty), type_alignof(ty));
+        offset = p->lvars.data[p->lvars.len - 1].stack_offset;
+        if (offset < 0)
+            offset = 0;
     }
+    return to_aligned(offset + type_sizeof(ty), type_alignof(ty));
 }
 
-static int add_lvar(Parser* p, const char* name, Type* ty, bool is_param) {
-    int stack_offset = calc_stack_offset(p, ty, is_param);
+static int add_lvar(Parser* p, const char* name, Type* ty, int stack_offset) {
     LocalVar* lvar = lvars_push_new(&p->lvars);
     lvar->name = name;
     lvar->ty = ty;
@@ -272,7 +253,7 @@ static int add_lvar(Parser* p, const char* name, Type* ty, bool is_param) {
 }
 
 static AstNode* generate_temporary_lvar(Parser* p, Type* ty) {
-    int stack_offset = add_lvar(p, NULL, ty, false);
+    int stack_offset = add_lvar(p, NULL, ty, calc_lvar_stack_offset(p, ty));
     AstNode* lvar = ast_new(AstNodeKind_lvar);
     lvar->name = NULL;
     lvar->node_stack_offset = stack_offset;
@@ -1369,9 +1350,35 @@ static AstNode* parse_stmt(Parser* p) {
 }
 
 static void register_params(Parser* p, AstNode* params) {
+    int gp_regs = 6;
+    int pass_by_reg_offset = 8;
+    int pass_by_stack_offset = -16;
     for (int i = 0; i < params->node_len; ++i) {
-        AstNode* param = params->node_items + i;
-        add_lvar(p, param->name, param->ty, true);
+        AstNode* param = &params->node_items[i];
+        int ty_size = type_sizeof(param->ty);
+        int required_gp_regs;
+        if (ty_size <= 8) {
+            required_gp_regs = 1;
+        } else if (ty_size <= 16) {
+            required_gp_regs = 2;
+        } else {
+            required_gp_regs = 0;
+        }
+        if (required_gp_regs <= gp_regs) {
+            gp_regs -= required_gp_regs;
+        } else {
+            required_gp_regs = 0;
+        }
+        int stack_offset;
+        if (required_gp_regs == 0) {
+            stack_offset = pass_by_stack_offset;
+            pass_by_stack_offset -= to_aligned(ty_size, 8);
+        } else {
+            stack_offset = pass_by_reg_offset;
+            pass_by_reg_offset += to_aligned(ty_size, 8);
+        }
+        param->node_stack_offset = stack_offset;
+        add_lvar(p, param->name, param->ty, stack_offset);
     }
 }
 
@@ -1398,7 +1405,7 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
                 // TODO: use name's location.
                 fatal_error("%s:%d: '%s' redeclared", peek_token(p)->loc.filename, peek_token(p)->loc.line, decl->name);
             }
-            int stack_offset = add_lvar(p, decl->name, decl->ty, false);
+            int stack_offset = add_lvar(p, decl->name, decl->ty, calc_lvar_stack_offset(p, decl->ty));
 
             if (decl->node_init) {
                 AstNode* lhs = ast_new(AstNodeKind_lvar);
@@ -1466,12 +1473,9 @@ static AstNode* parse_func_def(Parser* p, AstNode* decls) {
     if (p->lvars.len == 0) {
         func->node_stack_size = 0;
     } else {
-        int stack_size = 0;
-        for (size_t i = 0; i < p->lvars.len; i++) {
-            int s = p->lvars.data[i].stack_offset + type_sizeof(p->lvars.data[i].ty);
-            if (stack_size < s) {
-                stack_size = s;
-            }
+        int stack_size = p->lvars.data[p->lvars.len - 1].stack_offset + type_sizeof(p->lvars.data[p->lvars.len - 1].ty);
+        if (stack_size < 0) {
+            stack_size = 0;
         }
         func->node_stack_size = stack_size;
     }

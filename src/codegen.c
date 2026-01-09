@@ -56,8 +56,11 @@ static const char* param_reg(int n) {
 static void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  push rbp\n");
     fprintf(g->out, "  mov rbp, rsp\n");
-    for (int i = 0; i < ast->node_params->node_len && i < 6; ++i) {
-        fprintf(g->out, "  push %s\n", param_reg(i));
+    for (int i = 0, j = 0; i < ast->node_params->node_len; ++i) {
+        AstNode* param = &ast->node_params->node_items[i];
+        if (param->node_stack_offset >= 0) {
+            fprintf(g->out, "  push %s\n", param_reg(j++));
+        }
     }
     // Note: rsp must be aligned to 8.
     fprintf(g->out, "  sub rsp, %d\n", to_aligned(ast->node_stack_size, 8));
@@ -364,13 +367,52 @@ static void codegen_assign_expr(CodeGen* g, AstNode* ast) {
 }
 
 static void codegen_args(CodeGen* g, AstNode* args) {
+    bool* pass_by_stack = calloc(args->node_len, sizeof(bool));
+
+    int gp_regs = 6;
+    for (int i = 0; i < args->node_len; ++i) {
+        AstNode* arg = &args->node_items[i];
+        int ty_size = type_sizeof(arg->ty);
+        // TODO
+        if (arg->ty->kind == TypeKind_array) {
+            ty_size = 8;
+        }
+        int required_gp_regs;
+        if (ty_size <= 8) {
+            required_gp_regs = 1;
+        } else if (ty_size <= 16) {
+            required_gp_regs = 2;
+        } else {
+            required_gp_regs = 0;
+        }
+        if (required_gp_regs <= gp_regs) {
+            gp_regs -= required_gp_regs;
+        } else {
+            required_gp_regs = 0;
+        }
+        pass_by_stack[i] = required_gp_regs == 0;
+    }
+
     // Evaluate arguments in the reverse order (right to left).
+    // Arguments passed by stack.
     for (int i = args->node_len - 1; i >= 0; --i) {
         AstNode* arg = &args->node_items[i];
-        codegen_expr(g, arg, GenMode_rval);
+        if (pass_by_stack[i]) {
+            codegen_expr(g, arg, GenMode_rval);
+        }
     }
-    for (int i = 0; i < args->node_len && i < 6; ++i) {
-        fprintf(g->out, "  pop %s\n", param_reg(i));
+    // Arguments passed by registers.
+    for (int i = args->node_len - 1; i >= 0; --i) {
+        AstNode* arg = &args->node_items[i];
+        if (!pass_by_stack[i]) {
+            codegen_expr(g, arg, GenMode_rval);
+        }
+    }
+    // Pop pushed arguments onto registers.
+    for (int i = 0, j = 0; i < args->node_len; ++i) {
+        if (!pass_by_stack[i]) {
+            fprintf(g->out, "  pop %s\n", param_reg(j++));
+        }
     }
 }
 
@@ -406,12 +448,38 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
     }
 
     AstNode* args = ast->node_args;
-    int overflow_args_count = args->node_len <= 6 ? 0 : args->node_len - 6;
+
+    int gp_regs = 6;
+    int pass_by_stack_offset = -16;
+    for (int i = 0; i < args->node_len; ++i) {
+        AstNode* arg = &args->node_items[i];
+        int ty_size = type_sizeof(arg->ty);
+        // TODO
+        if (arg->ty->kind == TypeKind_array) {
+            ty_size = 8;
+        }
+        int required_gp_regs;
+        if (ty_size <= 8) {
+            required_gp_regs = 1;
+        } else if (ty_size <= 16) {
+            required_gp_regs = 2;
+        } else {
+            required_gp_regs = 0;
+        }
+        if (required_gp_regs <= gp_regs) {
+            gp_regs -= required_gp_regs;
+        } else {
+            required_gp_regs = 0;
+        }
+        if (required_gp_regs == 0) {
+            pass_by_stack_offset -= to_aligned(ty_size, 8);
+        }
+    }
 
     int label = codegen_new_label(g);
 
     fprintf(g->out, "  mov rax, rsp\n");
-    if (overflow_args_count % 2 == 1) {
+    if (-pass_by_stack_offset % 16 != 0) {
         fprintf(g->out, "  add rax, 8\n");
     }
     fprintf(g->out, "  and rax, 15\n");
@@ -433,9 +501,7 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
 
     fprintf(g->out, ".Lend%d:\n", label);
     // Pop pass-by-stack arguments.
-    for (int i = 0; i < overflow_args_count; i++) {
-        fprintf(g->out, "  add rsp, 8\n");
-    }
+    fprintf(g->out, "  add rsp, %d\n", -pass_by_stack_offset - 16);
     fprintf(g->out, "  push rax\n");
 }
 
