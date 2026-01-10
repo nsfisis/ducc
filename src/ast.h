@@ -134,6 +134,8 @@ typedef enum {
     AstNodeKind_declarator,
 } AstNodeKind;
 
+const char* astnode_kind_stringify(AstNodeKind k);
+
 #define node_items __n1
 #define node_len __i1
 #define node_cap __i2

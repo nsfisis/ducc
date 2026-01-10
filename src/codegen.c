@@ -469,18 +469,18 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
 
         // Fetch from register save area
         fprintf(g->out, "  mov rcx, QWORD PTR [rdi+16]\n"); // rcx = reg_save_area
-        fprintf(g->out, "  movsx rdx, eax\n");              // rdx = gp_offset (sign-extended)
-        fprintf(g->out, "  add rcx, rdx\n");                // rcx = reg_save_area + gp_offset
-        fprintf(g->out, "  add eax, 8\n");                  // gp_offset += 8
-        fprintf(g->out, "  mov DWORD PTR [rdi], eax\n");    // store updated gp_offset
-        fprintf(g->out, "  mov rax, rcx\n");                // return pointer to argument
+        fprintf(g->out, "  movsx rdx, eax\n"); // rdx = gp_offset (sign-extended)
+        fprintf(g->out, "  add rcx, rdx\n"); // rcx = reg_save_area + gp_offset
+        fprintf(g->out, "  add eax, 8\n"); // gp_offset += 8
+        fprintf(g->out, "  mov DWORD PTR [rdi], eax\n"); // store updated gp_offset
+        fprintf(g->out, "  mov rax, rcx\n"); // return pointer to argument
         fprintf(g->out, "  jmp .Lva_arg_end%d\n", label);
 
         // Fetch from overflow area (stack)
         fprintf(g->out, ".Lva_arg_overflow%d:\n", label);
         fprintf(g->out, "  mov rcx, QWORD PTR [rdi+8]\n"); // rcx = overflow_arg_area
-        fprintf(g->out, "  mov rax, rcx\n");               // return pointer to argument
-        fprintf(g->out, "  add rcx, 8\n");                 // overflow_arg_area += 8
+        fprintf(g->out, "  mov rax, rcx\n"); // return pointer to argument
+        fprintf(g->out, "  add rcx, 8\n"); // overflow_arg_area += 8
         fprintf(g->out, "  mov QWORD PTR [rdi+8], rcx\n"); // store updated overflow_arg_area
 
         fprintf(g->out, ".Lva_arg_end%d:\n", label);
@@ -903,6 +903,11 @@ void codegen(Program* prog, FILE* out) {
                 } else {
                     unimplemented();
                 }
+            } else if (var->ty->kind == TypeKind_array && var->ty->base->kind == TypeKind_char) {
+                if (var->node_expr->kind != AstNodeKind_str_expr)
+                    unimplemented();
+                const char* str = prog->str_literals[var->node_expr->node_idx - 1];
+                fprintf(g->out, "  %s: .string \"%s\"\n", var->name, str);
             } else {
                 unimplemented();
             }
@@ -913,7 +918,7 @@ void codegen(Program* prog, FILE* out) {
 
     fprintf(g->out, ".text\n\n");
     for (int i = 0; i < prog->funcs->node_len; ++i) {
-        AstNode* func = prog->funcs->node_items + i;
+        AstNode* func = &prog->funcs->node_items[i];
         codegen_func(g, func);
     }
 }

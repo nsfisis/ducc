@@ -182,6 +182,101 @@ int to_aligned(int n, int a) {
     return (n + a - 1) / a * a;
 }
 
+const char* astnode_kind_stringify(AstNodeKind k) {
+    switch (k) {
+    case AstNodeKind_unknown:
+        return "unknown";
+    case AstNodeKind_nop:
+        return "nop";
+    case AstNodeKind_assign_expr:
+        return "assign_expr";
+    case AstNodeKind_binary_expr:
+        return "binary_expr";
+    case AstNodeKind_break_stmt:
+        return "break_stmt";
+    case AstNodeKind_case_label:
+        return "case_label";
+    case AstNodeKind_cast_expr:
+        return "cast_expr";
+    case AstNodeKind_cond_expr:
+        return "cond_expr";
+    case AstNodeKind_continue_stmt:
+        return "continue_stmt";
+    case AstNodeKind_default_label:
+        return "default_label";
+    case AstNodeKind_deref_expr:
+        return "deref_expr";
+    case AstNodeKind_do_while_stmt:
+        return "do_while_stmt";
+    case AstNodeKind_enum_def:
+        return "enum_def";
+    case AstNodeKind_enum_member:
+        return "enum_member";
+    case AstNodeKind_expr_stmt:
+        return "expr_stmt";
+    case AstNodeKind_for_stmt:
+        return "for_stmt";
+    case AstNodeKind_func:
+        return "func";
+    case AstNodeKind_func_call:
+        return "func_call";
+    case AstNodeKind_func_decl:
+        return "func_decl";
+    case AstNodeKind_func_def:
+        return "func_def";
+    case AstNodeKind_goto_stmt:
+        return "goto_stmt";
+    case AstNodeKind_gvar:
+        return "gvar";
+    case AstNodeKind_gvar_decl:
+        return "gvar_decl";
+    case AstNodeKind_if_stmt:
+        return "if_stmt";
+    case AstNodeKind_int_expr:
+        return "int_expr";
+    case AstNodeKind_label_stmt:
+        return "label_stmt";
+    case AstNodeKind_list:
+        return "list";
+    case AstNodeKind_logical_expr:
+        return "logical_expr";
+    case AstNodeKind_lvar:
+        return "lvar";
+    case AstNodeKind_lvar_decl:
+        return "lvar_decl";
+    case AstNodeKind_param:
+        return "param";
+    case AstNodeKind_ref_expr:
+        return "ref_expr";
+    case AstNodeKind_return_stmt:
+        return "return_stmt";
+    case AstNodeKind_str_expr:
+        return "str_expr";
+    case AstNodeKind_struct_decl:
+        return "struct_decl";
+    case AstNodeKind_struct_def:
+        return "struct_def";
+    case AstNodeKind_struct_member:
+        return "struct_member";
+    case AstNodeKind_switch_stmt:
+        return "switch_stmt";
+    case AstNodeKind_type:
+        return "type";
+    case AstNodeKind_typedef_decl:
+        return "typedef_decl";
+    case AstNodeKind_unary_expr:
+        return "unary_expr";
+    case AstNodeKind_union_decl:
+        return "union_decl";
+    case AstNodeKind_union_def:
+        return "union_def";
+    case AstNodeKind_declarator:
+        return "declarator";
+    default:
+        unreachable();
+    }
+}
+
 AstNode* ast_new(AstNodeKind kind) {
     AstNode* ast = calloc(1, sizeof(AstNode));
     ast->kind = kind;

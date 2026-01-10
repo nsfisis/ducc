@@ -1,27 +1,19 @@
-cat <<'EOF' > expected
-42 123 999
-EOF
-
-test_diff <<'EOF'
-int printf();
-
-char a = 42;
-short b = 123;
-int c = 999;
-
-int main() {
-    printf("%d %d %d\n", a, b, c);
-}
-EOF
-
-test_exit_code 0 <<'EOF'
 #include <helpers.h>
+
+int printf(const char*, ...);
+int strcmp(const char*, const char*);
 
 int a;
 int* b = &a;
 int c[10];
 int* d = c;
 int e, *f = e, g[10], *h = g;
+
+char i = 42;
+short j = 123;
+int k = 999;
+
+char l[6] = "hello";
 
 int main() {
     *b = 123;
@@ -35,5 +27,10 @@ int main() {
 
     h[5] = 789;
     ASSERT_EQ(789, g[5]);
+
+    ASSERT_EQ(42, i);
+    ASSERT_EQ(123, j);
+    ASSERT_EQ(999, k);
+
+    ASSERT_EQ(0, strcmp("hello", l));
 }
-EOF
