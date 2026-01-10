@@ -152,3 +152,20 @@ int main() {
     return 0;
 }
 EOF
+
+cat <<'EOF' > expected
+42
+EOF
+test_diff <<'EOF'
+int printf(const char*, ...);
+
+int f() {
+    return printf("42\n");
+}
+
+int main() {
+    (void)123;
+    (void)(5 + 6 + 7);
+    (void)f();
+}
+EOF

@@ -36,3 +36,6 @@ test-all:
 clean:
     rm -rf build
     rm -rf tests/tmp
+
+fmt:
+    nix fmt

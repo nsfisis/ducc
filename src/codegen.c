@@ -148,6 +148,10 @@ static void codegen_deref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 static void codegen_cast_expr(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_operand, GenMode_rval);
 
+    // (void) cast does nothing.
+    if (ast->ty->kind == TypeKind_void)
+        return;
+
     int src_size = type_sizeof(ast->node_operand->ty);
     int dst_size = type_sizeof(ast->ty);
 
