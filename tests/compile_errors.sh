@@ -1,5 +1,5 @@
 cat <<'EOF' > expected
-undefined function: f
+main.c:2: undefined function: f
 EOF
 test_compile_error <<'EOF'
 int main() {

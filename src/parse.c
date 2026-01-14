@@ -385,7 +385,7 @@ static AstNode* parse_primary_expr(Parser* p) {
             AstNode* e = ast_new(AstNodeKind_func_call);
             int func_idx = find_func(p, name);
             if (func_idx == -1) {
-                fatal_error("undefined function: %s", name);
+                fatal_error("%s:%d: undefined function: %s", t->loc.filename, t->loc.line, name);
             }
             e->name = name;
             e->ty = p->funcs.data[func_idx].ty->result;
@@ -400,7 +400,7 @@ static AstNode* parse_primary_expr(Parser* p) {
                 if (enum_member_idx == -1) {
                     int func_idx = find_func(p, name);
                     if (func_idx == -1) {
-                        fatal_error("undefined variable: %s", name);
+                        fatal_error("%s:%d: undefined variable: %s", t->loc.filename, t->loc.line, name);
                     }
                     AstNode* e = ast_new(AstNodeKind_func);
                     e->name = name;
