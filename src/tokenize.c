@@ -37,7 +37,7 @@ static void pplexer_tokenize_pp_directive(Lexer* l, Token* tok) {
 
     StrBuilder builder;
     strbuilder_init(&builder);
-    while (isalnum(infile_peek_char(l->src))) {
+    while (isalnum(infile_peek_char(l->src)) || infile_peek_char(l->src) == '_') {
         strbuilder_append_char(&builder, infile_peek_char(l->src));
         infile_next_char(l->src);
     }
@@ -70,6 +70,9 @@ static void pplexer_tokenize_pp_directive(Lexer* l, Token* tok) {
     } else if (strcmp(pp_directive_name, "include") == 0) {
         l->expect_header_name = true;
         tok->kind = TokenKind_pp_directive_include;
+    } else if (strcmp(pp_directive_name, "include_next") == 0) {
+        l->expect_header_name = true;
+        tok->kind = TokenKind_pp_directive_include_next;
     } else if (strcmp(pp_directive_name, "line") == 0) {
         tok->kind = TokenKind_pp_directive_line;
     } else if (strcmp(pp_directive_name, "pragma") == 0) {

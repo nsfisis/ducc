@@ -47,6 +47,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "#ifndef";
     else if (k == TokenKind_pp_directive_include)
         return "#include";
+    else if (k == TokenKind_pp_directive_include_next)
+        return "#include_next";
     else if (k == TokenKind_pp_directive_line)
         return "#line";
     else if (k == TokenKind_pp_directive_non_directive)
@@ -283,8 +285,9 @@ bool is_pp_directive(TokenKind k) {
            k == TokenKind_pp_directive_else || k == TokenKind_pp_directive_embed || k == TokenKind_pp_directive_endif ||
            k == TokenKind_pp_directive_error || k == TokenKind_pp_directive_if || k == TokenKind_pp_directive_ifdef ||
            k == TokenKind_pp_directive_ifndef || k == TokenKind_pp_directive_include ||
-           k == TokenKind_pp_directive_line || k == TokenKind_pp_directive_non_directive ||
-           k == TokenKind_pp_directive_nop || k == TokenKind_pp_directive_pragma || k == TokenKind_pp_directive_undef ||
+           k == TokenKind_pp_directive_include_next || k == TokenKind_pp_directive_line ||
+           k == TokenKind_pp_directive_non_directive || k == TokenKind_pp_directive_nop ||
+           k == TokenKind_pp_directive_pragma || k == TokenKind_pp_directive_undef ||
            k == TokenKind_pp_directive_warning;
 }
 

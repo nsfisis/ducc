@@ -29,6 +29,7 @@ typedef enum {
     TokenKind_pp_directive_ifdef,
     TokenKind_pp_directive_ifndef,
     TokenKind_pp_directive_include,
+    TokenKind_pp_directive_include_next, // GNU extension
     TokenKind_pp_directive_line,
     TokenKind_pp_directive_non_directive,
     TokenKind_pp_directive_nop,

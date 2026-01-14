@@ -330,7 +330,7 @@ static void make_tokens_removed(Preprocessor* pp, int start, int end) {
 static Token* read_include_header_name(Preprocessor* pp) {
     Token* tok = next_pp_token(pp);
     if (tok->kind != TokenKind_header_name) {
-        fatal_error("%s:%d: invalid #include", tok->loc.filename, tok->loc.line);
+        fatal_error("%s:%d: invalid #include, %s", tok->loc.filename, tok->loc.line, token_stringify(tok));
     }
     return tok;
 }
@@ -353,6 +353,23 @@ static const char* resolve_include_name(Preprocessor* pp, const Token* include_n
         }
         return NULL;
     }
+}
+
+static const char* resolve_next_include_name(Preprocessor* pp, const Token* include_name_token) {
+    const char* include_name = include_name_token->value.string;
+    char* current_filename = strdup(include_name_token->loc.filename);
+    for (size_t i = 0; i < pp->include_paths.len; ++i) {
+        char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths.data[i]) + 1, sizeof(char));
+        sprintf(buf, "%s/%.*s", pp->include_paths.data[i], (int)(strlen(include_name) - 2), include_name + 1);
+        if (strcmp(buf, current_filename) == 0) {
+            // #include_next skips the same file.
+            continue;
+        }
+        if (access(buf, F_OK | R_OK) == 0) {
+            return buf;
+        }
+    }
+    return NULL;
 }
 
 static int replace_pp_tokens(Preprocessor* pp, int dest_start, int dest_end, TokenArray* source_tokens) {
@@ -1061,6 +1078,36 @@ static void preprocess_include_directive(Preprocessor* pp) {
     expand_include_directive(pp, include_name_resolved, include_name);
 }
 
+// #include_next is a part of GNU extension.
+// https://gcc.gnu.org/onlinedocs/cpp/Wrapper-Headers.html
+static void preprocess_include_next_directive(Preprocessor* pp) {
+    skip_pp_token(pp, TokenKind_pp_directive_include_next);
+    skip_whitespaces(pp);
+    Token* include_name = read_include_header_name(pp);
+    const char* include_name_resolved = resolve_next_include_name(pp, include_name);
+    if (include_name_resolved == NULL) {
+        fatal_error("%s:%d: cannot resolve include file name: %s", include_name->loc.filename, include_name->loc.line,
+                    token_stringify(include_name));
+    }
+
+    if (include_name->value.string[0] == '"') {
+        bool already_included = false;
+        for (size_t i = 0; i < pp->included_files->len; ++i) {
+            if (strcmp(pp->included_files->data[i], include_name_resolved) == 0) {
+                already_included = true;
+                break;
+            }
+        }
+        if (!already_included) {
+            strings_push(pp->included_files, include_name_resolved);
+        }
+    }
+
+    skip_whitespaces(pp);
+    expect_pp_token(pp, TokenKind_newline);
+    expand_include_directive(pp, include_name_resolved, include_name);
+}
+
 static void preprocess_embed_directive(Preprocessor*) {
     unimplemented();
 }
@@ -1222,6 +1269,8 @@ static void preprocess_group_part(Preprocessor* pp) {
                     token_kind_stringify(tok->kind));
     } else if (tok->kind == TokenKind_pp_directive_include) {
         preprocess_include_directive(pp);
+    } else if (tok->kind == TokenKind_pp_directive_include_next) {
+        preprocess_include_next_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_embed) {
         preprocess_embed_directive(pp);
     } else if (tok->kind == TokenKind_pp_directive_define) {
