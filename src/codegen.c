@@ -73,27 +73,22 @@ static void codegen_func_epilogue(CodeGen* g, AstNode* ast) {
 }
 
 static void codegen_int_expr(CodeGen* g, AstNode* ast) {
-    fprintf(g->out, "  push %d\n", ast->node_int_value);
+    fprintf(g->out, "  mov rax, %d\n", ast->node_int_value);
 }
 
 static void codegen_str_expr(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  lea rax, .Lstr__%d[rip]\n", ast->node_idx);
-    fprintf(g->out, "  push rax\n");
 }
 
 static void codegen_unary_expr(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_operand, GenMode_rval);
     if (ast->node_op == TokenKind_not) {
-        fprintf(g->out, "  pop rax\n");
         fprintf(g->out, "  mov rdi, 0\n");
         fprintf(g->out, "  cmp rax, rdi\n");
         fprintf(g->out, "  sete al\n");
         fprintf(g->out, "  movzb rax, al\n");
-        fprintf(g->out, "  push rax\n");
     } else if (ast->node_op == TokenKind_tilde) {
-        fprintf(g->out, "  pop rax\n");
         fprintf(g->out, "  not rax\n");
-        fprintf(g->out, "  push rax\n");
     } else {
         unreachable();
     }
@@ -103,39 +98,23 @@ static void codegen_ref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     codegen_expr(g, ast->node_operand, GenMode_lval);
 }
 
-// "reg" stores the address of the expression to be pushed.
-static void codegen_push_expr(CodeGen* g, const char* reg, int size) {
-    if (size == 1) {
-        fprintf(g->out, "  movsx %s, BYTE PTR [%s]\n", reg, reg);
-        fprintf(g->out, "  push %s\n", reg);
-    } else if (size == 2) {
-        fprintf(g->out, "  movsx %s, WORD PTR [%s]\n", reg, reg);
-        fprintf(g->out, "  push %s\n", reg);
-    } else if (size == 4) {
-        fprintf(g->out, "  movsxd %s, DWORD PTR [%s]\n", reg, reg);
-        fprintf(g->out, "  push %s\n", reg);
-    } else if (size == 8) {
-        fprintf(g->out, "  mov %s, [%s]\n", reg, reg);
-        fprintf(g->out, "  push %s\n", reg);
-    } else {
-        // Perform bitwise copy. Use r10 register as temporary space.
-        // Note: rsp must be aligned to 8.
-        fprintf(g->out, "  sub rsp, %d\n", to_aligned(size, 8));
-        for (int i = 0; i < size; ++i) {
-            // Copy a sinle byte from the address that "reg" points to to the stack via r10 register.
-            fprintf(g->out, "  mov r10b, [%s+%d]\n", reg, i);
-            fprintf(g->out, "  mov [rsp+%d], r10b\n", i);
-        }
-    }
-}
-
 static void codegen_lval2rval(CodeGen* g, Type* ty) {
     if (ty->kind == TypeKind_array) {
         return;
     }
 
-    fprintf(g->out, "  pop rax\n");
-    codegen_push_expr(g, "rax", type_sizeof(ty));
+    int size = type_sizeof(ty);
+    if (size == 1) {
+        fprintf(g->out, "  movsx rax, BYTE PTR [rax]\n");
+    } else if (size == 2) {
+        fprintf(g->out, "  movsx rax, WORD PTR [rax]\n");
+    } else if (size == 4) {
+        fprintf(g->out, "  movsxd rax, DWORD PTR [rax]\n");
+    } else if (size == 8) {
+        fprintf(g->out, "  mov rax, [rax]\n");
+    } else {
+        // Do nothing.
+    }
 }
 
 static void codegen_deref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
@@ -157,8 +136,6 @@ static void codegen_cast_expr(CodeGen* g, AstNode* ast) {
 
     if (src_size == dst_size)
         return;
-
-    fprintf(g->out, "  pop rax\n");
 
     if (dst_size == 1) {
         fprintf(g->out, "  movsx rax, al\n");
@@ -185,8 +162,6 @@ static void codegen_cast_expr(CodeGen* g, AstNode* ast) {
             fprintf(g->out, "  movsxd rax, eax\n");
         }
     }
-
-    fprintf(g->out, "  push rax\n");
 }
 
 static void codegen_logical_expr(CodeGen* g, AstNode* ast) {
@@ -194,20 +169,18 @@ static void codegen_logical_expr(CodeGen* g, AstNode* ast) {
 
     if (ast->node_op == TokenKind_andand) {
         codegen_expr(g, ast->node_lhs, GenMode_rval);
-        fprintf(g->out, "  pop rax\n");
         fprintf(g->out, "  cmp rax, 0\n");
         fprintf(g->out, "  je .Lelse%d\n", label);
         codegen_expr(g, ast->node_rhs, GenMode_rval);
         fprintf(g->out, "  jmp .Lend%d\n", label);
         fprintf(g->out, ".Lelse%d:\n", label);
-        fprintf(g->out, "  push 0\n");
+        fprintf(g->out, "  mov rax, 0\n");
         fprintf(g->out, ".Lend%d:\n", label);
     } else {
         codegen_expr(g, ast->node_lhs, GenMode_rval);
-        fprintf(g->out, "  pop rax\n");
         fprintf(g->out, "  cmp rax, 0\n");
         fprintf(g->out, "  je .Lelse%d\n", label);
-        fprintf(g->out, "  push 1\n");
+        fprintf(g->out, "  mov rax, 1\n");
         fprintf(g->out, "  jmp .Lend%d\n", label);
         fprintf(g->out, ".Lelse%d:\n", label);
         codegen_expr(g, ast->node_rhs, GenMode_rval);
@@ -217,9 +190,11 @@ static void codegen_logical_expr(CodeGen* g, AstNode* ast) {
 
 static void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     codegen_expr(g, ast->node_lhs, gen_mode);
+    fprintf(g->out, "  push rax\n");
     codegen_expr(g, ast->node_rhs, gen_mode);
-    fprintf(g->out, "  pop rdi\n");
+    fprintf(g->out, "  mov rdi, rax\n");
     fprintf(g->out, "  pop rax\n");
+    // rax=lhs, rdi=rhs
     if (ast->node_op == TokenKind_plus) {
         fprintf(g->out, "  add rax, rdi\n");
     } else if (ast->node_op == TokenKind_minus) {
@@ -265,14 +240,12 @@ static void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     } else {
         unreachable();
     }
-    fprintf(g->out, "  push rax\n");
 }
 
 static void codegen_cond_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     int label = codegen_new_label(g);
 
     codegen_expr(g, ast->node_cond, GenMode_rval);
-    fprintf(g->out, "  pop rax\n");
     fprintf(g->out, "  cmp rax, 0\n");
     fprintf(g->out, "  je .Lelse%d\n", label);
     codegen_expr(g, ast->node_then, gen_mode);
@@ -287,10 +260,9 @@ static void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
         return;
     }
 
-    fprintf(g->out, "  pop rdi\n");
-    fprintf(g->out, "  push [rsp]\n");
+    fprintf(g->out, "  mov rdi, rax\n");
+    fprintf(g->out, "  mov rax, [rsp]\n");
     codegen_lval2rval(g, ast->node_lhs->ty);
-    fprintf(g->out, "  pop rax\n");
 
     if (ast->node_op == TokenKind_assign_add) {
         fprintf(g->out, "  add rax, rdi\n");
@@ -320,58 +292,40 @@ static void codegen_assign_expr_helper(CodeGen* g, AstNode* ast) {
     } else {
         unreachable();
     }
-
-    fprintf(g->out, "  push rax\n");
 }
 
 static void codegen_assign_expr(CodeGen* g, AstNode* ast) {
     int sizeof_lhs = type_sizeof(ast->node_lhs->ty);
 
     codegen_expr(g, ast->node_lhs, GenMode_lval);
+    fprintf(g->out, "  push rax\n");
     codegen_expr(g, ast->node_rhs, GenMode_rval);
     codegen_assign_expr_helper(g, ast);
+    fprintf(g->out, "  pop rdi\n");
     if (sizeof_lhs == 1) {
-        fprintf(g->out, "  pop rdi\n");
-        fprintf(g->out, "  pop rax\n");
-        fprintf(g->out, "  mov BYTE PTR [rax], dil\n");
-        fprintf(g->out, "  push rdi\n");
+        fprintf(g->out, "  mov BYTE PTR [rdi], al\n");
     } else if (sizeof_lhs == 2) {
-        fprintf(g->out, "  pop rdi\n");
-        fprintf(g->out, "  pop rax\n");
-        fprintf(g->out, "  mov WORD PTR [rax], di\n");
-        fprintf(g->out, "  push rdi\n");
+        fprintf(g->out, "  mov WORD PTR [rdi], ax\n");
     } else if (sizeof_lhs == 4) {
-        fprintf(g->out, "  pop rdi\n");
-        fprintf(g->out, "  pop rax\n");
-        fprintf(g->out, "  mov DWORD PTR [rax], edi\n");
-        fprintf(g->out, "  push rdi\n");
+        fprintf(g->out, "  mov DWORD PTR [rdi], eax\n");
     } else if (sizeof_lhs == 8) {
-        fprintf(g->out, "  pop rdi\n");
-        fprintf(g->out, "  pop rax\n");
-        fprintf(g->out, "  mov [rax], rdi\n");
-        fprintf(g->out, "  push rdi\n");
+        fprintf(g->out, "  mov [rdi], rax\n");
     } else {
         if (ast->node_op != TokenKind_assign) {
             unimplemented();
         }
-        // Note: rsp must be aligned to 8.
-        int aligned_size = to_aligned(sizeof_lhs, 8);
-        fprintf(g->out, "  mov rax, [rsp+%d]\n", aligned_size);
-        // Perform bitwise copy. Use r10 register as temporary space.
-        for (int i = 0; i < aligned_size; ++i) {
-            // Copy a sinle byte from the stack to the address that rax points to via r10 register.
-            fprintf(g->out, "  mov r10b, [rsp+%d]\n", i);
-            fprintf(g->out, "  mov [rax+%d], r10b\n", i);
+        // rax: address of rhs
+        // rdi: address of lhs
+        // Perform byte-wise copy. Use r10 register as temporary space.
+        for (int i = 0; i < sizeof_lhs; ++i) {
+            fprintf(g->out, "  mov r10b, %d[rax]\n", i);
+            fprintf(g->out, "  mov %d[rdi], r10b\n", i);
         }
-        // Pop the RHS value and the LHS address.
-        fprintf(g->out, "  add rsp, %d\n", aligned_size + 8);
-        // TODO: dummy
-        fprintf(g->out, "  push 0\n");
     }
 }
 
 static void codegen_args(CodeGen* g, AstNode* args) {
-    bool* pass_by_stack = calloc(args->node_len, sizeof(bool));
+    int* required_gp_regs_for_each_arg = calloc(args->node_len, sizeof(int));
 
     int gp_regs = 6;
     for (int i = 0; i < args->node_len; ++i) {
@@ -394,27 +348,47 @@ static void codegen_args(CodeGen* g, AstNode* args) {
         } else {
             required_gp_regs = 0;
         }
-        pass_by_stack[i] = required_gp_regs == 0;
+        required_gp_regs_for_each_arg[i] = required_gp_regs;
     }
 
     // Evaluate arguments in the reverse order (right to left).
     // Arguments passed by stack.
     for (int i = args->node_len - 1; i >= 0; --i) {
         AstNode* arg = &args->node_items[i];
-        if (pass_by_stack[i]) {
+        if (required_gp_regs_for_each_arg[i] == 0) {
             codegen_expr(g, arg, GenMode_rval);
+            int ty_size = type_sizeof(arg->ty);
+            if (ty_size <= 8) {
+                fprintf(g->out, "  push rax\n");
+            } else {
+                // Perform byte-wise copy onto stack. Use r10 register as temporary space.
+                // NOTE: rsp must be aligned to 8.
+                fprintf(g->out, "  sub rsp, %d\n", to_aligned(ty_size, 8));
+                for (int i = 0; i < ty_size; ++i) {
+                    // Copy a sinle byte from the address that rax points to to the stack via r10 register.
+                    fprintf(g->out, "  mov r10b, %d[rax]\n", i);
+                    fprintf(g->out, "  mov %d[rsp], r10b\n", i);
+                }
+            }
         }
     }
     // Arguments passed by registers.
     for (int i = args->node_len - 1; i >= 0; --i) {
         AstNode* arg = &args->node_items[i];
-        if (!pass_by_stack[i]) {
+        if (required_gp_regs_for_each_arg[i] != 0) {
             codegen_expr(g, arg, GenMode_rval);
+            if (required_gp_regs_for_each_arg[i] == 1) {
+                fprintf(g->out, "  push rax\n");
+            } else {
+                assert(required_gp_regs_for_each_arg[i] == 2);
+                fprintf(g->out, "  push [rax]\n");
+                fprintf(g->out, "  push [rax+8]\n");
+            }
         }
     }
     // Pop pushed arguments onto registers.
     for (int i = 0, j = 0; i < args->node_len; ++i) {
-        if (!pass_by_stack[i]) {
+        for (int k = 0; k < required_gp_regs_for_each_arg[i]; ++k) {
             fprintf(g->out, "  pop %s\n", param_reg(j++));
         }
     }
@@ -427,7 +401,7 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
         fprintf(g->out, "  # __ducc_va_start BEGIN\n");
         AstNode* va_list_args = &ast->node_args->node_items[0];
         codegen_expr(g, va_list_args, GenMode_rval);
-        fprintf(g->out, "  pop rdi\n");
+        fprintf(g->out, "  mov rdi, rax\n");
 
         // Allocate save area.
         fprintf(g->out, "  sub rsp, 48\n");
@@ -446,7 +420,7 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
         fprintf(g->out, "  mov QWORD PTR [rdi+8], rax\n");
         fprintf(g->out, "  mov QWORD PTR [rdi+16], rsp\n"); // reg_save_area
 
-        fprintf(g->out, "  push 0\n"); // dummy return value
+        fprintf(g->out, "  mov rax, 0\n"); // dummy return value
         fprintf(g->out, "  # __ducc_va_start END\n");
         return;
     }
@@ -457,12 +431,12 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
         // Evaluate va_list argument (first argument)
         AstNode* va_list_arg = &ast->node_args->node_items[0];
         codegen_expr(g, va_list_arg, GenMode_rval);
-        fprintf(g->out, "  pop rdi\n"); // rdi = pointer to va_list
+        fprintf(g->out, "  mov rdi, rax\n"); // rdi = pointer to va_list
 
         // Evaluate size argument (second argument)
         AstNode* size_arg = &ast->node_args->node_items[1];
         codegen_expr(g, size_arg, GenMode_rval);
-        fprintf(g->out, "  pop rsi\n"); // rsi = size
+        fprintf(g->out, "  mov rsi, rax\n"); // rsi = size
 
         int label = codegen_new_label(g);
 
@@ -488,7 +462,6 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
         fprintf(g->out, "  mov QWORD PTR [rdi+8], rcx\n"); // store updated overflow_arg_area
 
         fprintf(g->out, ".Lva_arg_end%d:\n", label);
-        fprintf(g->out, "  push rax\n");
         fprintf(g->out, "  # __ducc_va_arg END\n");
         return;
     }
@@ -548,12 +521,10 @@ static void codegen_func_call(CodeGen* g, AstNode* ast) {
     fprintf(g->out, ".Lend%d:\n", label);
     // Pop pass-by-stack arguments.
     fprintf(g->out, "  add rsp, %d\n", -pass_by_stack_offset - 16);
-    fprintf(g->out, "  push rax\n");
 }
 
 static void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     fprintf(g->out, "  lea rax, %d[rbp]\n", -ast->node_stack_offset);
-    fprintf(g->out, "  push rax\n");
     if (gen_mode == GenMode_rval) {
         codegen_lval2rval(g, ast->ty);
     }
@@ -561,7 +532,6 @@ static void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 
 static void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     fprintf(g->out, "  lea rax, %s[rip]\n", ast->name);
-    fprintf(g->out, "  push rax\n");
     if (gen_mode == GenMode_rval) {
         codegen_lval2rval(g, ast->ty);
     }
@@ -569,7 +539,6 @@ static void codegen_gvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 
 static void codegen_func_ref(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  lea rax, %s[rip]\n", ast->name);
-    fprintf(g->out, "  push rax\n");
 }
 
 static void codegen_composite_expr(CodeGen* g, AstNode* ast) {
@@ -577,10 +546,6 @@ static void codegen_composite_expr(CodeGen* g, AstNode* ast) {
     for (int i = 0; i < ast->node_len; ++i) {
         AstNode* expr = ast->node_items + i;
         codegen_expr(g, expr, GenMode_rval);
-        if (i != ast->node_len - 1) {
-            // TODO: the expression on the stack can be more than 8 bytes.
-            fprintf(g->out, "  pop rax\n");
-        }
     }
 }
 
@@ -623,7 +588,6 @@ static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
 static void codegen_return_stmt(CodeGen* g, AstNode* ast) {
     if (ast->node_expr) {
         codegen_expr(g, ast->node_expr, GenMode_rval);
-        fprintf(g->out, "  pop rax\n");
     }
     codegen_func_epilogue(g, ast);
 }
@@ -632,7 +596,6 @@ static void codegen_if_stmt(CodeGen* g, AstNode* ast) {
     int label = codegen_new_label(g);
 
     codegen_expr(g, ast->node_cond, GenMode_rval);
-    fprintf(g->out, "  pop rax\n");
     fprintf(g->out, "  cmp rax, 0\n");
     fprintf(g->out, "  je .Lelse%d\n", label);
     codegen_stmt(g, ast->node_then);
@@ -651,18 +614,15 @@ static void codegen_for_stmt(CodeGen* g, AstNode* ast) {
 
     if (ast->node_init) {
         codegen_expr(g, ast->node_init, GenMode_rval);
-        fprintf(g->out, "  pop rax\n");
     }
     fprintf(g->out, ".Lbegin%d:\n", label);
     codegen_expr(g, ast->node_cond, GenMode_rval);
-    fprintf(g->out, "  pop rax\n");
     fprintf(g->out, "  cmp rax, 0\n");
     fprintf(g->out, "  je .Lend%d\n", label);
     codegen_stmt(g, ast->node_body);
     fprintf(g->out, ".Lcontinue%d:\n", label);
     if (ast->node_update) {
         codegen_expr(g, ast->node_update, GenMode_rval);
-        fprintf(g->out, "  pop rax\n");
     }
     fprintf(g->out, "  jmp .Lbegin%d\n", label);
     fprintf(g->out, ".Lend%d:\n", label);
@@ -679,7 +639,6 @@ static void codegen_do_while_stmt(CodeGen* g, AstNode* ast) {
     codegen_stmt(g, ast->node_body);
     fprintf(g->out, ".Lcontinue%d:\n", label);
     codegen_expr(g, ast->node_cond, GenMode_rval);
-    fprintf(g->out, "  pop rax\n");
     fprintf(g->out, "  cmp rax, 0\n");
     fprintf(g->out, "  je .Lend%d\n", label);
     fprintf(g->out, "  jmp .Lbegin%d\n", label);
@@ -773,7 +732,6 @@ static void codegen_switch_stmt(CodeGen* g, AstNode* ast) {
 
     // Generate jump instructions.
     codegen_expr(g, ast->node_expr, GenMode_rval);
-    fprintf(g->out, "  pop rax\n");
     for (int i = 0; i < n_cases; i++) {
         fprintf(g->out, "  cmp rax, %d\n", case_values[i]);
         fprintf(g->out, "  je .Lcase%d_%d\n", switch_label, case_labels[i]);
@@ -793,8 +751,6 @@ static void codegen_switch_stmt(CodeGen* g, AstNode* ast) {
 
 static void codegen_expr_stmt(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_expr, GenMode_rval);
-    // TODO: the expression on the stack can be more than 8 bytes.
-    fprintf(g->out, "  pop rax\n");
 }
 
 static void codegen_var_decl(CodeGen* g, AstNode* ast) {
