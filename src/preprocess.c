@@ -1118,8 +1118,11 @@ static void preprocess_warning_directive(Preprocessor* pp) {
     fprintf(stderr, "%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
 }
 
-static void preprocess_pragma_directive(Preprocessor*) {
-    unimplemented();
+static void preprocess_pragma_directive(Preprocessor* pp) {
+    // Ignore all #pragma directives for now.
+    skip_pp_token(pp, TokenKind_pp_directive_pragma);
+    seek_to_next_newline(pp);
+    skip_pp_token(pp, TokenKind_newline);
 }
 
 static void preprocess_nop_directive(Preprocessor* pp) {
