@@ -21,7 +21,8 @@ int main(int argc, char** argv) {
     StrArray included_files;
     strings_init(&included_files);
 
-    TokenArray* pp_tokens = preprocess(source, &included_files, &cli_args->include_dirs, &cli_args->defines);
+    TokenArray* pp_tokens = preprocess(source, &included_files, &cli_args->include_dirs, &cli_args->defines,
+                                       cli_args->generate_system_deps, cli_args->generate_user_deps);
 
     if (cli_args->preprocess_only) {
         FILE* output_file = cli_args->output_filename ? fopen(cli_args->output_filename, "w") : stdout;
@@ -70,7 +71,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (cli_args->generate_deps && cli_args->only_compile && cli_args->output_filename) {
+    if ((cli_args->generate_system_deps || cli_args->generate_user_deps) && cli_args->only_compile &&
+        cli_args->output_filename) {
         const char* dep_filename = replace_extension(cli_args->output_filename, ".d");
 
         FILE* dep_file = fopen(dep_filename, "w");

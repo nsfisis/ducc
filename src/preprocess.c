@@ -36,6 +36,25 @@ typedef struct {
     TokenArray replacements;
 } Macro;
 
+void macro_build_json(JsonBuilder* builder, Macro* macro) {
+    jsonbuilder_object_start(builder);
+
+    jsonbuilder_object_member_start(builder, "kind");
+    jsonbuilder_string(builder, macro_kind_stringify(macro->kind));
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "name");
+    jsonbuilder_string(builder, macro->name);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "parameters");
+    tokens_build_json(builder, &macro->parameters);
+    jsonbuilder_object_member_end(builder);
+    jsonbuilder_object_member_start(builder, "replacements");
+    tokens_build_json(builder, &macro->replacements);
+    jsonbuilder_object_member_end(builder);
+
+    jsonbuilder_object_end(builder);
+}
+
 static int macro_find_param(Macro* macro, Token* tok) {
     if (tok->kind != TokenKind_ident)
         return -1;
@@ -150,6 +169,16 @@ static void add_user_defines(MacroArray* macros, StrArray* user_defines) {
     }
 }
 
+void macros_build_json(JsonBuilder* builder, MacroArray* macros) {
+    jsonbuilder_array_start(builder);
+    for (size_t i = 0; i < macros->len; ++i) {
+        jsonbuilder_array_element_start(builder);
+        macro_build_json(builder, &macros->data[i]);
+        jsonbuilder_array_element_end(builder);
+    }
+    jsonbuilder_array_end(builder);
+}
+
 typedef struct {
     TokenArray tokens;
 } MacroArg;
@@ -215,13 +244,15 @@ typedef struct {
     int include_depth;
     StrArray include_paths;
     StrArray* included_files;
+    bool generate_system_deps;
+    bool generate_user_deps;
 } Preprocessor;
 
 static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files,
-                                 StrArray* user_include_dirs);
+                                 StrArray* user_include_dirs, bool generate_system_deps, bool generate_user_deps);
 
 static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros,
-                                      StrArray* included_files) {
+                                      StrArray* included_files, bool generate_system_deps, bool generate_user_deps) {
     if (include_depth >= 32) {
         fatal_error("include depth limit exceeded");
     }
@@ -232,6 +263,8 @@ static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, 
     pp->include_depth = include_depth;
     strings_init(&pp->include_paths);
     pp->included_files = included_files;
+    pp->generate_system_deps = generate_system_deps;
+    pp->generate_user_deps = generate_user_deps;
 
     return pp;
 }
@@ -416,8 +449,8 @@ static void expand_include_directive(Preprocessor* pp, const char* include_name,
                     original_include_name_tok->loc.line, token_stringify(original_include_name_tok));
     }
 
-    TokenArray* include_pp_tokens =
-        do_preprocess(include_source, pp->include_depth + 1, pp->macros, pp->included_files, NULL);
+    TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros, pp->included_files,
+                                                  NULL, pp->generate_system_deps, pp->generate_user_deps);
     tokens_pop(include_pp_tokens); // pop EOF token
     pp->pos = insert_pp_tokens(pp, pp->pos, include_pp_tokens);
 }
@@ -599,7 +632,8 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
 static void expand_macro_arg(Preprocessor* pp, MacroArg* arg, bool skip_newline, MacroExpansionContext* ctx) {
     tokens_push_new(&arg->tokens)->kind = TokenKind_eof;
 
-    Preprocessor* pp2 = preprocessor_new(&arg->tokens, pp->include_depth, pp->macros, pp->included_files);
+    Preprocessor* pp2 = preprocessor_new(&arg->tokens, pp->include_depth, pp->macros, pp->included_files,
+                                         pp->generate_system_deps, pp->generate_user_deps);
 
     size_t arg_token_count = arg->tokens.len;
     size_t processed_token_count = 0;
@@ -1060,7 +1094,8 @@ static void preprocess_include_directive(Preprocessor* pp) {
                     token_stringify(include_name));
     }
 
-    if (include_name->value.string[0] == '"') {
+    if ((pp->generate_system_deps && include_name->value.string[0] == '<') ||
+        (pp->generate_user_deps && include_name->value.string[0] == '"')) {
         bool already_included = false;
         for (size_t i = 0; i < pp->included_files->len; ++i) {
             if (strcmp(pp->included_files->data[i], include_name_resolved) == 0) {
@@ -1372,9 +1407,10 @@ static char* get_ducc_include_path() {
 }
 
 static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files,
-                                 StrArray* user_include_dirs) {
+                                 StrArray* user_include_dirs, bool generate_system_deps, bool generate_user_deps) {
     TokenArray* pp_tokens = tokenize(src);
-    Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros, included_files);
+    Preprocessor* pp =
+        preprocessor_new(pp_tokens, depth, macros, included_files, generate_system_deps, generate_user_deps);
 
     // Ducc's built-in headers has highest priority.
     add_include_path(pp, get_ducc_include_path());
@@ -1393,12 +1429,13 @@ static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, Str
     return pp->pp_tokens;
 }
 
-TokenArray* preprocess(InFile* src, StrArray* included_files, StrArray* user_include_dirs, StrArray* user_defines) {
+TokenArray* preprocess(InFile* src, StrArray* included_files, StrArray* user_include_dirs, StrArray* user_defines,
+                       bool generate_system_deps, bool generate_user_deps) {
     MacroArray* macros = macros_new();
     add_predefined_macros(macros);
     add_user_defines(macros, user_defines);
     strings_push(included_files, src->loc.filename);
-    return do_preprocess(src, 0, macros, included_files, user_include_dirs);
+    return do_preprocess(src, 0, macros, included_files, user_include_dirs, generate_system_deps, generate_user_deps);
 }
 
 void concat_adjacent_string_literals(TokenArray* pp_tokens) {

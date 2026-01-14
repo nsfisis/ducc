@@ -15,6 +15,7 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     bool opt_c = false;
     bool opt_E = false;
     bool opt_wasm = false;
+    bool opt_MD = false;
     bool opt_MMD = false;
     StrArray include_dirs;
     strings_init(&include_dirs);
@@ -75,6 +76,8 @@ CliArgs* parse_cli_args(int argc, char** argv) {
             opt_c = true;
         } else if (c == 'E') {
             opt_E = true;
+        } else if (strcmp(argv[i], "-MD") == 0) {
+            opt_MD = true;
         } else if (strcmp(argv[i], "-MMD") == 0) {
             opt_MMD = true;
         } else if (strcmp(argv[i], "--version") == 0) {
@@ -101,7 +104,8 @@ CliArgs* parse_cli_args(int argc, char** argv) {
     a->totally_deligate_to_gcc = false;
     a->wasm = opt_wasm;
     a->gcc_command = NULL;
-    a->generate_deps = opt_MMD;
+    a->generate_system_deps = opt_MD;
+    a->generate_user_deps = opt_MD || opt_MMD;
     a->include_dirs = include_dirs;
     a->defines = defines;
 

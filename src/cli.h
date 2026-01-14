@@ -9,7 +9,8 @@ typedef struct {
     bool output_assembly;
     bool only_compile;
     bool preprocess_only;
-    bool generate_deps;
+    bool generate_system_deps;
+    bool generate_user_deps;
     bool totally_deligate_to_gcc;
     bool wasm;
     const char* gcc_command;
