@@ -195,7 +195,7 @@ void macroargs_build_json(JsonBuilder* builder, MacroArgArray* macroargs) {
     jsonbuilder_object_member_end(builder);
     jsonbuilder_object_member_start(builder, "data");
     jsonbuilder_array_start(builder);
-    for (int i = 0; i < macroargs->len; ++i) {
+    for (size_t i = 0; i < macroargs->len; ++i) {
         jsonbuilder_array_element_start(builder);
         macroarg_build_json(builder, &macroargs->data[i]);
         jsonbuilder_array_element_end(builder);
@@ -641,7 +641,7 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
                     }
                 }
                 Token* rhs = NULL;
-                for (int j = i + 1; j < macro->replacements.len; ++j) {
+                for (size_t j = i + 1; j < macro->replacements.len; ++j) {
                     if (macro->replacements.data[j].kind != TokenKind_whitespace) {
                         rhs = &macro->replacements.data[j];
                         break;
@@ -661,7 +661,7 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
                 }
             } else if (kind == TokenKind_hash) {
                 Token* operand = NULL;
-                for (int j = i + 1; j < macro->replacements.len; ++j) {
+                for (size_t j = i + 1; j < macro->replacements.len; ++j) {
                     if (macro->replacements.data[j].kind != TokenKind_whitespace) {
                         operand = &macro->replacements.data[j];
                         break;
@@ -1017,7 +1017,7 @@ static void preprocess_include_directive(Preprocessor* pp) {
     expand_include_directive(pp, include_name_resolved, include_name);
 }
 
-static void preprocess_embed_directive(Preprocessor* pp) {
+static void preprocess_embed_directive(Preprocessor*) {
     unimplemented();
 }
 
@@ -1084,7 +1084,7 @@ static void preprocess_undef_directive(Preprocessor* pp) {
     }
 }
 
-static void preprocess_line_directive(Preprocessor* pp) {
+static void preprocess_line_directive(Preprocessor*) {
     unimplemented();
 }
 
@@ -1118,7 +1118,7 @@ static void preprocess_warning_directive(Preprocessor* pp) {
     fprintf(stderr, "%s:%d: %s", msg->loc.filename, msg->loc.line, msg->value.string);
 }
 
-static void preprocess_pragma_directive(Preprocessor* pp) {
+static void preprocess_pragma_directive(Preprocessor*) {
     unimplemented();
 }
 

@@ -36,7 +36,7 @@ static void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     fprintf(g->out, " (result i32)\n");
 }
 
-static void codegen_func_epilogue(CodeGen* g, AstNode* ast) {
+static void codegen_func_epilogue(CodeGen*, AstNode*) {
 }
 
 static void codegen_int_expr(CodeGen* g, AstNode* ast) {
@@ -57,7 +57,7 @@ static void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     }
 }
 
-static void codegen_lvar(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_lvar(CodeGen* g, AstNode* ast, GenMode) {
     fprintf(g->out, "  local.get $l_%s\n", ast->name);
 }
 
@@ -109,9 +109,6 @@ static void codegen_if_stmt(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  )\n");
 }
 
-static void codegen_nop(CodeGen* g, AstNode* ast) {
-}
-
 static void codegen_block_stmt(CodeGen* g, AstNode* ast) {
     for (int i = 0; i < ast->node_len; ++i) {
         AstNode* stmt = ast->node_items + i;
@@ -127,7 +124,7 @@ static void codegen_stmt(CodeGen* g, AstNode* ast) {
     } else if (ast->kind == AstNodeKind_if_stmt) {
         codegen_if_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_nop) {
-        codegen_nop(g, ast);
+        // Do nothing.
     } else {
         unreachable();
     }

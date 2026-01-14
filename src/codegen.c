@@ -66,7 +66,7 @@ static void codegen_func_prologue(CodeGen* g, AstNode* ast) {
     fprintf(g->out, "  sub rsp, %d\n", to_aligned(ast->node_stack_size, 8));
 }
 
-static void codegen_func_epilogue(CodeGen* g, AstNode* ast) {
+static void codegen_func_epilogue(CodeGen* g, AstNode*) {
     fprintf(g->out, "  mov rsp, rbp\n");
     fprintf(g->out, "  pop rbp\n");
     fprintf(g->out, "  ret\n");
@@ -94,7 +94,7 @@ static void codegen_unary_expr(CodeGen* g, AstNode* ast) {
     }
 }
 
-static void codegen_ref_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
+static void codegen_ref_expr(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_operand, GenMode_lval);
 }
 
@@ -557,7 +557,7 @@ static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     } else if (ast->kind == AstNodeKind_unary_expr) {
         codegen_unary_expr(g, ast);
     } else if (ast->kind == AstNodeKind_ref_expr) {
-        codegen_ref_expr(g, ast, gen_mode);
+        codegen_ref_expr(g, ast);
     } else if (ast->kind == AstNodeKind_deref_expr) {
         codegen_deref_expr(g, ast, gen_mode);
     } else if (ast->kind == AstNodeKind_cast_expr) {
@@ -647,7 +647,7 @@ static void codegen_do_while_stmt(CodeGen* g, AstNode* ast) {
     --g->loop_labels;
 }
 
-static void codegen_break_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_break_stmt(CodeGen* g, AstNode*) {
     if (g->switch_label != -1) {
         fprintf(g->out, "  jmp .Lend%d\n", g->switch_label);
     } else {
@@ -656,7 +656,7 @@ static void codegen_break_stmt(CodeGen* g, AstNode* ast) {
     }
 }
 
-static void codegen_continue_stmt(CodeGen* g, AstNode* ast) {
+static void codegen_continue_stmt(CodeGen* g, AstNode*) {
     int label = *g->loop_labels;
     fprintf(g->out, "  jmp .Lcontinue%d\n", label);
 }
@@ -753,12 +753,6 @@ static void codegen_expr_stmt(CodeGen* g, AstNode* ast) {
     codegen_expr(g, ast->node_expr, GenMode_rval);
 }
 
-static void codegen_var_decl(CodeGen* g, AstNode* ast) {
-}
-
-static void codegen_nop(CodeGen* g, AstNode* ast) {
-}
-
 static void codegen_block_stmt(CodeGen* g, AstNode* ast) {
     for (int i = 0; i < ast->node_len; ++i) {
         AstNode* stmt = ast->node_items + i;
@@ -790,9 +784,9 @@ static void codegen_stmt(CodeGen* g, AstNode* ast) {
     } else if (ast->kind == AstNodeKind_expr_stmt) {
         codegen_expr_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_lvar_decl) {
-        codegen_var_decl(g, ast);
+        // Do nothing.
     } else if (ast->kind == AstNodeKind_nop) {
-        codegen_nop(g, ast);
+        // Do nothing.
     } else if (ast->kind == AstNodeKind_case_label || ast->kind == AstNodeKind_default_label) {
         // They are handled by codegen_switch_stmt().
         unreachable();

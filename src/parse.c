@@ -207,7 +207,7 @@ static Token* expect(Parser* p, TokenKind expected) {
                 token_stringify(t));
 }
 
-static int find_lvar_in_scope(Parser* p, Scope* scope, const char* name) {
+static int find_lvar_in_scope(Parser*, Scope* scope, const char* name) {
     for (size_t i = 0; i < scope->syms.len; ++i) {
         ScopedSymbol* sym = &scope->syms.data[i];
         if (sym->name && strcmp(sym->name, name) == 0) {
@@ -1155,7 +1155,7 @@ static AstNode* parse_for_stmt(Parser* p) {
         if (is_type_token(p, peek_token(p))) {
             AstNode* decls = parse_var_decl(p);
             AstNode* initializers = ast_new_list(1);
-            for (size_t i = 0; i < decls->node_len; i++) {
+            for (int i = 0; i < decls->node_len; i++) {
                 AstNode* initializer = decls->node_items[i].node_expr;
                 if (initializer) {
                     ast_append(initializers, initializer);
@@ -1523,7 +1523,7 @@ static AstNode* parse_member_declaration(Parser* p) {
 
     expect(p, TokenKind_semicolon);
 
-    for (size_t i = 0; i < decls->node_len; i++) {
+    for (int i = 0; i < decls->node_len; i++) {
         decls->node_items[i].kind = AstNodeKind_struct_member;
     }
     return decls;
@@ -1535,7 +1535,7 @@ static AstNode* parse_member_declaration_list(Parser* p) {
     AstNode* members = ast_new_list(4);
     while (peek_token(p)->kind != TokenKind_brace_r) {
         AstNode* decls = parse_member_declaration(p);
-        for (size_t i = 0; i < decls->node_len; i++) {
+        for (int i = 0; i < decls->node_len; i++) {
             ast_append(members, &decls->node_items[i]);
         }
     }

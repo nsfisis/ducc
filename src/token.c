@@ -365,7 +365,7 @@ void tokens_build_json(JsonBuilder* builder, TokenArray* tokens) {
     jsonbuilder_object_member_end(builder);
     jsonbuilder_object_member_start(builder, "data");
     jsonbuilder_array_start(builder);
-    for (int i = 0; i < tokens->len; ++i) {
+    for (size_t i = 0; i < tokens->len; ++i) {
         jsonbuilder_array_element_start(builder);
         token_build_json(builder, &tokens->data[i]);
         jsonbuilder_array_element_end(builder);
