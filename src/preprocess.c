@@ -77,14 +77,14 @@ static Macro* macros_push_new(MacroArray* macros) {
     return &macros->data[macros->len++];
 }
 
-static void define_macro_to_1(MacroArray* macros, const char* name) {
+static void define_macro_to_number(MacroArray* macros, const char* name, int n) {
     Macro* m = macros_push_new(macros);
     m->kind = MacroKind_obj;
     m->name = name;
     tokens_init(&m->replacements, 1);
     Token* tok = tokens_push_new(&m->replacements);
     tok->kind = TokenKind_literal_int;
-    tok->value.integer = 1;
+    tok->value.integer = n;
 }
 
 static void add_predefined_macros(MacroArray* macros) {
@@ -99,9 +99,12 @@ static void add_predefined_macros(MacroArray* macros) {
     m->name = "__LINE__";
 
     // Non-standard pre-defined macros.
-    define_macro_to_1(macros, "__ducc__");
-    define_macro_to_1(macros, "__x86_64__");
-    define_macro_to_1(macros, "__LP64__");
+    define_macro_to_number(macros, "__ducc__", 1);
+    define_macro_to_number(macros, "__x86_64__", 1);
+    define_macro_to_number(macros, "__LP64__", 1);
+
+    // glibc defines INT_MAX by using this macro.
+    define_macro_to_number(macros, "__INT_MAX__", 0x7fffffff);
 }
 
 // Accept "FOO" or "FOO=value"
