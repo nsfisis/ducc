@@ -726,10 +726,23 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
             int macro_param_idx = macro_find_param(macro, tok);
             if (macro_param_idx != -1) {
                 size_t arg_token_count = args->data[macro_param_idx].tokens.len;
-                replace_pp_tokens(pp, macro_name_pos + i + offset, macro_name_pos + i + offset + 1,
-                                  &args->data[macro_param_idx].tokens);
-                token_count += arg_token_count;
-                offset += arg_token_count - 1;
+                if (arg_token_count == 0) {
+                    // Empty argument: insert a placemarker token
+                    TokenArray placemarker_token;
+                    tokens_init(&placemarker_token, 1);
+                    Token* pm = tokens_push_new(&placemarker_token);
+                    pm->kind = TokenKind_placemarker;
+                    pm->loc = tok->loc;
+                    replace_pp_tokens(pp, macro_name_pos + i + offset, macro_name_pos + i + offset + 1,
+                                      &placemarker_token);
+                    token_count += 1;
+                    // offset stays the same (1 - 1 = 0)
+                } else {
+                    replace_pp_tokens(pp, macro_name_pos + i + offset, macro_name_pos + i + offset + 1,
+                                      &args->data[macro_param_idx].tokens);
+                    token_count += arg_token_count;
+                    offset += arg_token_count - 1;
+                }
             } else {
                 ++token_count;
             }
@@ -757,20 +770,48 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
                     }
                 }
                 if (lhs_pos == -1 || rhs_pos == -1) {
-                    fatal_error("invalid usage of ## operator");
+                    fatal_error("%s:%d: invalid usage of ## operator", tok->loc.filename, tok->loc.line);
                 }
-                Token* concatenated = concat_two_tokens(pp_token_at(pp, lhs_pos), pp_token_at(pp, rhs_pos));
 
-                // Replace the three tokens (lhs ## rhs) with the concatenated one
-                TokenArray single_token;
-                tokens_init(&single_token, 1);
-                *tokens_push_new(&single_token) = *concatenated;
-                replace_pp_tokens(pp, lhs_pos, rhs_pos + 1, &single_token);
+                Token* lhs_tok = pp_token_at(pp, lhs_pos);
+                Token* rhs_tok = pp_token_at(pp, rhs_pos);
+                bool lhs_is_placemarker = lhs_tok->kind == TokenKind_placemarker;
+                bool rhs_is_placemarker = rhs_tok->kind == TokenKind_placemarker;
+
+                TokenArray result_tokens;
+                tokens_init(&result_tokens, 1);
+
+                if (lhs_is_placemarker && rhs_is_placemarker) {
+                    // Both are placemarkers: result is a placemarker
+                    Token* pm = tokens_push_new(&result_tokens);
+                    pm->kind = TokenKind_placemarker;
+                    pm->loc = tok->loc;
+                } else if (lhs_is_placemarker) {
+                    // Left is placemarker: result is the right token
+                    *tokens_push_new(&result_tokens) = *rhs_tok;
+                } else if (rhs_is_placemarker) {
+                    // Right is placemarker: result is the left token
+                    *tokens_push_new(&result_tokens) = *lhs_tok;
+                } else {
+                    // Neither is placemarker: concatenate them
+                    Token* concatenated = concat_two_tokens(lhs_tok, rhs_tok);
+                    *tokens_push_new(&result_tokens) = *concatenated;
+                }
+
+                replace_pp_tokens(pp, lhs_pos, rhs_pos + 1, &result_tokens);
                 token_count -= rhs_pos - lhs_pos;
                 i -= pos - lhs_pos;
                 token_count2 -= pos - lhs_pos - 1;
             } else {
                 ++token_count2;
+            }
+        }
+
+        // Remove placemarker tokens after ## processing
+        for (size_t i = 0; i < token_count2; ++i) {
+            Token* tok = pp_token_at(pp, macro_name_pos + i);
+            if (tok->kind == TokenKind_placemarker) {
+                tok->kind = TokenKind_removed;
             }
         }
 

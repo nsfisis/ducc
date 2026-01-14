@@ -107,3 +107,18 @@ int main() {
     ASSERT_EQ(0, strcmp("FOO", BAZ));
 }
 EOF
+
+test_exit_code 0 <<'EOF'
+#include <helpers.h>
+
+#define CONCAT3(x, y, z) x##y##z
+#define FOO CONCAT3(, 2, 3)
+#define BAR CONCAT3(1, , 3)
+#define BAZ CONCAT3(1, 2, )
+
+int main() {
+    ASSERT_EQ(23, FOO);
+    ASSERT_EQ(13, BAR);
+    ASSERT_EQ(12, BAZ);
+}
+EOF
