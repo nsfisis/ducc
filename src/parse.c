@@ -396,6 +396,12 @@ static AstNode* parse_enum_member(Parser*, int);
 static Type* parse_type_name(Parser*);
 static Type* parse_abstract_declarator_opt(Parser*, Type*);
 static AstNode* parse_initializer(Parser*);
+static AstNode* parse_attribute_specifier_sequence_opt(Parser*);
+static AstNode* parse_attribute_specifier_opt(Parser*);
+static AstNode* parse_attribute_list(Parser*);
+static AstNode* parse_attribute(Parser*);
+static AstNode* parse_attribute_argument_clause(Parser*);
+static AstNode* parse_balanced_token_sequence(Parser*);
 static AstNode* parse_stmt(Parser*);
 static AstNode* parse_empty_stmt(Parser*);
 static AstNode* parse_block_stmt(Parser*);
@@ -2137,6 +2143,125 @@ static Type* parse_abstract_declarator_opt(Parser* p, Type* ty) {
 //     TODO braced-initializer
 static AstNode* parse_initializer(Parser* p) {
     return parse_assignment_expr(p);
+}
+
+// attribute-specifier-sequence:
+//     { attribute-specifier }+
+static AstNode* parse_attribute_specifier_sequence_opt(Parser* p) {
+    AstNode* attrs = NULL;
+    AstNode* attr;
+    while ((attr = parse_attribute_specifier_opt(p))) {
+        unimplemented();
+    }
+    return attrs;
+}
+
+// attribute-specifier:
+//     '[' '[' attribute-list ']' ']'
+static AstNode* parse_attribute_specifier_opt(Parser* p) {
+    if (peek_token(p)->kind != TokenKind_bracket_l || peek_token2(p)->kind != TokenKind_bracket_l) {
+        return NULL;
+    }
+    next_token(p); // skip '['
+    next_token(p); // skip '['
+    AstNode* ret = parse_attribute_list(p);
+    expect(p, TokenKind_bracket_r);
+    expect(p, TokenKind_bracket_r);
+    return ret;
+}
+
+// attribute-list:
+//     { attribute? | ',' }
+static AstNode* parse_attribute_list(Parser* p) {
+    while (1) {
+        if (peek_token(p)->kind == TokenKind_ident) {
+            parse_attribute(p);
+        }
+        if (!consume_token_if(p, TokenKind_comma)) {
+            break;
+        }
+    }
+    unimplemented();
+    return NULL;
+}
+
+// attribute:
+//     attribute-token attribute-argument-clause?
+//
+// attribute-token:
+//     identifier ( '::' identifier )?
+static AstNode* parse_attribute(Parser* p) {
+    expect(p, TokenKind_ident);
+    if (peek_token(p)->kind == TokenKind_colon && peek_token2(p)->kind == TokenKind_colon) {
+        next_token(p);
+        next_token(p);
+        expect(p, TokenKind_ident);
+    }
+    if (peek_token(p)->kind == TokenKind_paren_l) {
+        parse_attribute_argument_clause(p);
+    }
+    unimplemented();
+    return NULL;
+}
+
+// attribute-argument-clause:
+//     '(' balanced-token-sequence? ')'
+static AstNode* parse_attribute_argument_clause(Parser* p) {
+    expect(p, TokenKind_paren_l);
+    if (peek_token(p)->kind != TokenKind_paren_r) {
+        parse_balanced_token_sequence(p);
+    }
+    expect(p, TokenKind_paren_r);
+    unimplemented();
+    return NULL;
+}
+
+// balanced-token-sequence:
+//     { balanced-token }+
+//
+// balanced-token:
+//     '(' balanced-token-sequence? ')'
+//     '[' balanced-token-sequence? ']'
+//     '{' balanced-token-sequence? '}'
+//     any token other than a parenthesis, a bracket, or a brace
+static AstNode* parse_balanced_token_sequence(Parser* p) {
+    int paren_depth = 0;
+    int bracket_depth = 0;
+    int brace_depth = 0;
+    while (1) {
+        Token* tok = peek_token(p);
+        if (tok->kind == TokenKind_paren_l) {
+            paren_depth++;
+            next_token(p);
+        } else if (tok->kind == TokenKind_paren_r) {
+            if (paren_depth == 0)
+                break;
+            paren_depth--;
+            next_token(p);
+        } else if (tok->kind == TokenKind_bracket_l) {
+            bracket_depth++;
+            next_token(p);
+        } else if (tok->kind == TokenKind_bracket_r) {
+            if (bracket_depth == 0)
+                break;
+            bracket_depth--;
+            next_token(p);
+        } else if (tok->kind == TokenKind_brace_l) {
+            brace_depth++;
+            next_token(p);
+        } else if (tok->kind == TokenKind_brace_r) {
+            if (brace_depth == 0)
+                break;
+            brace_depth--;
+            next_token(p);
+        } else if (tok->kind == TokenKind_eof) {
+            break;
+        } else {
+            next_token(p);
+        }
+    }
+    unimplemented();
+    return NULL;
 }
 
 // stmt:
