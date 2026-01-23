@@ -122,8 +122,50 @@ static void add_predefined_macros(MacroArray* macros) {
     define_macro_to_number(macros, "__x86_64__", 1);
     define_macro_to_number(macros, "__LP64__", 1);
 
-    // glibc defines INT_MAX by using this macro.
-    define_macro_to_number(macros, "__INT_MAX__", 0x7fffffff);
+    // GCC's predefined macros. Glibc depends on these macros.
+    // https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
+    // TODO: uncomment out __LONG_MAX__, etc. once ducc supports 64-bit integer literals.
+    define_macro_to_number(macros, "__SCHAR_MAX__", __SCHAR_MAX__);
+    define_macro_to_number(macros, "__WCHAR_MAX__", __WCHAR_MAX__);
+    define_macro_to_number(macros, "__SHRT_MAX__", __SHRT_MAX__);
+    define_macro_to_number(macros, "__INT_MAX__", __INT_MAX__);
+    // define_macro_to_number(macros, "__LONG_MAX__", __LONG_MAX__);
+    // define_macro_to_number(macros, "__LONG_LONG_MAX__", __LONG_LONG_MAX__);
+    define_macro_to_number(macros, "__WINT_MAX__", __WINT_MAX__);
+    // define_macro_to_number(macros, "__SIZE_MAX__", __SIZE_MAX__);
+    // define_macro_to_number(macros, "__PTRDIFF_MAX__", __PTRDIFF_MAX__);
+    // define_macro_to_number(macros, "__INTMAX_MAX__", __INTMAX_MAX__);
+    // define_macro_to_number(macros, "__UINTMAX_MAX__", __UINTMAX_MAX__);
+    define_macro_to_number(macros, "__SIG_ATOMIC_MAX__", __SIG_ATOMIC_MAX__);
+    define_macro_to_number(macros, "__INT8_MAX__", __INT8_MAX__);
+    define_macro_to_number(macros, "__INT16_MAX__", __INT16_MAX__);
+    define_macro_to_number(macros, "__INT32_MAX__", __INT32_MAX__);
+    // define_macro_to_number(macros, "__INT64_MAX__", __INT64_MAX__);
+    define_macro_to_number(macros, "__UINT8_MAX__", __UINT8_MAX__);
+    define_macro_to_number(macros, "__UINT16_MAX__", __UINT16_MAX__);
+    define_macro_to_number(macros, "__UINT32_MAX__", __UINT32_MAX__);
+    // define_macro_to_number(macros, "__UINT64_MAX__", __UINT64_MAX__);
+    define_macro_to_number(macros, "__INT_LEAST8_MAX__", __INT_LEAST8_MAX__);
+    define_macro_to_number(macros, "__INT_LEAST16_MAX__", __INT_LEAST16_MAX__);
+    define_macro_to_number(macros, "__INT_LEAST32_MAX__", __INT_LEAST32_MAX__);
+    // define_macro_to_number(macros, "__INT_LEAST64_MAX__", __INT_LEAST64_MAX__);
+    define_macro_to_number(macros, "__UINT_LEAST8_MAX__", __UINT_LEAST8_MAX__);
+    define_macro_to_number(macros, "__UINT_LEAST16_MAX__", __UINT_LEAST16_MAX__);
+    define_macro_to_number(macros, "__UINT_LEAST32_MAX__", __UINT_LEAST32_MAX__);
+    // define_macro_to_number(macros, "__UINT_LEAST64_MAX__", __UINT_LEAST64_MAX__);
+    define_macro_to_number(macros, "__INT_FAST8_MAX__", __INT_FAST8_MAX__);
+    // define_macro_to_number(macros, "__INT_FAST16_MAX__", __INT_FAST16_MAX__);
+    // define_macro_to_number(macros, "__INT_FAST32_MAX__", __INT_FAST32_MAX__);
+    // define_macro_to_number(macros, "__INT_FAST64_MAX__", __INT_FAST64_MAX__);
+    define_macro_to_number(macros, "__UINT_FAST8_MAX__", __UINT_FAST8_MAX__);
+    // define_macro_to_number(macros, "__UINT_FAST16_MAX__", __UINT_FAST16_MAX__);
+    // define_macro_to_number(macros, "__UINT_FAST32_MAX__", __UINT_FAST32_MAX__);
+    // define_macro_to_number(macros, "__UINT_FAST64_MAX__", __UINT_FAST64_MAX__);
+    // define_macro_to_number(macros, "__INTPTR_MAX__", __INTPTR_MAX__);
+    // define_macro_to_number(macros, "__UINTPTR_MAX__", __UINTPTR_MAX__);
+    define_macro_to_number(macros, "__WCHAR_MIN__", __WCHAR_MIN__);
+    define_macro_to_number(macros, "__WINT_MIN__", __WINT_MIN__);
+    define_macro_to_number(macros, "__SIG_ATOMIC_MIN__", __SIG_ATOMIC_MIN__);
 }
 
 // Accept "FOO" or "FOO=value"
