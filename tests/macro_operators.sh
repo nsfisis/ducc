@@ -122,3 +122,13 @@ int main() {
     ASSERT_EQ(12, BAZ);
 }
 EOF
+
+cat <<'EOF' > expected
+foo
+EOF
+
+test_cpp <<'EOF'
+#define CONCAT(x, y) x ## y
+#define CONCAT2(name, r) CONCAT(name, r)
+CONCAT2(foo,)
+EOF

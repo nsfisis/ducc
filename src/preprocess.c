@@ -526,7 +526,9 @@ static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp, bool skip_newli
             }
 
             tok = next_pp_token(pp);
-            *tokens_push_new(&arg->tokens) = *tok;
+            if (tok->kind != TokenKind_removed) {
+                *tokens_push_new(&arg->tokens) = *tok;
+            }
 
             skip_whitespaces_or_newlines(pp, skip_newline);
         }
