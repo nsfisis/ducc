@@ -947,7 +947,7 @@ static bool preprocess_if_group_or_elif_group(Preprocessor* pp, bool did_include
     Token* directive = next_pp_token(pp);
 
     if (directive->kind == TokenKind_pp_directive_if || directive->kind == TokenKind_pp_directive_elif) {
-        int condition_expression_start_pos = pp->pos;
+        int condition_expr_start_pos = pp->pos;
 
         while (!pp_eof(pp)) {
             Token* tok = peek_pp_token(pp);
@@ -987,7 +987,7 @@ static bool preprocess_if_group_or_elif_group(Preprocessor* pp, bool did_include
         // all remaining identifiers other than true (including those lexically identical to keywords such as false) are
         // replaced with the pp-number 0, true is replaced with pp-number 1, and then each preprocessing token is
         // converted into a token.
-        for (int pos = condition_expression_start_pos; pos < pp->pos; ++pos) {
+        for (int pos = condition_expr_start_pos; pos < pp->pos; ++pos) {
             Token* tok = pp_token_at(pp, pos);
             if (tok->kind == TokenKind_ident) {
                 bool is_true = strcmp(tok->value.string, "true") == 0;
@@ -996,17 +996,17 @@ static bool preprocess_if_group_or_elif_group(Preprocessor* pp, bool did_include
             }
         }
 
-        int condition_expression_tokens_len = pp->pos - condition_expression_start_pos;
-        TokenArray condition_expression_tokens;
+        int condition_expr_tokens_len = pp->pos - condition_expr_start_pos;
+        TokenArray condition_expr_tokens;
         // +1 to add EOF token at the end.
-        tokens_init(&condition_expression_tokens, condition_expression_tokens_len + 1);
-        for (int i = 0; i < condition_expression_tokens_len; ++i) {
-            *tokens_push_new(&condition_expression_tokens) = *pp_token_at(pp, condition_expression_start_pos + i);
+        tokens_init(&condition_expr_tokens, condition_expr_tokens_len + 1);
+        for (int i = 0; i < condition_expr_tokens_len; ++i) {
+            *tokens_push_new(&condition_expr_tokens) = *pp_token_at(pp, condition_expr_start_pos + i);
         }
-        Token* eof_tok = tokens_push_new(&condition_expression_tokens);
+        Token* eof_tok = tokens_push_new(&condition_expr_tokens);
         eof_tok->kind = TokenKind_eof;
 
-        bool do_include = pp_eval_constant_expression(&condition_expression_tokens) && !did_include;
+        bool do_include = pp_eval_constant_expr(&condition_expr_tokens) && !did_include;
         include_conditionally(pp, GroupDelimiterKind_after_if_directive, do_include);
         return do_include;
     } else if (directive->kind == TokenKind_pp_directive_ifdef || directive->kind == TokenKind_pp_directive_elifdef) {
