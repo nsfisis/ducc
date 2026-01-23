@@ -29,77 +29,77 @@ static CodeGen* codegen_new(FILE* out) {
 static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode);
 static void codegen_stmt(CodeGen* g, AstNode* ast);
 
-static void codegen_func_prologue(CodeGen* g, AstNode* ast) {
-    for (int i = 0; i < ast->node_params->node_len; ++i) {
-        fprintf(g->out, " (param $l_%s i32)", ast->node_params->node_items[i].name);
+static void codegen_func_prologue(CodeGen* g, FuncDefNode* func_def) {
+    for (int i = 0; i < func_def->params->as.list->len; ++i) {
+        fprintf(g->out, " (param $l_%s i32)", func_def->params->as.list->items[i].as.param->name);
     }
     fprintf(g->out, " (result i32)\n");
 }
 
-static void codegen_func_epilogue(CodeGen*, AstNode*) {
+static void codegen_func_epilogue(CodeGen*) {
 }
 
-static void codegen_int_expr(CodeGen* g, AstNode* ast) {
-    fprintf(g->out, "  i32.const %d\n", ast->node_int_value);
+static void codegen_int_expr(CodeGen* g, IntExprNode* expr) {
+    fprintf(g->out, "  i32.const %d\n", expr->value);
 }
 
-static void codegen_binary_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
-    codegen_expr(g, ast->node_lhs, gen_mode);
-    codegen_expr(g, ast->node_rhs, gen_mode);
-    if (ast->node_op == TokenKind_plus) {
+static void codegen_binary_expr(CodeGen* g, BinaryExprNode* expr, GenMode gen_mode) {
+    codegen_expr(g, expr->lhs, gen_mode);
+    codegen_expr(g, expr->rhs, gen_mode);
+    if (expr->op == TokenKind_plus) {
         fprintf(g->out, "  i32.add\n");
-    } else if (ast->node_op == TokenKind_minus) {
+    } else if (expr->op == TokenKind_minus) {
         fprintf(g->out, "  i32.sub\n");
-    } else if (ast->node_op == TokenKind_le) {
+    } else if (expr->op == TokenKind_le) {
         fprintf(g->out, "  i32.le_s\n");
     } else {
         unreachable();
     }
 }
 
-static void codegen_lvar(CodeGen* g, AstNode* ast, GenMode) {
-    fprintf(g->out, "  local.get $l_%s\n", ast->name);
+static void codegen_lvar(CodeGen* g, LvarNode* lvar, GenMode) {
+    fprintf(g->out, "  local.get $l_%s\n", lvar->name);
 }
 
-static void codegen_func_call(CodeGen* g, AstNode* ast) {
-    AstNode* args = ast->node_args;
-    for (int i = 0; i < args->node_len; ++i) {
-        AstNode* arg = args->node_items + i;
+static void codegen_func_call(CodeGen* g, FuncCallNode* call) {
+    AstNode* args = call->args;
+    for (int i = 0; i < args->as.list->len; ++i) {
+        AstNode* arg = args->as.list->items + i;
         codegen_expr(g, arg, GenMode_rval);
     }
-    fprintf(g->out, "  call $%s\n", ast->name);
+    fprintf(g->out, "  call $%s\n", call->name);
 }
 
 static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {
     if (ast->kind == AstNodeKind_int_expr) {
-        codegen_int_expr(g, ast);
+        codegen_int_expr(g, ast->as.int_expr);
     } else if (ast->kind == AstNodeKind_binary_expr) {
-        codegen_binary_expr(g, ast, gen_mode);
+        codegen_binary_expr(g, ast->as.binary_expr, gen_mode);
     } else if (ast->kind == AstNodeKind_lvar) {
-        codegen_lvar(g, ast, gen_mode);
+        codegen_lvar(g, ast->as.lvar, gen_mode);
     } else if (ast->kind == AstNodeKind_func_call) {
-        codegen_func_call(g, ast);
+        codegen_func_call(g, ast->as.func_call);
     } else {
         unreachable();
     }
 }
 
-static void codegen_return_stmt(CodeGen* g, AstNode* ast) {
-    if (ast->node_expr) {
-        codegen_expr(g, ast->node_expr, GenMode_rval);
+static void codegen_return_stmt(CodeGen* g, ReturnStmtNode* stmt) {
+    if (stmt->expr) {
+        codegen_expr(g, stmt->expr, GenMode_rval);
     }
     fprintf(g->out, "  return\n");
 }
 
-static void codegen_if_stmt(CodeGen* g, AstNode* ast) {
-    codegen_expr(g, ast->node_cond, GenMode_rval);
+static void codegen_if_stmt(CodeGen* g, IfStmtNode* stmt) {
+    codegen_expr(g, stmt->cond, GenMode_rval);
     fprintf(g->out, "  (if (result i32)\n");
     fprintf(g->out, "    (then\n");
-    codegen_stmt(g, ast->node_then);
+    codegen_stmt(g, stmt->then);
     fprintf(g->out, "    )\n");
-    if (ast->node_else) {
+    if (stmt->else_) {
         fprintf(g->out, "    (else\n");
-        codegen_stmt(g, ast->node_else);
+        codegen_stmt(g, stmt->else_);
         fprintf(g->out, "    )\n");
     } else {
         fprintf(g->out, "    (else\n");
@@ -110,8 +110,8 @@ static void codegen_if_stmt(CodeGen* g, AstNode* ast) {
 }
 
 static void codegen_block_stmt(CodeGen* g, AstNode* ast) {
-    for (int i = 0; i < ast->node_len; ++i) {
-        AstNode* stmt = ast->node_items + i;
+    for (int i = 0; i < ast->as.list->len; ++i) {
+        AstNode* stmt = ast->as.list->items + i;
         codegen_stmt(g, stmt);
     }
 }
@@ -120,9 +120,9 @@ static void codegen_stmt(CodeGen* g, AstNode* ast) {
     if (ast->kind == AstNodeKind_list) {
         codegen_block_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_return_stmt) {
-        codegen_return_stmt(g, ast);
+        codegen_return_stmt(g, ast->as.return_stmt);
     } else if (ast->kind == AstNodeKind_if_stmt) {
-        codegen_if_stmt(g, ast);
+        codegen_if_stmt(g, ast->as.if_stmt);
     } else if (ast->kind == AstNodeKind_nop) {
         // Do nothing.
     } else {
@@ -133,11 +133,11 @@ static void codegen_stmt(CodeGen* g, AstNode* ast) {
 static void codegen_func(CodeGen* g, AstNode* ast) {
     g->current_func = ast;
 
-    fprintf(g->out, "(func $%s (export \"%s\")", ast->name, ast->name);
+    fprintf(g->out, "(func $%s (export \"%s\")", ast->as.func_def->name, ast->as.func_def->name);
 
-    codegen_func_prologue(g, ast);
-    codegen_stmt(g, ast->node_body);
-    codegen_func_epilogue(g, ast);
+    codegen_func_prologue(g, ast->as.func_def);
+    codegen_stmt(g, ast->as.func_def->body);
+    codegen_func_epilogue(g);
 
     fprintf(g->out, ")\n");
     g->current_func = NULL;
@@ -148,8 +148,8 @@ void codegen_wasm(Program* prog, FILE* out) {
 
     fprintf(g->out, "(module\n");
 
-    for (int i = 0; i < prog->funcs->node_len; ++i) {
-        AstNode* func = prog->funcs->node_items + i;
+    for (int i = 0; i < prog->funcs->as.list->len; ++i) {
+        AstNode* func = prog->funcs->as.list->items + i;
         codegen_func(g, func);
     }
 

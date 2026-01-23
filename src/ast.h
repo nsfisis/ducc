@@ -136,38 +136,226 @@ typedef enum {
 
 const char* astnode_kind_stringify(AstNodeKind k);
 
-#define node_items __n1
-#define node_len __i1
-#define node_cap __i2
-#define node_expr __n1
-#define node_lhs __n1
-#define node_rhs __n2
-#define node_operand __n1
-#define node_cond __n1
-#define node_init __n2
-#define node_update __n3
-#define node_then __n2
-#define node_else __n3
-#define node_body __n4
-#define node_members __n1
-#define node_params __n1
-#define node_args __n1
-#define node_int_value __i1
-#define node_idx __i1
-#define node_op __i1
-#define node_stack_offset __i1
-#define node_stack_size __i1
+// Expression nodes
+typedef struct {
+    int value;
+} IntExprNode;
+
+typedef struct {
+    int idx;
+} StrExprNode;
+
+typedef struct {
+    int op;
+    AstNode* operand;
+} UnaryExprNode;
+
+typedef struct {
+    int op;
+    AstNode* lhs;
+    AstNode* rhs;
+} BinaryExprNode;
+
+typedef struct {
+    int op;
+    AstNode* lhs;
+    AstNode* rhs;
+} LogicalExprNode;
+
+typedef struct {
+    int op;
+    AstNode* lhs;
+    AstNode* rhs;
+} AssignExprNode;
+
+typedef struct {
+    AstNode* operand;
+} CastExprNode;
+
+typedef struct {
+    AstNode* cond;
+    AstNode* then;
+    AstNode* else_;
+} CondExprNode;
+
+typedef struct {
+    AstNode* operand;
+} DerefExprNode;
+
+typedef struct {
+    AstNode* operand;
+} RefExprNode;
+
+typedef struct {
+    const char* name;
+    AstNode* args;
+} FuncCallNode;
+
+// Statement nodes
+typedef struct {
+    AstNode* cond;
+    AstNode* then;
+    AstNode* else_;
+} IfStmtNode;
+
+typedef struct {
+    AstNode* init;
+    AstNode* cond;
+    AstNode* update;
+    AstNode* body;
+} ForStmtNode;
+
+typedef struct {
+    AstNode* cond;
+    AstNode* body;
+} DoWhileStmtNode;
+
+typedef struct {
+    AstNode* expr;
+    AstNode* body;
+} SwitchStmtNode;
+
+typedef struct {
+    int value;
+    AstNode* body;
+} CaseLabelNode;
+
+typedef struct {
+    AstNode* body;
+} DefaultLabelNode;
+
+typedef struct {
+    const char* name;
+    AstNode* body;
+} LabelStmtNode;
+
+typedef struct {
+    AstNode* expr;
+} ReturnStmtNode;
+
+typedef struct {
+    const char* label;
+} GotoStmtNode;
+
+typedef struct {
+    AstNode* expr;
+} ExprStmtNode;
+
+// Declaration nodes
+typedef struct {
+    const char* name;
+    AstNode* params;
+    AstNode* body;
+    int stack_size;
+} FuncDefNode;
+
+typedef struct {
+    const char* name;
+    int stack_offset;
+} LvarNode;
+
+typedef struct {
+    AstNode* expr;
+} LvarDeclNode;
+
+typedef struct {
+    const char* name;
+    int stack_offset;
+} ParamNode;
+
+typedef struct {
+    const char* name;
+    AstNode* expr;
+} GvarDeclNode;
+
+typedef struct {
+    const char* name;
+    AstNode* members;
+} StructDefNode;
+
+typedef struct {
+    const char* name;
+    AstNode* members;
+} UnionDefNode;
+
+typedef struct {
+    const char* name;
+    AstNode* members;
+} EnumDefNode;
+
+typedef struct {
+    const char* name;
+    int value;
+} EnumMemberNode;
+
+typedef struct {
+    const char* name;
+    AstNode* init;
+} DeclaratorNode;
+
+typedef struct {
+    const char* name;
+} FuncNode;
+
+typedef struct {
+    const char* name;
+} GvarNode;
+
+typedef struct {
+    const char* name;
+} StructMemberNode;
+
+typedef struct {
+    const char* name;
+} TypedefDeclNode;
+
+typedef struct {
+    AstNode* items;
+    int len;
+    int cap;
+} ListNode;
 
 struct AstNode {
     AstNodeKind kind;
-    const char* name;
     Type* ty;
-    struct AstNode* __n1;
-    struct AstNode* __n2;
-    struct AstNode* __n3;
-    struct AstNode* __n4;
-    int __i1;
-    int __i2;
+    union {
+        IntExprNode* int_expr;
+        StrExprNode* str_expr;
+        UnaryExprNode* unary_expr;
+        BinaryExprNode* binary_expr;
+        LogicalExprNode* logical_expr;
+        AssignExprNode* assign_expr;
+        CastExprNode* cast_expr;
+        CondExprNode* cond_expr;
+        DerefExprNode* deref_expr;
+        RefExprNode* ref_expr;
+        FuncCallNode* func_call;
+        IfStmtNode* if_stmt;
+        ForStmtNode* for_stmt;
+        DoWhileStmtNode* do_while_stmt;
+        SwitchStmtNode* switch_stmt;
+        CaseLabelNode* case_label;
+        DefaultLabelNode* default_label;
+        LabelStmtNode* label_stmt;
+        ReturnStmtNode* return_stmt;
+        GotoStmtNode* goto_stmt;
+        ExprStmtNode* expr_stmt;
+        FuncDefNode* func_def;
+        LvarNode* lvar;
+        LvarDeclNode* lvar_decl;
+        ParamNode* param;
+        GvarDeclNode* gvar_decl;
+        StructDefNode* struct_def;
+        UnionDefNode* union_def;
+        EnumDefNode* enum_def;
+        EnumMemberNode* enum_member;
+        DeclaratorNode* declarator;
+        FuncNode* func;
+        GvarNode* gvar;
+        StructMemberNode* struct_member;
+        TypedefDeclNode* typedef_decl;
+        ListNode* list;
+    } as;
 };
 
 typedef struct {
@@ -190,5 +378,34 @@ AstNode* ast_new_ref_expr(AstNode* operand);
 AstNode* ast_new_deref_expr(AstNode* operand);
 AstNode* ast_new_member_access_expr(AstNode* obj, const char* name);
 AstNode* ast_new_cast_expr(AstNode* operand, Type* result_ty);
+AstNode* ast_new_logical_expr(int op, AstNode* lhs, AstNode* rhs);
+AstNode* ast_new_cond_expr(AstNode* cond, AstNode* then, AstNode* else_);
+AstNode* ast_new_str_expr(int idx, Type* ty);
+AstNode* ast_new_func_call(const char* name, Type* ty);
+AstNode* ast_new_func(const char* name, Type* ty);
+AstNode* ast_new_gvar(const char* name, Type* ty);
+AstNode* ast_new_lvar(const char* name, int stack_offset, Type* ty);
+
+AstNode* ast_new_nop(void);
+AstNode* ast_new_break_stmt(void);
+AstNode* ast_new_continue_stmt(void);
+AstNode* ast_new_return_stmt(AstNode* expr);
+AstNode* ast_new_expr_stmt(AstNode* expr);
+AstNode* ast_new_if_stmt(AstNode* cond, AstNode* then, AstNode* else_);
+AstNode* ast_new_for_stmt(AstNode* init, AstNode* cond, AstNode* update, AstNode* body);
+AstNode* ast_new_do_while_stmt(AstNode* cond, AstNode* body);
+AstNode* ast_new_switch_stmt(AstNode* expr);
+AstNode* ast_new_case_label(int value, AstNode* body);
+AstNode* ast_new_default_label(AstNode* body);
+AstNode* ast_new_goto_stmt(const char* label);
+AstNode* ast_new_label_stmt(const char* name, AstNode* body);
+
+AstNode* ast_new_declarator(const char* name, Type* ty);
+AstNode* ast_new_func_def(const char* name, Type* ty, AstNode* params, AstNode* body, int stack_size);
+AstNode* ast_new_enum_member(const char* name, int value);
+AstNode* ast_new_typedef_decl(const char* name, Type* ty);
+AstNode* ast_new_struct_def(const char* name);
+AstNode* ast_new_union_def(const char* name);
+AstNode* ast_new_enum_def(const char* name);
 
 #endif

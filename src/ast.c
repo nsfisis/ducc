@@ -75,7 +75,11 @@ const char* type_kind_stringify(TypeKind k) {
 }
 
 static AstNode* members_of(Type* ty) {
-    return ty->ref.defs->node_items[ty->ref.index].node_members;
+    AstNode* def = &ty->ref.defs->as.list->items[ty->ref.index];
+    if (def->kind == AstNodeKind_struct_def)
+        return def->as.struct_def->members;
+    else
+        return def->as.union_def->members;
 }
 
 Type* type_new(TypeKind kind) {
@@ -287,9 +291,10 @@ AstNode* ast_new_list(int capacity) {
     if (capacity == 0)
         unreachable();
     AstNode* list = ast_new(AstNodeKind_list);
-    list->node_cap = capacity;
-    list->node_len = 0;
-    list->node_items = calloc(list->node_cap, sizeof(AstNode));
+    list->as.list = calloc(1, sizeof(ListNode));
+    list->as.list->cap = capacity;
+    list->as.list->len = 0;
+    list->as.list->items = calloc(list->as.list->cap, sizeof(AstNode));
     return list;
 }
 
@@ -300,35 +305,39 @@ void ast_append(AstNode* list, AstNode* item) {
     if (!item) {
         return;
     }
-    if (list->node_cap <= list->node_len) {
-        list->node_cap *= 2;
-        list->node_items = realloc(list->node_items, sizeof(AstNode) * list->node_cap);
-        memset(list->node_items + list->node_len, 0, sizeof(AstNode) * (list->node_cap - list->node_len));
+    if (list->as.list->cap <= list->as.list->len) {
+        list->as.list->cap *= 2;
+        list->as.list->items = realloc(list->as.list->items, sizeof(AstNode) * list->as.list->cap);
+        memset(list->as.list->items + list->as.list->len, 0,
+               sizeof(AstNode) * (list->as.list->cap - list->as.list->len));
     }
-    memcpy(list->node_items + list->node_len, item, sizeof(AstNode));
-    ++list->node_len;
+    memcpy(list->as.list->items + list->as.list->len, item, sizeof(AstNode));
+    ++list->as.list->len;
 }
 
 AstNode* ast_new_int(int v) {
     AstNode* e = ast_new(AstNodeKind_int_expr);
-    e->node_int_value = v;
+    e->as.int_expr = calloc(1, sizeof(IntExprNode));
+    e->as.int_expr->value = v;
     e->ty = type_new(TypeKind_int);
     return e;
 }
 
 AstNode* ast_new_unary_expr(int op, AstNode* operand) {
     AstNode* e = ast_new(AstNodeKind_unary_expr);
-    e->node_op = op;
-    e->node_operand = operand;
+    e->as.unary_expr = calloc(1, sizeof(UnaryExprNode));
+    e->as.unary_expr->op = op;
+    e->as.unary_expr->operand = operand;
     e->ty = type_new(TypeKind_int);
     return e;
 }
 
 AstNode* ast_new_binary_expr(int op, AstNode* lhs, AstNode* rhs) {
     AstNode* e = ast_new(AstNodeKind_binary_expr);
-    e->node_op = op;
-    e->node_lhs = lhs;
-    e->node_rhs = rhs;
+    e->as.binary_expr = calloc(1, sizeof(BinaryExprNode));
+    e->as.binary_expr->op = op;
+    e->as.binary_expr->lhs = lhs;
+    e->as.binary_expr->rhs = rhs;
     if (op == TokenKind_plus) {
         if (lhs->ty->kind == TypeKind_ptr) {
             e->ty = lhs->ty;
@@ -357,9 +366,10 @@ AstNode* ast_new_binary_expr(int op, AstNode* lhs, AstNode* rhs) {
 
 AstNode* ast_new_assign_expr(int op, AstNode* lhs, AstNode* rhs) {
     AstNode* e = ast_new(AstNodeKind_assign_expr);
-    e->node_op = op;
-    e->node_lhs = lhs;
-    e->node_rhs = rhs;
+    e->as.assign_expr = calloc(1, sizeof(AssignExprNode));
+    e->as.assign_expr->op = op;
+    e->as.assign_expr->lhs = lhs;
+    e->as.assign_expr->rhs = rhs;
     e->ty = lhs->ty;
     return e;
 }
@@ -382,30 +392,242 @@ AstNode* ast_new_assign_sub_expr(AstNode* lhs, AstNode* rhs) {
 
 AstNode* ast_new_ref_expr(AstNode* operand) {
     AstNode* e = ast_new(AstNodeKind_ref_expr);
-    e->node_operand = operand;
+    e->as.ref_expr = calloc(1, sizeof(RefExprNode));
+    e->as.ref_expr->operand = operand;
     e->ty = type_new_ptr(operand->ty);
     return e;
 }
 
 AstNode* ast_new_deref_expr(AstNode* operand) {
     AstNode* e = ast_new(AstNodeKind_deref_expr);
-    e->node_operand = operand;
+    e->as.deref_expr = calloc(1, sizeof(DerefExprNode));
+    e->as.deref_expr->operand = operand;
     e->ty = operand->ty->base;
     return e;
 }
 
 AstNode* ast_new_member_access_expr(AstNode* obj, const char* name) {
     AstNode* e = ast_new(AstNodeKind_deref_expr);
-    e->node_operand = ast_new_binary_expr(TokenKind_plus, obj, ast_new_int(type_offsetof(obj->ty->base, name)));
+    e->as.deref_expr = calloc(1, sizeof(DerefExprNode));
+    e->as.deref_expr->operand =
+        ast_new_binary_expr(TokenKind_plus, obj, ast_new_int(type_offsetof(obj->ty->base, name)));
     e->ty = type_member_typeof(obj->ty->base, name);
-    e->node_operand->ty = type_new_ptr(e->ty);
+    e->as.deref_expr->operand->ty = type_new_ptr(e->ty);
     return e;
 }
 
 AstNode* ast_new_cast_expr(AstNode* operand, Type* result_ty) {
     AstNode* e = ast_new(AstNodeKind_cast_expr);
-    e->node_operand = operand;
+    e->as.cast_expr = calloc(1, sizeof(CastExprNode));
+    e->as.cast_expr->operand = operand;
     e->ty = result_ty;
+    return e;
+}
+
+AstNode* ast_new_logical_expr(int op, AstNode* lhs, AstNode* rhs) {
+    AstNode* e = ast_new(AstNodeKind_logical_expr);
+    e->as.logical_expr = calloc(1, sizeof(LogicalExprNode));
+    e->as.logical_expr->op = op;
+    e->as.logical_expr->lhs = lhs;
+    e->as.logical_expr->rhs = rhs;
+    e->ty = type_new(TypeKind_int);
+    return e;
+}
+
+AstNode* ast_new_cond_expr(AstNode* cond, AstNode* then, AstNode* else_) {
+    AstNode* e = ast_new(AstNodeKind_cond_expr);
+    e->as.cond_expr = calloc(1, sizeof(CondExprNode));
+    e->as.cond_expr->cond = cond;
+    e->as.cond_expr->then = then;
+    e->as.cond_expr->else_ = else_;
+    e->ty = then->ty;
+    return e;
+}
+
+AstNode* ast_new_str_expr(int idx, Type* ty) {
+    AstNode* e = ast_new(AstNodeKind_str_expr);
+    e->as.str_expr = calloc(1, sizeof(StrExprNode));
+    e->as.str_expr->idx = idx;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_func_call(const char* name, Type* ty) {
+    AstNode* e = ast_new(AstNodeKind_func_call);
+    e->as.func_call = calloc(1, sizeof(FuncCallNode));
+    e->as.func_call->name = name;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_func(const char* name, Type* ty) {
+    AstNode* e = ast_new(AstNodeKind_func);
+    e->as.func = calloc(1, sizeof(FuncNode));
+    e->as.func->name = name;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_gvar(const char* name, Type* ty) {
+    AstNode* e = ast_new(AstNodeKind_gvar);
+    e->as.gvar = calloc(1, sizeof(GvarNode));
+    e->as.gvar->name = name;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_lvar(const char* name, int stack_offset, Type* ty) {
+    AstNode* e = ast_new(AstNodeKind_lvar);
+    e->as.lvar = calloc(1, sizeof(LvarNode));
+    e->as.lvar->name = name;
+    e->as.lvar->stack_offset = stack_offset;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_nop(void) {
+    return ast_new(AstNodeKind_nop);
+}
+
+AstNode* ast_new_break_stmt(void) {
+    return ast_new(AstNodeKind_break_stmt);
+}
+
+AstNode* ast_new_continue_stmt(void) {
+    return ast_new(AstNodeKind_continue_stmt);
+}
+
+AstNode* ast_new_return_stmt(AstNode* expr) {
+    AstNode* e = ast_new(AstNodeKind_return_stmt);
+    e->as.return_stmt = calloc(1, sizeof(ReturnStmtNode));
+    e->as.return_stmt->expr = expr;
+    return e;
+}
+
+AstNode* ast_new_expr_stmt(AstNode* expr) {
+    AstNode* e = ast_new(AstNodeKind_expr_stmt);
+    e->as.expr_stmt = calloc(1, sizeof(ExprStmtNode));
+    e->as.expr_stmt->expr = expr;
+    return e;
+}
+
+AstNode* ast_new_if_stmt(AstNode* cond, AstNode* then, AstNode* else_) {
+    AstNode* e = ast_new(AstNodeKind_if_stmt);
+    e->as.if_stmt = calloc(1, sizeof(IfStmtNode));
+    e->as.if_stmt->cond = cond;
+    e->as.if_stmt->then = then;
+    e->as.if_stmt->else_ = else_;
+    return e;
+}
+
+AstNode* ast_new_for_stmt(AstNode* init, AstNode* cond, AstNode* update, AstNode* body) {
+    AstNode* e = ast_new(AstNodeKind_for_stmt);
+    e->as.for_stmt = calloc(1, sizeof(ForStmtNode));
+    e->as.for_stmt->init = init;
+    e->as.for_stmt->cond = cond;
+    e->as.for_stmt->update = update;
+    e->as.for_stmt->body = body;
+    return e;
+}
+
+AstNode* ast_new_do_while_stmt(AstNode* cond, AstNode* body) {
+    AstNode* e = ast_new(AstNodeKind_do_while_stmt);
+    e->as.do_while_stmt = calloc(1, sizeof(DoWhileStmtNode));
+    e->as.do_while_stmt->cond = cond;
+    e->as.do_while_stmt->body = body;
+    return e;
+}
+
+AstNode* ast_new_switch_stmt(AstNode* expr) {
+    AstNode* e = ast_new(AstNodeKind_switch_stmt);
+    e->as.switch_stmt = calloc(1, sizeof(SwitchStmtNode));
+    e->as.switch_stmt->expr = expr;
+    return e;
+}
+
+AstNode* ast_new_case_label(int value, AstNode* body) {
+    AstNode* e = ast_new(AstNodeKind_case_label);
+    e->as.case_label = calloc(1, sizeof(CaseLabelNode));
+    e->as.case_label->value = value;
+    e->as.case_label->body = body;
+    return e;
+}
+
+AstNode* ast_new_default_label(AstNode* body) {
+    AstNode* e = ast_new(AstNodeKind_default_label);
+    e->as.default_label = calloc(1, sizeof(DefaultLabelNode));
+    e->as.default_label->body = body;
+    return e;
+}
+
+AstNode* ast_new_goto_stmt(const char* label) {
+    AstNode* e = ast_new(AstNodeKind_goto_stmt);
+    e->as.goto_stmt = calloc(1, sizeof(GotoStmtNode));
+    e->as.goto_stmt->label = label;
+    return e;
+}
+
+AstNode* ast_new_label_stmt(const char* name, AstNode* body) {
+    AstNode* e = ast_new(AstNodeKind_label_stmt);
+    e->as.label_stmt = calloc(1, sizeof(LabelStmtNode));
+    e->as.label_stmt->name = name;
+    e->as.label_stmt->body = body;
+    return e;
+}
+
+AstNode* ast_new_declarator(const char* name, Type* ty) {
+    AstNode* e = ast_new(AstNodeKind_declarator);
+    e->as.declarator = calloc(1, sizeof(DeclaratorNode));
+    e->as.declarator->name = name;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_func_def(const char* name, Type* ty, AstNode* params, AstNode* body, int stack_size) {
+    AstNode* e = ast_new(AstNodeKind_func_def);
+    e->as.func_def = calloc(1, sizeof(FuncDefNode));
+    e->as.func_def->name = name;
+    e->as.func_def->params = params;
+    e->as.func_def->body = body;
+    e->as.func_def->stack_size = stack_size;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_enum_member(const char* name, int value) {
+    AstNode* e = ast_new(AstNodeKind_enum_member);
+    e->as.enum_member = calloc(1, sizeof(EnumMemberNode));
+    e->as.enum_member->name = name;
+    e->as.enum_member->value = value;
+    return e;
+}
+
+AstNode* ast_new_typedef_decl(const char* name, Type* ty) {
+    AstNode* e = ast_new(AstNodeKind_typedef_decl);
+    e->as.typedef_decl = calloc(1, sizeof(TypedefDeclNode));
+    e->as.typedef_decl->name = name;
+    e->ty = ty;
+    return e;
+}
+
+AstNode* ast_new_struct_def(const char* name) {
+    AstNode* e = ast_new(AstNodeKind_struct_def);
+    e->as.struct_def = calloc(1, sizeof(StructDefNode));
+    e->as.struct_def->name = name;
+    return e;
+}
+
+AstNode* ast_new_union_def(const char* name) {
+    AstNode* e = ast_new(AstNodeKind_union_def);
+    e->as.union_def = calloc(1, sizeof(UnionDefNode));
+    e->as.union_def->name = name;
+    return e;
+}
+
+AstNode* ast_new_enum_def(const char* name) {
+    AstNode* e = ast_new(AstNodeKind_enum_def);
+    e->as.enum_def = calloc(1, sizeof(EnumDefNode));
+    e->as.enum_def->name = name;
     return e;
 }
 
@@ -413,8 +635,8 @@ int type_sizeof_struct(Type* ty) {
     int next_offset = 0;
     int struct_align = 0;
 
-    for (int i = 0; i < members_of(ty)->node_len; ++i) {
-        AstNode* member = &members_of(ty)->node_items[i];
+    for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
+        AstNode* member = &members_of(ty)->as.list->items[i];
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -431,8 +653,8 @@ int type_sizeof_union(Type* ty) {
     int union_size = 0;
     int union_align = 0;
 
-    for (int i = 0; i < members_of(ty)->node_len; ++i) {
-        AstNode* member = &members_of(ty)->node_items[i];
+    for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
+        AstNode* member = &members_of(ty)->as.list->items[i];
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
@@ -450,8 +672,8 @@ int type_sizeof_union(Type* ty) {
 int type_alignof_struct(Type* ty) {
     int struct_align = 0;
 
-    for (int i = 0; i < members_of(ty)->node_len; ++i) {
-        AstNode* member = &members_of(ty)->node_items[i];
+    for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
+        AstNode* member = &members_of(ty)->as.list->items[i];
         int align = type_alignof(member->ty);
 
         if (struct_align < align) {
@@ -464,8 +686,8 @@ int type_alignof_struct(Type* ty) {
 int type_alignof_union(Type* ty) {
     int union_align = 0;
 
-    for (int i = 0; i < members_of(ty)->node_len; ++i) {
-        AstNode* member = &members_of(ty)->node_items[i];
+    for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
+        AstNode* member = &members_of(ty)->as.list->items[i];
         int align = type_alignof(member->ty);
 
         if (union_align < align) {
@@ -485,13 +707,13 @@ int type_offsetof(Type* ty, const char* name) {
 
     int next_offset = 0;
 
-    for (int i = 0; i < members_of(ty)->node_len; ++i) {
-        AstNode* member = &members_of(ty)->node_items[i];
+    for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
+        AstNode* member = &members_of(ty)->as.list->items[i];
         int size = type_sizeof(member->ty);
         int align = type_alignof(member->ty);
 
         next_offset = to_aligned(next_offset, align);
-        if (strcmp(member->name, name) == 0) {
+        if (strcmp(member->as.struct_member->name, name) == 0) {
             return next_offset;
         }
         next_offset += size;
@@ -505,9 +727,9 @@ Type* type_member_typeof(Type* ty, const char* name) {
         fatal_error("type_member_typeof: type is neither a struct nor a union");
     }
 
-    for (int i = 0; i < members_of(ty)->node_len; ++i) {
-        AstNode* member = &members_of(ty)->node_items[i];
-        if (strcmp(member->name, name) == 0) {
+    for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
+        AstNode* member = &members_of(ty)->as.list->items[i];
+        if (strcmp(member->as.struct_member->name, name) == 0) {
             return member->ty;
         }
     }
