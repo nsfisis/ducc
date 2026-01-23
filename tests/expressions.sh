@@ -1,3 +1,141 @@
+# logical operators
+cat <<'EOF' > expected
+foo
+EOF
+test_diff <<'EOF'
+int printf();
+
+int foo() {
+    printf("foo\n");
+    return 0;
+}
+
+int bar() {
+    printf("bar\n");
+    return 1;
+}
+
+int main() {
+    if (foo() && bar()) {
+        printf("baz\n");
+    }
+
+    return 0;
+}
+EOF
+
+cat <<'EOF' > expected
+foo
+bar
+baz
+EOF
+test_diff <<'EOF'
+int printf();
+
+int foo() {
+    printf("foo\n");
+    return 0;
+}
+
+int bar() {
+    printf("bar\n");
+    return 1;
+}
+
+int main() {
+    if (foo() || bar()) {
+        printf("baz\n");
+    }
+
+    return 0;
+}
+EOF
+
+cat <<'EOF' > expected
+0
+1
+0
+EOF
+test_diff <<'EOF'
+int printf();
+
+int main() {
+    printf("%d\n", !1);
+    printf("%d\n", !0);
+    printf("%d\n", !23);
+    return 0;
+}
+EOF
+
+# increment/decrement operators
+cat <<'EOF' > expected
+44
+44
+46
+46
+44
+42
+42
+EOF
+
+test_diff <<'EOF'
+int printf();
+
+int main() {
+    int a = 42;
+    ++a;
+    a++;
+    printf("%d\n", a);
+    printf("%d\n", a++);
+    printf("%d\n", ++a);
+    printf("%d\n", a);
+    --a;
+    a--;
+    printf("%d\n", a--);
+    printf("%d\n", --a);
+    printf("%d\n", a);
+}
+EOF
+
+# comma operator
+cat <<'EOF' > expected
+0 0
+1 1
+2 2
+3 3
+4 4
+EOF
+
+test_diff <<'EOF'
+int printf();
+
+int main() {
+    int i = 1000;
+    int j = 1000;
+    for (i = 0, j = 0; i < 5; i++, j++) {
+        printf("%d %d\n", i, j);
+    }
+}
+EOF
+
+cat <<'EOF' > expected
+1 2 3 4
+0 0 5
+EOF
+
+test_diff <<'EOF'
+int printf();
+int x, y, z = 5;
+int main() {
+    int a, b;
+    a = 1, b = 2;
+    int c = 3, d = 4;
+    printf("%d %d %d %d\n", a, b, c, d);
+    printf("%d %d %d\n", x, y, z);
+}
+EOF
+
+# cast expressions
 cat <<'EOF' > expected
 65
 65

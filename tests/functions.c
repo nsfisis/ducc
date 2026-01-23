@@ -96,7 +96,17 @@ int f9(int select, int a, int b, int c, int d, S e, int f, int g) {
     }
 }
 
+// recursive functions
+int fib(int n) {
+    if (n <= 1) {
+        return 1;
+    } else {
+        return fib(n - 1) + fib(n - 2);
+    }
+}
+
 int main() {
+    // function basics
     ASSERT_EQ(66, foo());
     ASSERT_EQ(10, 10 * f(1, 2, 3, 4, 5, 6));
     ASSERT_EQ(20, 10 * f2(1, 2, 3, 4, 5, 6));
@@ -126,4 +136,7 @@ int main() {
     ASSERT_EQ(6, f9(5, 1, 2, 3, 4, s, 7, 8));
     ASSERT_EQ(7, f9(6, 1, 2, 3, 4, s, 7, 8));
     ASSERT_EQ(8, f9(7, 1, 2, 3, 4, s, 7, 8));
+
+    // recursive functions
+    ASSERT_EQ(89, fib(10));
 }

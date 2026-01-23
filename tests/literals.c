@@ -1,6 +1,13 @@
 #include <helpers.h>
 
 int main() {
+    // number literals
+    ASSERT_EQ(0, 0);
+    ASSERT_EQ(291, 0x123);
+    ASSERT_EQ(3405691582, 0xcafebabe);
+    ASSERT_EQ(436, 0664);
+
+    // char literals
     ASSERT_EQ(97, 'a');
     ASSERT_EQ(48, '0');
     ASSERT_EQ(92, '\\');
@@ -22,4 +29,12 @@ int main() {
     ASSERT_EQ(0, '\0');
 
     ASSERT_EQ(27, '\e');
+
+    // bool type
+    bool b1 = true, b0 = false;
+    ASSERT_EQ(1, b1);
+    ASSERT_EQ(0, b0);
+    ASSERT_EQ(1, sizeof(b1));
+    ASSERT_EQ(1, sizeof(b0));
+    ASSERT_EQ(1, sizeof(bool));
 }

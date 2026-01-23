@@ -1,4 +1,4 @@
-touch expected
+> expected
 test_diff <<'EOF'
 #
 #
