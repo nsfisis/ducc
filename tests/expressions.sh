@@ -184,6 +184,24 @@ int main() {
 EOF
 
 cat <<'EOF' > expected
+Result: -42
+Result: 0
+EOF
+test_diff <<'EOF'
+int printf(const char*, ...);
+
+typedef int foo;
+
+int main() {
+    int a = 42;
+    int b = -(int)a;
+    int c = !(foo)a;
+    printf("Result: %d\n", b);
+    printf("Result: %d\n", c);
+}
+EOF
+
+cat <<'EOF' > expected
 Result: 130
 EOF
 test_diff <<'EOF'

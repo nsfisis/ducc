@@ -352,7 +352,7 @@ static Token* parse_ident(Parser*);
 static AstNode* parse_primary_expr(Parser*);
 static AstNode* parse_postfix_expr(Parser*);
 static AstNode* parse_argument_expr_list(Parser*);
-static AstNode* parse_prefix_expr(Parser*);
+static AstNode* parse_unary_expr(Parser*);
 static AstNode* parse_cast_expr(Parser*);
 static AstNode* parse_multiplicative_expr(Parser*);
 static AstNode* parse_additive_expr(Parser*);
@@ -740,28 +740,28 @@ static AstNode* parse_argument_expr_list(Parser* p) {
 //     'sizeof' unary-expr
 //     'sizeof' '(' type-name ')'
 //     TODO 'alignof' '(' type-name ')'
-static AstNode* parse_prefix_expr(Parser* p) {
+static AstNode* parse_unary_expr(Parser* p) {
     TokenKind op = peek_token(p)->kind;
     if (consume_token_if(p, TokenKind_minus)) {
-        AstNode* operand = parse_prefix_expr(p);
+        AstNode* operand = parse_cast_expr(p);
         return ast_new_binary_expr(op, ast_new_int(0), operand);
     } else if (consume_token_if(p, TokenKind_not)) {
-        AstNode* operand = parse_prefix_expr(p);
+        AstNode* operand = parse_cast_expr(p);
         return ast_new_unary_expr(op, operand);
     } else if (consume_token_if(p, TokenKind_tilde)) {
-        AstNode* operand = parse_prefix_expr(p);
+        AstNode* operand = parse_cast_expr(p);
         return ast_new_unary_expr(op, operand);
     } else if (consume_token_if(p, TokenKind_and)) {
-        AstNode* operand = parse_prefix_expr(p);
+        AstNode* operand = parse_cast_expr(p);
         return ast_new_ref_expr(operand);
     } else if (consume_token_if(p, TokenKind_star)) {
         AstNode* operand = parse_cast_expr(p);
         return ast_new_deref_expr(operand);
     } else if (consume_token_if(p, TokenKind_plusplus)) {
-        AstNode* operand = parse_prefix_expr(p);
+        AstNode* operand = parse_unary_expr(p);
         return ast_new_assign_add_expr(operand, ast_new_int(1));
     } else if (consume_token_if(p, TokenKind_minusminus)) {
-        AstNode* operand = parse_prefix_expr(p);
+        AstNode* operand = parse_unary_expr(p);
         return ast_new_assign_sub_expr(operand, ast_new_int(1));
     } else if (consume_token_if(p, TokenKind_keyword_sizeof)) {
         expect(p, TokenKind_paren_l);
@@ -801,7 +801,7 @@ static AstNode* parse_cast_expr(Parser* p) {
         AstNode* e = parse_cast_expr(p);
         return ast_new_cast_expr(e, ty);
     }
-    return parse_prefix_expr(p);
+    return parse_unary_expr(p);
 }
 
 // multiplicative-expr:
