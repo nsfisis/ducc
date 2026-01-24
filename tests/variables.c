@@ -71,4 +71,9 @@ int main() {
     ASSERT_EQ(2, d);
     ASSERT_EQ(2, e);
     ASSERT_EQ(4, f);
+
+    int arr[3] = {10, 20, 30};
+    ASSERT_EQ(10, arr[0]);
+    ASSERT_EQ(20, arr[1]);
+    ASSERT_EQ(30, arr[2]);
 }

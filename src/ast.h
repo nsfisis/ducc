@@ -88,6 +88,7 @@ typedef enum {
     AstNodeKind_unknown,
     AstNodeKind_nop,
 
+    AstNodeKind_array_initializer,
     AstNodeKind_assign_expr,
     AstNodeKind_binary_expr,
     AstNodeKind_break_stmt,
@@ -310,6 +311,10 @@ typedef struct {
 } TypedefDeclNode;
 
 typedef struct {
+    AstNode* list;
+} ArrayInitializerNode;
+
+typedef struct {
     AstNode* items;
     int len;
     int cap;
@@ -354,6 +359,7 @@ struct AstNode {
         GvarNode* gvar;
         StructMemberNode* struct_member;
         TypedefDeclNode* typedef_decl;
+        ArrayInitializerNode* array_initializer;
         ListNode* list;
     } as;
 };
@@ -407,5 +413,6 @@ AstNode* ast_new_typedef_decl(const char* name, Type* ty);
 AstNode* ast_new_struct_def(const char* name);
 AstNode* ast_new_union_def(const char* name);
 AstNode* ast_new_enum_def(const char* name);
+AstNode* ast_new_array_initializer(AstNode* list);
 
 #endif

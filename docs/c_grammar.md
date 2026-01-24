@@ -9,8 +9,14 @@
 * `A?`: Optional A
 * `{ A }+`: 1 or more repetitions of A
 * `{ A }*`: 0 or more repetitions of A
-* `{ A | S }`: Repetition of A separated by S
-    * Note that trailing S is not allowed.
+* `{ A | S }+`: 1 or more repetitions of A separated by S
+    * Equivalent to `A { S A }*`
+* `{ A | S }*`: 0 or more repetitions of A separated by S
+    * Equivalent to `{ A | S }+?`
+* `{ A |? S }+`: 1 or more repetitions of A separated by S, allowing optional trailing S
+    * Equivalent to `A { S A }* S?`
+* `{ A |? S }*`: 1 or more repetitions of A separated by S, allowing optional trailing S
+    * Equivalent to `{ A |? S }+?`
 * `( A )`: Grouping
 * `# ...`: Additional constraints
 
@@ -222,11 +228,11 @@ member-declarator:
     declarator? ':' constant-expr
 
 enum-specifier:
-    'enum' attribute-specifier-sequence? identifier? enum-type-specifier? '{' enumerator-list ','? '}'
+    'enum' attribute-specifier-sequence? identifier? enum-type-specifier? '{' enumerator-list '}'
     'enum' identifier enum-type-specifier?
 
 enumerator-list:
-    { enumerator | ',' }+
+    { enumerator |? ',' }+
 
 enumerator:
     enumeration-constant attribute-specifier-sequence? ( '=' constant-expr )?
@@ -317,14 +323,11 @@ typedef-name:
     identifier
 
 braced-initializer:
-    '{' ( initializer-list ','? )? '}'
+    '{' { designation? initializer |? ',' }* '}'
 
 initializer:
     assignment-expr
     braced-initializer
-
-initializer-list:
-    { designation? initializer | ',' }+
 
 designation:
     designator-list '='

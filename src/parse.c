@@ -395,6 +395,7 @@ static void parse_enum_members(Parser*, int);
 static AstNode* parse_enum_member(Parser*, int);
 static Type* parse_type_name(Parser*);
 static Type* parse_abstract_declarator_opt(Parser*, Type*);
+static AstNode* parse_braced_initializer(Parser*);
 static AstNode* parse_initializer(Parser*);
 static AstNode* parse_attribute_specifier_sequence_opt(Parser*);
 static AstNode* parse_attribute_specifier_opt(Parser*);
@@ -1315,11 +1316,30 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
             int stack_offset = add_lvar(p, name, decl->ty, calc_lvar_stack_offset(p, decl->ty));
 
             if (decl->as.declarator->init) {
-                AstNode* lhs = ast_new_lvar(name, stack_offset, decl->ty);
-                AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, decl->as.declarator->init);
-                decl->kind = AstNodeKind_expr_stmt;
-                decl->as.expr_stmt = calloc(1, sizeof(ExprStmtNode));
-                decl->as.expr_stmt->expr = assign;
+                if (decl->as.declarator->init->kind == AstNodeKind_array_initializer) {
+                    ArrayInitializerNode* inits = decl->as.declarator->init->as.array_initializer;
+                    int len = inits->list->as.list->len;
+                    AstNode* lhs_base = ast_new_lvar(name, stack_offset, decl->ty);
+                    decl->kind = AstNodeKind_list;
+                    decl->as.list = calloc(1, sizeof(ListNode));
+                    decl->as.list->cap = len;
+                    decl->as.list->len = 0;
+                    decl->as.list->items = calloc(len, sizeof(AstNode));
+                    for (int i = 0; i < len; ++i) {
+                        AstNode* idx = ast_new_binary_expr(TokenKind_star, ast_new_int(i),
+                                                           ast_new_int(type_sizeof(lhs_base->ty->base)));
+                        AstNode* lhs = ast_new_deref_expr(ast_new_binary_expr(TokenKind_plus, lhs_base, idx));
+                        AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, &inits->list->as.list->items[i]);
+                        AstNode* stmt = ast_new_expr_stmt(assign);
+                        ast_append(decl, stmt);
+                    }
+                } else {
+                    AstNode* lhs = ast_new_lvar(name, stack_offset, decl->ty);
+                    AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, decl->as.declarator->init);
+                    decl->kind = AstNodeKind_expr_stmt;
+                    decl->as.expr_stmt = calloc(1, sizeof(ExprStmtNode));
+                    decl->as.expr_stmt->expr = assign;
+                }
             } else {
                 decl->kind = AstNodeKind_nop;
             }
@@ -2085,7 +2105,7 @@ static Type* parse_enum_specifier(Parser* p) {
 }
 
 // enumerator-list:
-//     { enumerator | ',' }+
+//     { enumerator |? ',' }+
 static void parse_enum_members(Parser* p, int enum_idx) {
     int next_value = 0;
     AstNode* list = ast_new_list(16);
@@ -2138,11 +2158,32 @@ static Type* parse_abstract_declarator_opt(Parser* p, Type* ty) {
     return parse_pointer_opt(p, ty);
 }
 
+// braced-initializer:
+//     '{' { designation? initializer |? ',' }* '}'
+static AstNode* parse_braced_initializer(Parser* p) {
+    AstNode* inits = ast_new_list(4);
+    expect(p, TokenKind_brace_l);
+    while (peek_token(p)->kind != TokenKind_brace_r) {
+        // TODO: support designation
+        AstNode* init = parse_initializer(p);
+        ast_append(inits, init);
+        if (!consume_token_if(p, TokenKind_comma)) {
+            break;
+        }
+    }
+    expect(p, TokenKind_brace_r);
+    return ast_new_array_initializer(inits);
+}
+
 // initializer:
+//     braced-initializer
 //     assignment-expr
-//     TODO braced-initializer
 static AstNode* parse_initializer(Parser* p) {
-    return parse_assignment_expr(p);
+    if (peek_token(p)->kind == TokenKind_brace_l) {
+        return parse_braced_initializer(p);
+    } else {
+        return parse_assignment_expr(p);
+    }
 }
 
 // attribute-specifier-sequence:

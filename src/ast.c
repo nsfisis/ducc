@@ -192,6 +192,8 @@ const char* astnode_kind_stringify(AstNodeKind k) {
         return "unknown";
     case AstNodeKind_nop:
         return "nop";
+    case AstNodeKind_array_initializer:
+        return "array_initializer";
     case AstNodeKind_assign_expr:
         return "assign_expr";
     case AstNodeKind_binary_expr:
@@ -628,6 +630,13 @@ AstNode* ast_new_enum_def(const char* name) {
     AstNode* e = ast_new(AstNodeKind_enum_def);
     e->as.enum_def = calloc(1, sizeof(EnumDefNode));
     e->as.enum_def->name = name;
+    return e;
+}
+
+AstNode* ast_new_array_initializer(AstNode* list) {
+    AstNode* e = ast_new(AstNodeKind_array_initializer);
+    e->as.array_initializer = calloc(1, sizeof(ArrayInitializerNode));
+    e->as.array_initializer->list = list;
     return e;
 }
 
