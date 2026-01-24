@@ -119,4 +119,27 @@ int main() {
     // ternary operator
     ASSERT_EQ(2, 1 ? 2 : 3);
     ASSERT_EQ(5, 0 ? 4 : 5);
+
+    // sizeof operator
+    // sizeof '(' type-name ')'
+    ASSERT_EQ(4, sizeof(int));
+    ASSERT_EQ(1, sizeof(char));
+
+    // sizeof unary-expr (with parenthesized expressions)
+    ASSERT_EQ(4, sizeof(+123));
+    ASSERT_EQ(4, sizeof(-1));
+    ASSERT_EQ(4, sizeof(1 + 2));
+    ASSERT_EQ(4, sizeof(~0));
+    ASSERT_EQ(4, sizeof(!0));
+
+    // sizeof unary-expr (variable)
+    int sz_var = 42;
+    ASSERT_EQ(4, sizeof(sz_var));
+    ASSERT_EQ(4, sizeof sz_var);
+
+    // sizeof with more complex expressions
+    char sz_c = 'a';
+    ASSERT_EQ(1, sizeof sz_c);
+    ASSERT_EQ(1, sizeof(sz_c));
+    ASSERT_EQ(4, sizeof(sz_c + 1));
 }

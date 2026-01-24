@@ -766,26 +766,15 @@ static AstNode* parse_unary_expr(Parser* p) {
         AstNode* operand = parse_unary_expr(p);
         return ast_new_assign_sub_expr(operand, ast_new_int(1));
     } else if (consume_token_if(p, TokenKind_keyword_sizeof)) {
-        expect(p, TokenKind_paren_l);
-        Token* next_tok = peek_token(p);
-        Type* ty = NULL;
-        if (next_tok->kind == TokenKind_ident) {
-            int lvar_idx = find_lvar(p, next_tok->value.string);
-            if (lvar_idx != -1) {
-                next_token(p);
-                ty = p->lvars.data[lvar_idx].ty;
-            }
-            int gvar_idx = find_gvar(p, next_tok->value.string);
-            if (gvar_idx != -1) {
-                next_token(p);
-                ty = p->gvars.data[gvar_idx].ty;
-            }
+        if (peek_token(p)->kind == TokenKind_paren_l && is_type_token(p, peek_token2(p))) {
+            next_token(p);
+            Type* ty = parse_type_name(p);
+            expect(p, TokenKind_paren_r);
+            return ast_new_int(type_sizeof(ty));
+        } else {
+            AstNode* expr = parse_unary_expr(p);
+            return ast_new_int(type_sizeof(expr->ty));
         }
-        if (!ty) {
-            ty = parse_type_name(p);
-        }
-        expect(p, TokenKind_paren_r);
-        return ast_new_int(type_sizeof(ty));
     }
     return parse_postfix_expr(p);
 }
