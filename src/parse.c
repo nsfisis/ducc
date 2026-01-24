@@ -742,7 +742,9 @@ static AstNode* parse_argument_expr_list(Parser* p) {
 //     TODO 'alignof' '(' type-name ')'
 static AstNode* parse_unary_expr(Parser* p) {
     TokenKind op = peek_token(p)->kind;
-    if (consume_token_if(p, TokenKind_minus)) {
+    if (consume_token_if(p, TokenKind_plus)) {
+        return parse_cast_expr(p);
+    } else if (consume_token_if(p, TokenKind_minus)) {
         AstNode* operand = parse_cast_expr(p);
         return ast_new_binary_expr(op, ast_new_int(0), operand);
     } else if (consume_token_if(p, TokenKind_not)) {
