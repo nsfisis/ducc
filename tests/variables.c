@@ -16,6 +16,10 @@ int g_k = 999;
 
 char g_l[6] = "hello";
 
+char arr1[3] = {65, 66, 67};
+short arr2[3] = {10, 20, 30};
+int arr3[3] = {1, 2, 3};
+
 int main() {
     // global variables
     *g_b = 123;
@@ -35,6 +39,18 @@ int main() {
     ASSERT_EQ(999, g_k);
 
     ASSERT_EQ(0, strcmp("hello", g_l));
+
+    ASSERT_EQ(65, arr1[0]);
+    ASSERT_EQ(66, arr1[1]);
+    ASSERT_EQ(67, arr1[2]);
+
+    ASSERT_EQ(10, arr2[0]);
+    ASSERT_EQ(20, arr2[1]);
+    ASSERT_EQ(30, arr2[2]);
+
+    ASSERT_EQ(1, arr3[0]);
+    ASSERT_EQ(2, arr3[1]);
+    ASSERT_EQ(3, arr3[2]);
 
     // local variables
     int foo;

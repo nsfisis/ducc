@@ -834,45 +834,62 @@ void codegen(Program* prog, FILE* out) {
     fprintf(g->out, ".data\n\n");
     for (int i = 0; i < prog->vars->as.list->len; ++i) {
         AstNode* var = prog->vars->as.list->items + i;
+        fprintf(g->out, "  %s:\n", var->as.gvar_decl->name);
         if (var->as.gvar_decl->expr) {
             if (type_sizeof(var->ty) == 1) {
                 if (var->as.gvar_decl->expr->kind != AstNodeKind_int_expr)
                     unimplemented();
-                fprintf(g->out, "  %s: .byte %d\n", var->as.gvar_decl->name,
-                        var->as.gvar_decl->expr->as.int_expr->value);
+                fprintf(g->out, "    .byte %d\n", var->as.gvar_decl->expr->as.int_expr->value);
             } else if (type_sizeof(var->ty) == 2) {
                 if (var->as.gvar_decl->expr->kind != AstNodeKind_int_expr)
                     unimplemented();
-                fprintf(g->out, "  %s: .word %d\n", var->as.gvar_decl->name,
-                        var->as.gvar_decl->expr->as.int_expr->value);
+                fprintf(g->out, "    .word %d\n", var->as.gvar_decl->expr->as.int_expr->value);
             } else if (type_sizeof(var->ty) == 4) {
                 if (var->as.gvar_decl->expr->kind != AstNodeKind_int_expr)
                     unimplemented();
-                fprintf(g->out, "  %s: .int %d\n", var->as.gvar_decl->name,
-                        var->as.gvar_decl->expr->as.int_expr->value);
+                fprintf(g->out, "    .long %d\n", var->as.gvar_decl->expr->as.int_expr->value);
             } else if (var->ty->kind == TypeKind_ptr) {
                 if (var->as.gvar_decl->expr->kind == AstNodeKind_ref_expr) {
                     if (var->as.gvar_decl->expr->as.ref_expr->operand->kind != AstNodeKind_gvar) {
                         unimplemented();
                     }
-                    fprintf(g->out, "  %s: .quad %s\n", var->as.gvar_decl->name,
-                            var->as.gvar_decl->expr->as.ref_expr->operand->as.gvar->name);
+                    fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.ref_expr->operand->as.gvar->name);
                 } else if (var->as.gvar_decl->expr->kind == AstNodeKind_gvar) {
-                    fprintf(g->out, "  %s: .quad %s\n", var->as.gvar_decl->name,
-                            var->as.gvar_decl->expr->as.gvar->name);
+                    fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.gvar->name);
                 } else {
                     unimplemented();
                 }
-            } else if (var->ty->kind == TypeKind_array && var->ty->base->kind == TypeKind_char) {
-                if (var->as.gvar_decl->expr->kind != AstNodeKind_str_expr)
+            } else if (var->ty->kind == TypeKind_array) {
+                if (var->as.gvar_decl->expr->kind == AstNodeKind_str_expr) {
+                    const char* str = prog->str_literals[var->as.gvar_decl->expr->as.str_expr->idx - 1];
+                    fprintf(g->out, "    .string \"%s\"\n", str);
+                } else if (var->as.gvar_decl->expr->kind == AstNodeKind_array_initializer) {
+                    AstNode* init = var->as.gvar_decl->expr->as.array_initializer->list;
+                    int elem_size = type_sizeof(var->ty->base);
+                    const char* directive;
+                    if (elem_size == 1) {
+                        directive = ".byte";
+                    } else if (elem_size == 2) {
+                        directive = ".word";
+                    } else if (elem_size == 4) {
+                        directive = ".long";
+                    } else {
+                        unimplemented();
+                    }
+                    for (int j = 0; j < init->as.list->len; ++j) {
+                        AstNode* elem = &init->as.list->items[j];
+                        if (elem->kind != AstNodeKind_int_expr)
+                            unimplemented();
+                        fprintf(g->out, "  %s %d\n", directive, elem->as.int_expr->value);
+                    }
+                } else {
                     unimplemented();
-                const char* str = prog->str_literals[var->as.gvar_decl->expr->as.str_expr->idx - 1];
-                fprintf(g->out, "  %s: .string \"%s\"\n", var->as.gvar_decl->name, str);
+                }
             } else {
                 unimplemented();
             }
         } else {
-            fprintf(g->out, "  %s: .zero %d\n", var->as.gvar_decl->name, type_sizeof(var->ty));
+            fprintf(g->out, "    .zero %d\n", type_sizeof(var->ty));
         }
     }
 
