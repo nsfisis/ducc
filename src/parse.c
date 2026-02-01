@@ -2177,6 +2177,10 @@ static AstNode* parse_initializer(Parser* p) {
     }
 }
 
+#ifndef __ducc__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#endif
 // attribute-specifier-sequence:
 //     { attribute-specifier }+
 static AstNode* parse_attribute_specifier_sequence_opt(Parser* p) {
@@ -2187,6 +2191,9 @@ static AstNode* parse_attribute_specifier_sequence_opt(Parser* p) {
     }
     return attrs;
 }
+#ifndef __ducc__
+#pragma GCC diagnostic pop
+#endif
 
 // attribute-specifier:
 //     '[' '[' attribute-list ']' ']'
