@@ -166,6 +166,17 @@ static void add_predefined_macros(MacroArray* macros) {
     define_macro_to_number(macros, "__WCHAR_MIN__", __WCHAR_MIN__);
     define_macro_to_number(macros, "__WINT_MIN__", __WINT_MIN__);
     define_macro_to_number(macros, "__SIG_ATOMIC_MIN__", __SIG_ATOMIC_MIN__);
+
+    // GCC's predefined macros not listed in Common Predefined Macros page.
+    define_macro_to_number(macros, "__DBL_DIG__", __DBL_DIG__);
+    define_macro_to_number(macros, "__DBL_MANT_DIG__", __DBL_MANT_DIG__);
+    define_macro_to_number(macros, "__DBL_MAX_10_EXP__", __DBL_MAX_10_EXP__);
+    define_macro_to_number(macros, "__FLT_DIG__", __FLT_DIG__);
+    define_macro_to_number(macros, "__FLT_MANT_DIG__", __FLT_MANT_DIG__);
+    define_macro_to_number(macros, "__FLT_MAX_10_EXP__", __FLT_MAX_10_EXP__);
+    define_macro_to_number(macros, "__LDBL_DIG__", __LDBL_DIG__);
+    define_macro_to_number(macros, "__LDBL_MANT_DIG__", __LDBL_MANT_DIG__);
+    define_macro_to_number(macros, "__LDBL_MAX_10_EXP__", __LDBL_MAX_10_EXP__);
 }
 
 // Accept "FOO" or "FOO=value"
