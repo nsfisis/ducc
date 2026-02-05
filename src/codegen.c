@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "common.h"
+#include "parse.h"
 #include "preprocess.h"
 
 typedef enum {
@@ -10,6 +11,7 @@ typedef enum {
 } GenMode;
 
 typedef struct {
+    Program* prog;
     FILE* out;
     int next_label;
     int* loop_labels;
@@ -17,8 +19,9 @@ typedef struct {
     int switch_label;
 } CodeGen;
 
-static CodeGen* codegen_new(FILE* out) {
+static CodeGen* codegen_new(Program* prog, FILE* out) {
     CodeGen* g = calloc(1, sizeof(CodeGen));
+    g->prog = prog;
     g->out = out;
     g->next_label = 1;
     g->loop_labels = calloc(1024, sizeof(int));
@@ -816,8 +819,46 @@ static void codegen_func(CodeGen* g, AstNode* ast) {
     g->current_func = NULL;
 }
 
+
+static void codegen_global_var(CodeGen* g, AstNode* var) {
+    fprintf(g->out, "  %s:\n", var->as.gvar_decl->name);
+    if (!var->as.gvar_decl->expr) {
+        fprintf(g->out, "    .zero %d\n", type_sizeof(var->ty));
+        return;
+    }
+
+    if (var->ty->kind == TypeKind_ptr) {
+        if (var->as.gvar_decl->expr->kind == AstNodeKind_ref_expr) {
+            if (var->as.gvar_decl->expr->as.ref_expr->operand->kind != AstNodeKind_gvar) {
+                unimplemented();
+            }
+            fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.ref_expr->operand->as.gvar->name);
+        } else if (var->as.gvar_decl->expr->kind == AstNodeKind_gvar) {
+            fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.gvar->name);
+        } else {
+            unimplemented();
+        }
+        return;
+    }
+    if (var->ty->kind == TypeKind_array && var->as.gvar_decl->expr->kind == AstNodeKind_str_expr) {
+        const char* str = g->prog->str_literals[var->as.gvar_decl->expr->as.str_expr->idx - 1];
+        fprintf(g->out, "    .string \"%s\"\n", str);
+        return;
+    }
+
+    StrBuilder* data_buf = calloc(1, sizeof(StrBuilder));
+    strbuilder_init(data_buf);
+    strbuilder_reserve(data_buf, type_sizeof(var->ty));
+
+    eval_init_expr(data_buf, var->as.gvar_decl->expr, var->ty);
+
+    for (size_t i = 0; i < data_buf->len; ++i) {
+        fprintf(g->out, "  .byte %d\n", (int)data_buf->buf[i]);
+    }
+}
+
 void codegen(Program* prog, FILE* out) {
-    CodeGen* g = codegen_new(out);
+    CodeGen* g = codegen_new(prog, out);
 
     fprintf(g->out, ".intel_syntax noprefix\n\n");
 
@@ -833,64 +874,7 @@ void codegen(Program* prog, FILE* out) {
 
     fprintf(g->out, ".data\n\n");
     for (int i = 0; i < prog->vars->as.list->len; ++i) {
-        AstNode* var = prog->vars->as.list->items + i;
-        fprintf(g->out, "  %s:\n", var->as.gvar_decl->name);
-        if (var->as.gvar_decl->expr) {
-            if (type_sizeof(var->ty) == 1) {
-                if (var->as.gvar_decl->expr->kind != AstNodeKind_int_expr)
-                    unimplemented();
-                fprintf(g->out, "    .byte %d\n", var->as.gvar_decl->expr->as.int_expr->value);
-            } else if (type_sizeof(var->ty) == 2) {
-                if (var->as.gvar_decl->expr->kind != AstNodeKind_int_expr)
-                    unimplemented();
-                fprintf(g->out, "    .word %d\n", var->as.gvar_decl->expr->as.int_expr->value);
-            } else if (type_sizeof(var->ty) == 4) {
-                if (var->as.gvar_decl->expr->kind != AstNodeKind_int_expr)
-                    unimplemented();
-                fprintf(g->out, "    .long %d\n", var->as.gvar_decl->expr->as.int_expr->value);
-            } else if (var->ty->kind == TypeKind_ptr) {
-                if (var->as.gvar_decl->expr->kind == AstNodeKind_ref_expr) {
-                    if (var->as.gvar_decl->expr->as.ref_expr->operand->kind != AstNodeKind_gvar) {
-                        unimplemented();
-                    }
-                    fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.ref_expr->operand->as.gvar->name);
-                } else if (var->as.gvar_decl->expr->kind == AstNodeKind_gvar) {
-                    fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.gvar->name);
-                } else {
-                    unimplemented();
-                }
-            } else if (var->ty->kind == TypeKind_array) {
-                if (var->as.gvar_decl->expr->kind == AstNodeKind_str_expr) {
-                    const char* str = prog->str_literals[var->as.gvar_decl->expr->as.str_expr->idx - 1];
-                    fprintf(g->out, "    .string \"%s\"\n", str);
-                } else if (var->as.gvar_decl->expr->kind == AstNodeKind_array_initializer) {
-                    AstNode* init = var->as.gvar_decl->expr->as.array_initializer->list;
-                    int elem_size = type_sizeof(var->ty->base);
-                    const char* directive;
-                    if (elem_size == 1) {
-                        directive = ".byte";
-                    } else if (elem_size == 2) {
-                        directive = ".word";
-                    } else if (elem_size == 4) {
-                        directive = ".long";
-                    } else {
-                        unimplemented();
-                    }
-                    for (int j = 0; j < init->as.list->len; ++j) {
-                        AstNode* elem = &init->as.list->items[j];
-                        if (elem->kind != AstNodeKind_int_expr)
-                            unimplemented();
-                        fprintf(g->out, "  %s %d\n", directive, elem->as.int_expr->value);
-                    }
-                } else {
-                    unimplemented();
-                }
-            } else {
-                unimplemented();
-            }
-        } else {
-            fprintf(g->out, "    .zero %d\n", type_sizeof(var->ty));
-        }
+        codegen_global_var(g, &prog->vars->as.list->items[i]);
     }
 
     fprintf(g->out, ".text\n\n");

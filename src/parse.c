@@ -1346,6 +1346,12 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
             decl->ty->storage_class = base_ty->storage_class;
             base_ty->storage_class = StorageClass_unspecified;
 
+            // TODO: refactor
+            if (decl->ty->kind == TypeKind_array && decl->ty->array_size == -1 && decl->as.declarator &&
+                decl->as.declarator->init && decl->as.declarator->init->kind == AstNodeKind_array_initializer) {
+                decl->ty->array_size = decl->as.declarator->init->as.array_initializer->list->as.list->len;
+            }
+
             GlobalVar* gvar = gvars_push_new(&p->gvars);
             gvar->name = name;
             gvar->ty = decl->ty;
@@ -2688,4 +2694,42 @@ bool pp_eval_constant_expr(TokenArray* pp_tokens) {
     Parser* p = parser_new(tokens);
     AstNode* e = parse_constant_expr(p);
     return eval(e) != 0;
+}
+
+void eval_init_expr(StrBuilder* buf, AstNode* expr, Type* ty) {
+    if (expr->kind == AstNodeKind_array_initializer) {
+        AstNode* list = expr->as.array_initializer->list;
+        if (ty->kind == TypeKind_array) {
+            for (int i = 0; i < list->as.list->len; ++i) {
+                eval_init_expr(buf, &list->as.list->items[i], ty->base);
+            }
+        } else if (ty->kind == TypeKind_struct) {
+            AstNode* def = &ty->ref.defs->as.list->items[ty->ref.index];
+            AstNode* members = def->as.struct_def->members;
+            int offset = 0;
+            for (int i = 0; i < list->as.list->len; ++i) {
+                AstNode* member = &members->as.list->items[i];
+                int align = type_alignof(member->ty);
+                int aligned_offset = to_aligned(offset, align);
+                for (int p = offset; p < aligned_offset; ++p) {
+                    strbuilder_append_char(buf, 0);
+                }
+                offset = aligned_offset;
+                eval_init_expr(buf, &list->as.list->items[i], member->ty);
+                offset += type_sizeof(member->ty);
+            }
+            int total = type_sizeof(ty);
+            for (int p = offset; p < total; ++p) {
+                strbuilder_append_char(buf, 0);
+            }
+        } else {
+            unimplemented();
+        }
+    } else {
+        int value = eval(expr);
+        int size = type_sizeof(ty);
+        for (int i = 0; i < size; ++i) {
+            strbuilder_append_char(buf, (value >> (i * 8)) & 0xff);
+        }
+    }
 }

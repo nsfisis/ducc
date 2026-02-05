@@ -20,6 +20,14 @@ char arr1[3] = {65, 66, 67};
 short arr2[3] = {10, 20, 30};
 int arr3[3] = {1, 2, 3};
 
+struct S {
+    int x, y;
+};
+struct S arr4[] = {
+    {1, 2},
+    {3, 4},
+};
+
 int main() {
     // global variables
     *g_b = 123;
@@ -51,6 +59,11 @@ int main() {
     ASSERT_EQ(1, arr3[0]);
     ASSERT_EQ(2, arr3[1]);
     ASSERT_EQ(3, arr3[2]);
+
+    ASSERT_EQ(1, arr4[0].x);
+    ASSERT_EQ(2, arr4[0].y);
+    ASSERT_EQ(3, arr4[1].x);
+    ASSERT_EQ(4, arr4[1].y);
 
     // local variables
     int foo;
