@@ -2733,6 +2733,10 @@ static int eval(AstNode* e) {
         }
     } else if (e->kind == AstNodeKind_cast_expr) {
         return eval(e->as.cast_expr->operand);
+    } else if (e->kind == AstNodeKind_deref_expr) {
+        return eval(e->as.deref_expr->operand);
+    } else if (e->kind == AstNodeKind_ref_expr) {
+        return eval(e->as.ref_expr->operand);
     } else {
         unimplemented();
     }
