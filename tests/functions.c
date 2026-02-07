@@ -1,7 +1,6 @@
 #include <helpers.h>
 
 int sprintf(char*, const char*, ...);
-int strcmp(const char*, const char*);
 
 int foo() {
     int i;
@@ -123,7 +122,7 @@ int main() {
     ASSERT_EQ(10, f7(9, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
 
     char buf[100];
-    ASSERT_EQ(0, strcmp("1,2,3,4,5,6,7,8,9,10", f8(buf, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)));
+    ASSERT_EQ_STR("1,2,3,4,5,6,7,8,9,10", f8(buf, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
 
     S s;
     s.x = 5;

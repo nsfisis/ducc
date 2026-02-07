@@ -1,7 +1,6 @@
 #include <helpers.h>
 
 int printf(const char*, ...);
-int strcmp(const char*, const char*);
 
 // global variables
 int g_a;
@@ -46,7 +45,7 @@ int main() {
     ASSERT_EQ(123, g_j);
     ASSERT_EQ(999, g_k);
 
-    ASSERT_EQ(0, strcmp("hello", g_l));
+    ASSERT_EQ_STR("hello", g_l);
 
     ASSERT_EQ(65, arr1[0]);
     ASSERT_EQ(66, arr1[1]);
