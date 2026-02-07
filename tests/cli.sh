@@ -1,5 +1,5 @@
 # --version
-expected="ducc v0.3.0"
+expected="ducc v0.4.0"
 
 if [[ "$("$ducc" --version)" != "$expected" ]]; then
     echo "invalid output" >&2

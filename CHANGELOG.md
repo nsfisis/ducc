@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.0 (2026-02-07)
+
+Now, ducc can compile [Lua 5.5](https://www.lua.org/source/5.5/)! The artifact binary crashes though.
+
+
 ## v0.3.0 (2026-01-08)
 
 WebAssembly backend is experimentally added. For now, very limited operations are supported.
