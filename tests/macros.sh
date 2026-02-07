@@ -422,3 +422,27 @@ int main() {
 #endif
 }
 EOF
+
+cat <<'EOF' > expected
+42
+EOF
+test_diff <<'EOF'
+int printf();
+
+#define m1(x) x
+
+int main() {
+    int m1 = 42;
+    printf("%d\n", m1);
+}
+EOF
+
+cat <<'EOF' > expected
+struct { int foo; } s;
+int x = ( ( 1) * 2);
+EOF
+test_cpp <<'EOF'
+#define foo(x) ((x) * 2)
+struct { int foo; } s;
+int x = foo(1);
+EOF

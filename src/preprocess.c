@@ -541,7 +541,9 @@ static MacroArgArray* pp_parse_macro_arguments(Preprocessor* pp, bool skip_newli
     MacroArgArray* args = macroargs_new();
 
     skip_whitespaces_or_newlines(pp, skip_newline);
-    expect_pp_token(pp, TokenKind_paren_l);
+    if (!consume_pp_token_if(pp, TokenKind_paren_l)) {
+        return NULL;
+    }
     skip_whitespaces_or_newlines(pp, skip_newline);
     Token* tok = peek_pp_token(pp);
     if (!skip_newline && tok->kind == TokenKind_newline) {
@@ -735,6 +737,10 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
     if (macro->kind == MacroKind_func) {
         next_pp_token(pp);
         MacroArgArray* args = pp_parse_macro_arguments(pp, skip_newline);
+        if (!args) {
+            // If function-like macro name is not followed by opening parenthesis, it is not a macro invocation.
+            return pp->pos - macro_name_pos;
+        }
         token_count_before_expansion = pp->pos - macro_name_pos;
         replace_pp_tokens(pp, macro_name_pos, pp->pos, &macro->replacements);
 
