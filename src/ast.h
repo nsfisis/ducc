@@ -188,7 +188,7 @@ typedef struct {
 } RefExprNode;
 
 typedef struct {
-    const char* name;
+    AstNode* func;
     AstNode* args;
 } FuncCallNode;
 
@@ -387,7 +387,7 @@ AstNode* ast_new_cast_expr(AstNode* operand, Type* result_ty);
 AstNode* ast_new_logical_expr(int op, AstNode* lhs, AstNode* rhs);
 AstNode* ast_new_cond_expr(AstNode* cond, AstNode* then, AstNode* else_);
 AstNode* ast_new_str_expr(int idx, Type* ty);
-AstNode* ast_new_func_call(const char* name, Type* ty);
+AstNode* ast_new_func_call(AstNode* func, AstNode* args);
 AstNode* ast_new_func(const char* name, Type* ty);
 AstNode* ast_new_gvar(const char* name, Type* ty);
 AstNode* ast_new_lvar(const char* name, int stack_offset, Type* ty);

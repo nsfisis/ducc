@@ -398,9 +398,12 @@ static void codegen_args(CodeGen* g, AstNode* args) {
 }
 
 static void codegen_func_call(CodeGen* g, FuncCallNode* call) {
-    const char* func_name = call->name;
+    const char* func_name = NULL;
+    if (call->func->kind == AstNodeKind_func) {
+        func_name = call->func->as.func->name;
+    }
 
-    if (strcmp(func_name, "__ducc_va_start") == 0) {
+    if (func_name && strcmp(func_name, "__ducc_va_start") == 0) {
         fprintf(g->out, "  # __ducc_va_start BEGIN\n");
         AstNode* va_list_args = &call->args->as.list->items[0];
         codegen_expr(g, va_list_args, GenMode_rval);
@@ -428,7 +431,7 @@ static void codegen_func_call(CodeGen* g, FuncCallNode* call) {
         return;
     }
 
-    if (strcmp(func_name, "__ducc_va_arg") == 0) {
+    if (func_name && strcmp(func_name, "__ducc_va_arg") == 0) {
         fprintf(g->out, "  # __ducc_va_arg BEGIN\n");
 
         // Evaluate va_list argument (first argument)
@@ -511,7 +514,12 @@ static void codegen_func_call(CodeGen* g, FuncCallNode* call) {
     fprintf(g->out, "  sub rsp, 8\n");
     codegen_args(g, args);
     fprintf(g->out, "  mov rax, 0\n");
-    fprintf(g->out, "  call %s\n", func_name);
+    if (func_name) {
+        fprintf(g->out, "  call %s\n", func_name);
+    } else {
+        codegen_expr(g, call->func, GenMode_rval);
+        fprintf(g->out, "  call rax\n");
+    }
     fprintf(g->out, "  add rsp, 8\n");
 
     fprintf(g->out, "  jmp .Lend%d\n", label);
@@ -519,7 +527,12 @@ static void codegen_func_call(CodeGen* g, FuncCallNode* call) {
 
     codegen_args(g, args);
     fprintf(g->out, "  mov rax, 0\n");
-    fprintf(g->out, "  call %s\n", func_name);
+    if (func_name) {
+        fprintf(g->out, "  call %s\n", func_name);
+    } else {
+        codegen_expr(g, call->func, GenMode_rval);
+        fprintf(g->out, "  call rax\n");
+    }
 
     fprintf(g->out, ".Lend%d:\n", label);
     // Pop pass-by-stack arguments.

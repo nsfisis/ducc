@@ -62,12 +62,19 @@ static void codegen_lvar(CodeGen* g, LvarNode* lvar, GenMode) {
 }
 
 static void codegen_func_call(CodeGen* g, FuncCallNode* call) {
+    const char* func_name;
+    if (call->func->kind == AstNodeKind_func) {
+        func_name = call->func->as.func->name;
+    } else {
+        unimplemented();
+    }
+
     AstNode* args = call->args;
     for (int i = 0; i < args->as.list->len; ++i) {
         AstNode* arg = args->as.list->items + i;
         codegen_expr(g, arg, GenMode_rval);
     }
-    fprintf(g->out, "  call $%s\n", call->name);
+    fprintf(g->out, "  call $%s\n", func_name);
 }
 
 static void codegen_expr(CodeGen* g, AstNode* ast, GenMode gen_mode) {

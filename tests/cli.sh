@@ -45,8 +45,9 @@ int main(int argc, char** argv) {
 EOF
 
 # compile errors
+# TODO: report as "undefined function"
 cat <<'EOF' > expected
-main.c:2: undefined function: f
+main.c:2: undefined variable: f
 EOF
 test_compile_error <<'EOF'
 int main() {

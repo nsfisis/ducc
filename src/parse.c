@@ -637,14 +637,6 @@ static AstNode* parse_primary_expr(Parser* p) {
     } else if (t->kind == TokenKind_ident) {
         const char* name = t->value.string;
 
-        if (peek_token(p)->kind == TokenKind_paren_l) {
-            int func_idx = find_func(p, name);
-            if (func_idx == -1) {
-                fatal_error("%s:%d: undefined function: %s", t->loc.filename, t->loc.line, name);
-            }
-            return ast_new_func_call(name, p->funcs.data[func_idx].ty->result);
-        }
-
         int lvar_idx = find_lvar(p, name);
         if (lvar_idx == -1) {
             int gvar_idx = find_gvar(p, name);
@@ -695,7 +687,12 @@ static AstNode* parse_postfix_expr(Parser* p) {
         if (consume_token_if(p, TokenKind_paren_l)) {
             AstNode* args = parse_argument_expr_list(p);
             expect(p, TokenKind_paren_r);
-            ret->as.func_call->args = args;
+            ret = ast_new_func_call(ret, args);
+            Type* func_type = ret->as.func_call->func->ty;
+            if (func_type->kind == TypeKind_ptr) {
+                func_type = func_type->base;
+            }
+            ret->ty = func_type->result;
         } else if (consume_token_if(p, TokenKind_bracket_l)) {
             AstNode* idx = parse_expr(p);
             expect(p, TokenKind_bracket_r);
@@ -758,7 +755,12 @@ static AstNode* parse_unary_expr(Parser* p) {
         return ast_new_ref_expr(operand);
     } else if (consume_token_if(p, TokenKind_star)) {
         AstNode* operand = parse_cast_expr(p);
-        return ast_new_deref_expr(operand);
+        if (operand->ty->kind == TypeKind_func) {
+            // dereference operator against function pointers are no-op.
+            return operand;
+        } else {
+            return ast_new_deref_expr(operand);
+        }
     } else if (consume_token_if(p, TokenKind_plusplus)) {
         AstNode* operand = parse_unary_expr(p);
         return ast_new_assign_add_expr(operand, ast_new_int(1));
@@ -1228,8 +1230,28 @@ static AstNode* parse_direct_declarator(Parser* p, Type* ty) {
         decl = ast_new_declarator(parse_ident(p)->value.string, ty);
     } else if (peek_token(p)->kind == TokenKind_paren_l && !is_type_token(p, peek_token2(p))) {
         next_token(p);
+        // 1st pass: skip content inside parentheses.
+        int saved_pos = p->pos;
+        Type* dummy = type_new(TypeKind_void);
+        parse_declarator(p, dummy);
+        expect(p, TokenKind_paren_r);
+        // Parse suffixes.
+        while (1) {
+            if (peek_token(p)->kind == TokenKind_bracket_l) {
+                ty = parse_array_declarator_suffix(p, ty);
+            } else if (peek_token(p)->kind == TokenKind_paren_l) {
+                ty = parse_function_declarator_suffix(p, ty);
+            } else {
+                break;
+            }
+        }
+        // 2nd pass: re-parse inner content.
+        int end_pos = p->pos;
+        p->pos = saved_pos;
         decl = parse_declarator(p, ty);
         expect(p, TokenKind_paren_r);
+        p->pos = end_pos;
+        return ast_new_declarator(decl->as.declarator->name, decl->ty);
     } else {
         decl = ast_new_declarator(NULL, ty);
     }

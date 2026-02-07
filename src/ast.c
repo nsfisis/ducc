@@ -454,11 +454,11 @@ AstNode* ast_new_str_expr(int idx, Type* ty) {
     return e;
 }
 
-AstNode* ast_new_func_call(const char* name, Type* ty) {
+AstNode* ast_new_func_call(AstNode* func, AstNode* args) {
     AstNode* e = ast_new(AstNodeKind_func_call);
     e->as.func_call = calloc(1, sizeof(FuncCallNode));
-    e->as.func_call->name = name;
-    e->ty = ty;
+    e->as.func_call->func = func;
+    e->as.func_call->args = args;
     return e;
 }
 
