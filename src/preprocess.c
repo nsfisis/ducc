@@ -125,6 +125,7 @@ static void add_predefined_macros(MacroArray* macros) {
     // GCC's predefined macros. Glibc depends on these macros.
     // https://gcc.gnu.org/onlinedocs/cpp/Common-Predefined-Macros.html
     // TODO: uncomment out __LONG_MAX__, etc. once ducc supports 64-bit integer literals.
+    define_macro_to_number(macros, "__CHAR_BIT__", __CHAR_BIT__);
     define_macro_to_number(macros, "__SCHAR_MAX__", __SCHAR_MAX__);
     define_macro_to_number(macros, "__WCHAR_MAX__", __WCHAR_MAX__);
     define_macro_to_number(macros, "__SHRT_MAX__", __SHRT_MAX__);
