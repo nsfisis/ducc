@@ -362,3 +362,28 @@ int main() {
     printf("%zu\n", sizeof(E));
 }
 EOF
+
+cat <<'EOF' > expected
+EOF
+
+test_diff <<'EOF'
+int printf();
+
+struct S1 {
+    struct {
+        int x;
+        int y;
+    };
+    struct {
+        int z;
+    };
+};
+
+int main() {
+    // TODO
+    // struct S1 a = {1, 2, 3};
+    // printf("%d\n", a.x);
+    // printf("%d\n", a.y);
+    // printf("%d\n", a.z);
+}
+EOF

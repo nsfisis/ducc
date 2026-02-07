@@ -1410,7 +1410,7 @@ void parse_typedef_decl(Parser* p, AstNode* decls) {
     }
 }
 
-static char* generate_new_anonymous_user_type_name(Parser* p) {
+static char* generate_anonymous_name(Parser* p) {
     char* buf = calloc(32, sizeof(char));
     sprintf(buf, "__anonymous_%d__", p->anonymous_user_type_counter++);
     return buf;
@@ -1707,7 +1707,7 @@ static Type* parse_struct_specifier(Parser* p) {
     const Token* name;
     char* anonymous_name = NULL;
     if (peek_token(p)->kind == TokenKind_brace_l) {
-        anonymous_name = generate_new_anonymous_user_type_name(p);
+        anonymous_name = generate_anonymous_name(p);
         Token* anonymous_token = calloc(1, sizeof(Token));
         anonymous_token->kind = TokenKind_ident;
         anonymous_token->value.string = anonymous_name;
@@ -1768,7 +1768,7 @@ static Type* parse_union_specifier(Parser* p) {
     const Token* name;
     char* anonymous_name = NULL;
     if (peek_token(p)->kind == TokenKind_brace_l) {
-        anonymous_name = generate_new_anonymous_user_type_name(p);
+        anonymous_name = generate_anonymous_name(p);
         Token* anonymous_token = calloc(1, sizeof(Token));
         anonymous_token->kind = TokenKind_ident;
         anonymous_token->value.string = anonymous_name;
@@ -1840,7 +1840,14 @@ static AstNode* parse_member_declaration(Parser* p) {
 
     AstNode* decls = NULL;
     if (consume_token_if(p, TokenKind_semicolon)) {
-        unimplemented();
+        char* name = generate_anonymous_name(p);
+        AstNode* decls = ast_new_list(1);
+        AstNode* member = ast_new(AstNodeKind_struct_member);
+        member->ty = base_ty;
+        member->as.struct_member = calloc(1, sizeof(StructMemberNode));
+        member->as.struct_member->name = name;
+        ast_append(decls, member);
+        return decls;
     }
     decls = parse_member_declarator_list(p, base_ty);
 
@@ -2051,7 +2058,7 @@ static Type* parse_enum_specifier(Parser* p) {
     const Token* name;
     char* anonymous_name = NULL;
     if (peek_token(p)->kind == TokenKind_brace_l) {
-        anonymous_name = generate_new_anonymous_user_type_name(p);
+        anonymous_name = generate_anonymous_name(p);
         Token* anonymous_token = calloc(1, sizeof(Token));
         anonymous_token->kind = TokenKind_ident;
         anonymous_token->value.string = anonymous_name;
