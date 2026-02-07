@@ -2830,6 +2830,10 @@ static void do_eval_init_expr(InitData* buf, AstNode* expr, Type* ty) {
             initdata_append_addr(buf, expr->as.ref_expr->operand->as.gvar->name);
         } else if (expr->kind == AstNodeKind_gvar) {
             initdata_append_addr(buf, expr->as.gvar->name);
+        } else if (expr->kind == AstNodeKind_func) {
+            initdata_append_addr(buf, expr->as.func->name);
+        } else if (expr->kind == AstNodeKind_int_expr && expr->as.int_expr->value == 0) {
+            initdata_append_zeros(buf, type_sizeof(ty));
         } else {
             unimplemented();
         }

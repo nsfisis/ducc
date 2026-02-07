@@ -1,4 +1,5 @@
 #include <helpers.h>
+#include <stddef.h>
 
 int printf(const char*, ...);
 
@@ -33,6 +34,7 @@ struct S2 {
 struct S2 arr5[] = {
     {"foo"},
     {"bar"},
+    {NULL},
 };
 
 int main() {
@@ -74,6 +76,7 @@ int main() {
 
     ASSERT_EQ_STR("foo", arr5[0].x);
     ASSERT_EQ_STR("bar", arr5[1].x);
+    ASSERT_EQ(NULL, arr5[2].x);
 
     // local variables
     int foo;
