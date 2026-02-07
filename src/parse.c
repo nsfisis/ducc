@@ -2815,6 +2815,14 @@ static void do_eval_init_expr(InitData* buf, AstNode* expr, Type* ty) {
             }
             int total = type_sizeof(ty);
             initdata_append_zeros(buf, total - offset); // padding
+        } else if (ty->kind == TypeKind_union) {
+            AstNode* def = &ty->ref.defs->as.list->items[ty->ref.index];
+            AstNode* members = def->as.union_def->members;
+            AstNode* member = &members->as.list->items[0];
+            do_eval_init_expr(buf, &list->as.list->items[0], member->ty);
+            int member_size = type_sizeof(member->ty);
+            int total = type_sizeof(ty);
+            initdata_append_zeros(buf, total - member_size); // padding
         } else {
             unimplemented();
         }
