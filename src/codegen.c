@@ -832,6 +832,12 @@ static void codegen_func(CodeGen* g, AstNode* ast) {
 }
 
 static void codegen_global_var(CodeGen* g, AstNode* var) {
+    if (var->ty->storage_class == StorageClass_extern) {
+        return;
+    }
+    if (var->ty->storage_class != StorageClass_static) {
+        fprintf(g->out, ".globl %s\n", var->as.gvar_decl->name);
+    }
     fprintf(g->out, "  %s:\n", var->as.gvar_decl->name);
     if (!var->as.gvar_decl->expr) {
         fprintf(g->out, "    .zero %d\n", type_sizeof(var->ty));

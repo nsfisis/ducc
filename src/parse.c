@@ -604,7 +604,8 @@ static bool is_type_token(Parser* p, Token* tok) {
         tok->kind == TokenKind_keyword_typeof_unqual || tok->kind == TokenKind_keyword_const ||
         tok->kind == TokenKind_keyword_restrict || tok->kind == TokenKind_keyword_volatile ||
         tok->kind == TokenKind_keyword__Atomic || tok->kind == TokenKind_keyword_alignas ||
-        tok->kind == TokenKind_keyword_inline || tok->kind == TokenKind_keyword__Noreturn) {
+        tok->kind == TokenKind_keyword_inline || tok->kind == TokenKind_keyword__Noreturn ||
+        tok->kind == TokenKind_keyword_static) {
         return true;
     }
     if (tok->kind != TokenKind_ident) {
@@ -1303,6 +1304,9 @@ static AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
 // declaration:
 //     declaration-specifiers init-declarator-list ';'
 static AstNode* parse_var_decl(Parser* p) {
+    // TODO
+    consume_token_if(p, TokenKind_keyword_static);
+
     Type* base_ty = parse_type_name(p);
     AstNode* decls = parse_init_declarator_list(p, base_ty);
     expect(p, TokenKind_semicolon);
@@ -1379,15 +1383,18 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
             }
         } else {
             if (find_gvar(p, name) != -1) {
-                fatal_error("declare_func_or_var: %s redeclared", name);
+                // TODO
+                // fatal_error("declare_func_or_var: %s redeclared", name);
             }
             // TODO: refactor
             Type* base_ty = decl->ty;
             while (base_ty->base) {
                 base_ty = base_ty->base;
             }
-            decl->ty->storage_class = base_ty->storage_class;
-            base_ty->storage_class = StorageClass_unspecified;
+            if (base_ty != decl->ty) {
+                decl->ty->storage_class = base_ty->storage_class;
+                base_ty->storage_class = StorageClass_unspecified;
+            }
 
             // TODO: refactor
             if (decl->ty->kind == TypeKind_array && decl->ty->array_size == -1 && decl->as.declarator &&
