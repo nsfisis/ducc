@@ -19,6 +19,7 @@ typedef struct {
 InFile* infile_open(const char* filename);
 bool infile_eof(InFile* f);
 char infile_peek_char(InFile* f);
+char infile_peek_char2(InFile* f);
 char infile_next_char(InFile* f);
 bool infile_consume_if(InFile* f, char expected);
 

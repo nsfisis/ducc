@@ -112,6 +112,7 @@ typedef enum {
     AstNodeKind_gvar_decl,
     AstNodeKind_if_stmt,
     AstNodeKind_int_expr,
+    AstNodeKind_double_expr,
     AstNodeKind_label_stmt,
     AstNodeKind_list,
     AstNodeKind_logical_expr,
@@ -141,6 +142,10 @@ const char* astnode_kind_stringify(AstNodeKind k);
 typedef struct {
     int value;
 } IntExprNode;
+
+typedef struct {
+    double value;
+} DoubleExprNode;
 
 typedef struct {
     int idx;
@@ -325,6 +330,7 @@ struct AstNode {
     Type* ty;
     union {
         IntExprNode* int_expr;
+        DoubleExprNode* double_expr;
         StrExprNode* str_expr;
         UnaryExprNode* unary_expr;
         BinaryExprNode* binary_expr;
@@ -374,6 +380,7 @@ AstNode* ast_new(AstNodeKind kind);
 AstNode* ast_new_list(int capacity);
 void ast_append(AstNode* list, AstNode* item);
 AstNode* ast_new_int(int v);
+AstNode* ast_new_double(double v);
 AstNode* ast_new_unary_expr(int op, AstNode* operand);
 AstNode* ast_new_binary_expr(int op, AstNode* lhs, AstNode* rhs);
 

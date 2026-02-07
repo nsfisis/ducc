@@ -623,6 +623,8 @@ static AstNode* parse_primary_expr(Parser* p) {
     Token* t = next_token(p);
     if (t->kind == TokenKind_literal_int) {
         return ast_new_int(t->value.integer);
+    } else if (t->kind == TokenKind_literal_double) {
+        return ast_new_double(t->value.floating);
     } else if (t->kind == TokenKind_keyword_true) {
         return ast_new_int(1);
     } else if (t->kind == TokenKind_keyword_false) {

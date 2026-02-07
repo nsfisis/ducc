@@ -130,10 +130,10 @@ int type_sizeof(Type* ty) {
         return 1;
     else if (ty->kind == TypeKind_short || ty->kind == TypeKind_ushort)
         return 2;
-    else if (ty->kind == TypeKind_int || ty->kind == TypeKind_uint)
+    else if (ty->kind == TypeKind_int || ty->kind == TypeKind_uint || ty->kind == TypeKind_float)
         return 4;
     else if (ty->kind == TypeKind_long || ty->kind == TypeKind_ulong || ty->kind == TypeKind_llong ||
-             ty->kind == TypeKind_ullong)
+             ty->kind == TypeKind_ullong || ty->kind == TypeKind_double)
         return 8;
     else if (ty->kind == TypeKind_struct)
         return type_sizeof_struct(ty);
@@ -161,10 +161,10 @@ int type_alignof(Type* ty) {
         return 1;
     else if (ty->kind == TypeKind_short || ty->kind == TypeKind_ushort)
         return 2;
-    else if (ty->kind == TypeKind_int || ty->kind == TypeKind_uint)
+    else if (ty->kind == TypeKind_int || ty->kind == TypeKind_uint || ty->kind == TypeKind_float)
         return 4;
     else if (ty->kind == TypeKind_long || ty->kind == TypeKind_ulong || ty->kind == TypeKind_llong ||
-             ty->kind == TypeKind_ullong)
+             ty->kind == TypeKind_ullong || ty->kind == TypeKind_double)
         return 8;
     else if (ty->kind == TypeKind_struct)
         return type_alignof_struct(ty);
@@ -240,6 +240,8 @@ const char* astnode_kind_stringify(AstNodeKind k) {
         return "if_stmt";
     case AstNodeKind_int_expr:
         return "int_expr";
+    case AstNodeKind_double_expr:
+        return "double_expr";
     case AstNodeKind_label_stmt:
         return "label_stmt";
     case AstNodeKind_list:
@@ -322,6 +324,14 @@ AstNode* ast_new_int(int v) {
     e->as.int_expr = calloc(1, sizeof(IntExprNode));
     e->as.int_expr->value = v;
     e->ty = type_new(TypeKind_int);
+    return e;
+}
+
+AstNode* ast_new_double(double v) {
+    AstNode* e = ast_new(AstNodeKind_double_expr);
+    e->as.double_expr = calloc(1, sizeof(DoubleExprNode));
+    e->as.double_expr->value = v;
+    e->ty = type_new(TypeKind_double);
     return e;
 }
 

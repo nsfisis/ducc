@@ -125,6 +125,7 @@ typedef enum {
     TokenKind_ident,
     TokenKind_le,
     TokenKind_literal_int,
+    TokenKind_literal_double,
     TokenKind_literal_str,
     TokenKind_lshift,
     TokenKind_lt,
@@ -155,6 +156,7 @@ bool is_pp_directive(TokenKind k);
 typedef union {
     const char* string;
     int integer;
+    double floating;
 } TokenValue;
 
 typedef struct {

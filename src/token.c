@@ -233,6 +233,8 @@ const char* token_kind_stringify(TokenKind k) {
         return "<=";
     else if (k == TokenKind_literal_int)
         return "<integer>";
+    else if (k == TokenKind_literal_double)
+        return "<double>";
     else if (k == TokenKind_literal_str)
         return "<string>";
     else if (k == TokenKind_lshift)
@@ -300,6 +302,10 @@ const char* token_stringify(Token* tok) {
     } else if (k == TokenKind_literal_int) {
         char* buf = calloc(10, sizeof(char));
         sprintf(buf, "%d", tok->value.integer);
+        return buf;
+    } else if (k == TokenKind_literal_double) {
+        char* buf = calloc(32, sizeof(char));
+        sprintf(buf, "%g", tok->value.floating);
         return buf;
     } else if (k == TokenKind_other || k == TokenKind_character_constant || k == TokenKind_ident ||
                k == TokenKind_literal_str || k == TokenKind_header_name) {

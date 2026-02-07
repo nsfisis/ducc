@@ -107,6 +107,16 @@ char infile_next_char(InFile* f) {
     return c;
 }
 
+char infile_peek_char2(InFile* f) {
+    int saved_pos = f->pos;
+    int saved_line = f->loc.line;
+    infile_next_char(f);
+    char c = infile_peek_char(f);
+    f->pos = saved_pos;
+    f->loc.line = saved_line;
+    return c;
+}
+
 bool infile_consume_if(InFile* f, char expected) {
     if (infile_peek_char(f) == expected) {
         infile_next_char(f);
