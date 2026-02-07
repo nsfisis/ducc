@@ -1286,6 +1286,36 @@ static AstNode* parse_var_decl(Parser* p) {
     return decls;
 }
 
+static void create_local_initializer(AstNode* list, AstNode* lhs, AstNode* init, Type* ty) {
+    if (init->kind == AstNodeKind_array_initializer) {
+        AstNode* items = init->as.array_initializer->list;
+        if (ty->kind == TypeKind_array) {
+            for (int i = 0; i < items->as.list->len; ++i) {
+                AstNode* idx = ast_new_binary_expr(TokenKind_star, ast_new_int(i), ast_new_int(type_sizeof(ty->base)));
+                AstNode* elem = ast_new_deref_expr(ast_new_binary_expr(TokenKind_plus, lhs, idx));
+                create_local_initializer(list, elem, &items->as.list->items[i], ty->base);
+            }
+        } else if (ty->kind == TypeKind_struct) {
+            AstNode* def = &ty->ref.defs->as.list->items[ty->ref.index];
+            AstNode* members = def->as.struct_def->members;
+            for (int i = 0; i < items->as.list->len; ++i) {
+                const char* member_name = members->as.list->items[i].as.struct_member->name;
+                AstNode* member_lhs = ast_new_member_access_expr(ast_new_ref_expr(lhs), member_name);
+                create_local_initializer(list, member_lhs, &items->as.list->items[i], members->as.list->items[i].ty);
+            }
+        } else if (ty->kind == TypeKind_union) {
+            AstNode* def = &ty->ref.defs->as.list->items[ty->ref.index];
+            AstNode* members = def->as.union_def->members;
+            const char* member_name = members->as.list->items[0].as.struct_member->name;
+            AstNode* member_lhs = ast_new_member_access_expr(ast_new_ref_expr(lhs), member_name);
+            create_local_initializer(list, member_lhs, &items->as.list->items[0], members->as.list->items[0].ty);
+        }
+    } else {
+        AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, init);
+        ast_append(list, ast_new_expr_stmt(assign));
+    }
+}
+
 static void declare_func_or_var(Parser* p, AstNode* decl) {
     const char* name = decl->as.declarator->name;
     if (decl->ty->kind == TypeKind_func) {
@@ -1308,22 +1338,11 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
 
             if (decl->as.declarator->init) {
                 if (decl->as.declarator->init->kind == AstNodeKind_array_initializer) {
-                    ArrayInitializerNode* inits = decl->as.declarator->init->as.array_initializer;
-                    int len = inits->list->as.list->len;
                     AstNode* lhs_base = ast_new_lvar(name, stack_offset, decl->ty);
-                    decl->kind = AstNodeKind_list;
-                    decl->as.list = calloc(1, sizeof(ListNode));
-                    decl->as.list->cap = len;
-                    decl->as.list->len = 0;
-                    decl->as.list->items = calloc(len, sizeof(AstNode));
-                    for (int i = 0; i < len; ++i) {
-                        AstNode* idx = ast_new_binary_expr(TokenKind_star, ast_new_int(i),
-                                                           ast_new_int(type_sizeof(lhs_base->ty->base)));
-                        AstNode* lhs = ast_new_deref_expr(ast_new_binary_expr(TokenKind_plus, lhs_base, idx));
-                        AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, &inits->list->as.list->items[i]);
-                        AstNode* stmt = ast_new_expr_stmt(assign);
-                        ast_append(decl, stmt);
-                    }
+                    AstNode* init = decl->as.declarator->init;
+                    AstNode* stmt_list = ast_new_list(4);
+                    create_local_initializer(stmt_list, lhs_base, init, decl->ty);
+                    *decl = *stmt_list;
                 } else {
                     AstNode* lhs = ast_new_lvar(name, stack_offset, decl->ty);
                     AstNode* assign = ast_new_assign_expr(TokenKind_assign, lhs, decl->as.declarator->init);
