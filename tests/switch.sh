@@ -210,3 +210,25 @@ int main() {
         return 0;
 }
 EOF
+
+test_exit_code 0 <<'EOF'
+#include <helpers.h>
+
+int f(int x) {
+    switch (x) {
+    case 1:
+    case 2:
+        return 12;
+    case 3:
+    case 4:
+        return 34;
+    }
+}
+
+int main() {
+    ASSERT_EQ(12, f(1));
+    ASSERT_EQ(12, f(2));
+    ASSERT_EQ(34, f(3));
+    ASSERT_EQ(34, f(4));
+}
+EOF

@@ -704,11 +704,10 @@ static bool codegen_switch_body(CodeGen* g, AstNode* stmt, int* case_values, int
                 break;
             }
         }
-        codegen_stmt(g, stmt->as.case_label->body);
-        return false;
+        return codegen_switch_body(g, stmt->as.case_label->body, case_values, case_labels, n_cases);
     } else if (stmt->kind == AstNodeKind_default_label) {
         fprintf(g->out, ".Ldefault%d:\n", g->switch_label);
-        codegen_stmt(g, stmt->as.default_label->body);
+        codegen_switch_body(g, stmt->as.default_label->body, case_values, case_labels, n_cases);
         return true;
     } else if (stmt->kind == AstNodeKind_list) {
         bool default_label_emitted = false;
