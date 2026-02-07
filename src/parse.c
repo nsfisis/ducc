@@ -1684,7 +1684,8 @@ static Type* parse_declaration_specifiers(Parser* p) {
         }
         // function-specifier
         else if (tok->kind == TokenKind_keyword_inline) {
-            unimplemented();
+            // TODO
+            next_token(p);
         } else if (tok->kind == TokenKind_keyword__Noreturn) {
             // TODO
             next_token(p);
