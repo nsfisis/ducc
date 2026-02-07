@@ -2696,12 +2696,60 @@ bool pp_eval_constant_expr(TokenArray* pp_tokens) {
     return eval(e) != 0;
 }
 
-void eval_init_expr(StrBuilder* buf, AstNode* expr, Type* ty) {
+static InitData* initdata_new() {
+    InitData* init_data = calloc(1, sizeof(InitData));
+    init_data->len = 0;
+    init_data->capacity = 1;
+    init_data->blocks = calloc(init_data->capacity, sizeof(InitDataBlock));
+    return init_data;
+}
+
+static void initdata_reserve(InitData* init_data, size_t size) {
+    if (size <= init_data->capacity)
+        return;
+    while (init_data->capacity < size) {
+        init_data->capacity *= 2;
+    }
+    init_data->blocks = realloc(init_data->blocks, init_data->capacity * sizeof(InitDataBlock));
+    memset(init_data->blocks + init_data->len, 0, (init_data->capacity - init_data->len) * sizeof(InitDataBlock));
+}
+
+static InitDataBlock* initdata_push_new(InitData* init_data) {
+    initdata_reserve(init_data, init_data->len + 1);
+    return &init_data->blocks[init_data->len++];
+}
+
+static void initdata_append_addr(InitData* buf, const char* label) {
+    InitDataBlock* block = initdata_push_new(buf);
+    block->kind = InitDataBlockKind_addr;
+    block->as.addr.label = label;
+}
+
+static void initdata_append_zeros(InitData* buf, size_t len) {
+    if (len == 0)
+        return;
+    char* data = calloc(len, sizeof(char));
+    InitDataBlock* block = initdata_push_new(buf);
+    block->kind = InitDataBlockKind_bytes;
+    block->as.bytes.len = len;
+    block->as.bytes.buf = data;
+}
+
+static void initdata_append_bytes(InitData* buf, const char* data, size_t len) {
+    char* copy = calloc(len, sizeof(char));
+    memcpy(copy, data, len);
+    InitDataBlock* block = initdata_push_new(buf);
+    block->kind = InitDataBlockKind_bytes;
+    block->as.bytes.len = len;
+    block->as.bytes.buf = copy;
+}
+
+static void do_eval_init_expr(InitData* buf, AstNode* expr, Type* ty) {
     if (expr->kind == AstNodeKind_array_initializer) {
         AstNode* list = expr->as.array_initializer->list;
         if (ty->kind == TypeKind_array) {
             for (int i = 0; i < list->as.list->len; ++i) {
-                eval_init_expr(buf, &list->as.list->items[i], ty->base);
+                do_eval_init_expr(buf, &list->as.list->items[i], ty->base);
             }
         } else if (ty->kind == TypeKind_struct) {
             AstNode* def = &ty->ref.defs->as.list->items[ty->ref.index];
@@ -2711,25 +2759,44 @@ void eval_init_expr(StrBuilder* buf, AstNode* expr, Type* ty) {
                 AstNode* member = &members->as.list->items[i];
                 int align = type_alignof(member->ty);
                 int aligned_offset = to_aligned(offset, align);
-                for (int p = offset; p < aligned_offset; ++p) {
-                    strbuilder_append_char(buf, 0);
-                }
+                initdata_append_zeros(buf, aligned_offset - offset); // padding
                 offset = aligned_offset;
-                eval_init_expr(buf, &list->as.list->items[i], member->ty);
+                do_eval_init_expr(buf, &list->as.list->items[i], member->ty);
                 offset += type_sizeof(member->ty);
             }
             int total = type_sizeof(ty);
-            for (int p = offset; p < total; ++p) {
-                strbuilder_append_char(buf, 0);
+            initdata_append_zeros(buf, total - offset); // padding
+        } else {
+            unimplemented();
+        }
+    } else if (ty->kind == TypeKind_ptr) {
+        if (expr->kind == AstNodeKind_str_expr) {
+            char label[32];
+            sprintf(label, ".Lstr__%d", expr->as.str_expr->idx);
+            initdata_append_addr(buf, strdup(label));
+        } else if (expr->kind == AstNodeKind_ref_expr) {
+            if (expr->as.ref_expr->operand->kind != AstNodeKind_gvar) {
+                unimplemented();
             }
+            initdata_append_addr(buf, expr->as.ref_expr->operand->as.gvar->name);
+        } else if (expr->kind == AstNodeKind_gvar) {
+            initdata_append_addr(buf, expr->as.gvar->name);
         } else {
             unimplemented();
         }
     } else {
         int value = eval(expr);
         int size = type_sizeof(ty);
+        char bytes[8];
         for (int i = 0; i < size; ++i) {
-            strbuilder_append_char(buf, (value >> (i * 8)) & 0xff);
+            bytes[i] = (value >> (i * 8)) & 0xff;
         }
+        initdata_append_bytes(buf, bytes, size);
     }
+}
+
+InitData* eval_init_expr(AstNode* expr, Type* ty) {
+    InitData* buf = initdata_new();
+    do_eval_init_expr(buf, expr, ty);
+    return buf;
 }

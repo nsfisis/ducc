@@ -819,7 +819,6 @@ static void codegen_func(CodeGen* g, AstNode* ast) {
     g->current_func = NULL;
 }
 
-
 static void codegen_global_var(CodeGen* g, AstNode* var) {
     fprintf(g->out, "  %s:\n", var->as.gvar_decl->name);
     if (!var->as.gvar_decl->expr) {
@@ -827,33 +826,23 @@ static void codegen_global_var(CodeGen* g, AstNode* var) {
         return;
     }
 
-    if (var->ty->kind == TypeKind_ptr) {
-        if (var->as.gvar_decl->expr->kind == AstNodeKind_ref_expr) {
-            if (var->as.gvar_decl->expr->as.ref_expr->operand->kind != AstNodeKind_gvar) {
-                unimplemented();
-            }
-            fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.ref_expr->operand->as.gvar->name);
-        } else if (var->as.gvar_decl->expr->kind == AstNodeKind_gvar) {
-            fprintf(g->out, "    .quad %s\n", var->as.gvar_decl->expr->as.gvar->name);
-        } else {
-            unimplemented();
-        }
-        return;
-    }
     if (var->ty->kind == TypeKind_array && var->as.gvar_decl->expr->kind == AstNodeKind_str_expr) {
         const char* str = g->prog->str_literals[var->as.gvar_decl->expr->as.str_expr->idx - 1];
         fprintf(g->out, "    .string \"%s\"\n", str);
         return;
     }
 
-    StrBuilder* data_buf = calloc(1, sizeof(StrBuilder));
-    strbuilder_init(data_buf);
-    strbuilder_reserve(data_buf, type_sizeof(var->ty));
+    InitData* data = eval_init_expr(var->as.gvar_decl->expr, var->ty);
 
-    eval_init_expr(data_buf, var->as.gvar_decl->expr, var->ty);
-
-    for (size_t i = 0; i < data_buf->len; ++i) {
-        fprintf(g->out, "  .byte %d\n", (int)data_buf->buf[i]);
+    for (size_t i = 0; i < data->len; ++i) {
+        InitDataBlock* block = &data->blocks[i];
+        if (block->kind == InitDataBlockKind_addr) {
+            fprintf(g->out, "    .quad %s\n", block->as.addr.label);
+        } else {
+            for (size_t j = 0; j < block->as.bytes.len; ++j) {
+                fprintf(g->out, "    .byte %d\n", block->as.bytes.buf[j]);
+            }
+        }
     }
 }
 
