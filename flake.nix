@@ -2,7 +2,7 @@
   description = "Decidedly Unimplemented C compiler, a toy C compiler";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
     systems.url = "github:nix-systems/x86_64-linux";
 
@@ -31,10 +31,20 @@
         pkgs = import nixpkgs { inherit system; };
         treefmt = treefmt-nix.lib.evalModule pkgs ./treefmt.nix;
       in
+      let
+        version =
+          let
+            versionFileContent = builtins.readFile ./src/version.h;
+            matches = builtins.match ''.*DUCC_VERSION "([^"]+)".*'' versionFileContent;
+          in
+          builtins.head matches;
+      in
       {
+        formatter = treefmt.config.build.wrapper;
+
         packages.default = pkgs.stdenv.mkDerivation {
           pname = "ducc";
-          version = "0.4.0";
+          inherit version;
           src = ./.;
           # Disable some kinds of hardening to disable GCC optimization.
           # cf. https://nixos.wiki/wiki/C#Hardening_flags
@@ -64,8 +74,6 @@
             )"
           '';
         };
-
-        formatter = treefmt.config.build.wrapper;
       }
     );
 }

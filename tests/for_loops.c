@@ -38,16 +38,17 @@ int main() {
     ASSERT_EQ(10, sum);
 
     sum = 0;
-    for (i = 10; i < 15; ) {
+    for (i = 10; i < 15;) {
         sum = sum + i;
         i = i + 1;
     }
     ASSERT_EQ(60, sum);
 
     sum = 0;
-    for (i = 20; ; i = i + 1) {
+    for (i = 20;; i = i + 1) {
         sum = sum + i;
-        if (i == 25) break;
+        if (i == 25)
+            break;
     }
     ASSERT_EQ(135, sum);
 

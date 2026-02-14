@@ -141,11 +141,7 @@ typedef union {
     char b;
 } AnonU;
 
-typedef enum {
-    RED,
-    GREEN,
-    BLUE
-} AnonE;
+typedef enum { RED, GREEN, BLUE } AnonE;
 
 struct S_nested {
     struct {

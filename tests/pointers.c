@@ -114,8 +114,9 @@ int main() {
     "abc";
     "\"foo\"bar\\\n\"";
 
-    ASSERT_EQ_STR("defghijkl", "def" "ghi"
-    "jkl");
+    ASSERT_EQ_STR("defghijkl", "def"
+                               "ghi"
+                               "jkl");
 
     char* h = " hello,world" + 1;
     ASSERT_EQ('h', *h);
