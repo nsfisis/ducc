@@ -65,6 +65,7 @@ typedef struct Type {
 } Type;
 
 Type* type_new(TypeKind kind);
+Type* type_dup(Type* src);
 Type* type_new_ptr(Type* base);
 Type* type_new_array(Type* elem, int size);
 Type* type_new_static_string(int len);

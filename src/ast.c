@@ -88,6 +88,12 @@ Type* type_new(TypeKind kind) {
     return ty;
 }
 
+Type* type_dup(Type* src) {
+    Type* ty = malloc(sizeof(Type));
+    memcpy(ty, src, sizeof(Type));
+    return ty;
+}
+
 Type* type_new_ptr(Type* base) {
     Type* ty = type_new(TypeKind_ptr);
     ty->base = base;

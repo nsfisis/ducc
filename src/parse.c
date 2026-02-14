@@ -1209,15 +1209,12 @@ static Type* parse_function_declarator_suffix(Parser* p, Type* ty) {
     next_token(p); // skip '('
     AstNode* params;
 
-    // FIXME: save and restore ty->storage_class because it will be modified somewhere for some reason.
-    StorageClass FIXME_storage_class = ty->storage_class;
     if (consume_token_if(p, TokenKind_paren_r)) {
         params = ast_new_list(1);
     } else {
         params = parse_parameter_type_list(p);
         expect(p, TokenKind_paren_r);
     }
-    ty->storage_class = FIXME_storage_class;
 
     return type_new_func(ty, params);
 }
@@ -1693,7 +1690,7 @@ static Type* parse_declaration_specifiers(Parser* p) {
             }
             next_token(p);
             int typedef_idx = find_typedef(p, tok->value.string);
-            ty = p->typedefs->as.list->items[typedef_idx].ty;
+            ty = type_dup(p->typedefs->as.list->items[typedef_idx].ty);
             type_specifiers += TypeSpecifierMask_typedef_name;
         }
         // type-specifier-qualifier > type-qualifier
@@ -2047,7 +2044,7 @@ static Type* parse_specifier_qualifier_list(Parser* p) {
             }
             next_token(p);
             int typedef_idx = find_typedef(p, tok->value.string);
-            ty = p->typedefs->as.list->items[typedef_idx].ty;
+            ty = type_dup(p->typedefs->as.list->items[typedef_idx].ty);
             type_specifiers += TypeSpecifierMask_typedef_name;
         }
         // type-specifier-qualifier > type-qualifier
@@ -2075,6 +2072,7 @@ static Type* parse_specifier_qualifier_list(Parser* p) {
         ty = ty_;
     }
 
+    ty->storage_class = StorageClass_unspecified;
     return ty;
 }
 
