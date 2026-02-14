@@ -1,4 +1,5 @@
 #include <helpers.h>
+#include <stdarg.h>
 
 int sprintf(char*, const char*, ...);
 
@@ -99,6 +100,17 @@ int f10() {
     return 12345;
 }
 
+int sum(int n, ...) {
+    va_list args;
+    va_start(args, n);
+    int s = 0;
+    for (int i = 0; i < n; ++i) {
+        s += va_arg(args, int);
+    }
+    va_end(args);
+    return s;
+}
+
 // recursive functions
 int fib(int n) {
     if (n <= 1) {
@@ -153,6 +165,8 @@ int main() {
     ASSERT_EQ(6, fp3(1, 2, 3, 4, 5, 6));
     int (*fp4)(int, int, int, int, int, int, int, int, int, int, int) = f7;
     ASSERT_EQ(7, fp4(6, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10));
+
+    ASSERT_EQ(400, sum(5, 100, 90, 80, 70, 60));
 
     // recursive functions
     ASSERT_EQ(89, fib(10));
