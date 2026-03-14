@@ -18,7 +18,7 @@
 * `{ A |? S }*`: 1 or more repetitions of A separated by S, allowing optional trailing S
     * Equivalent to `{ A |? S }+?`
 * `( A )`: Grouping
-* `# ...`: Additional constraints
+* `/* ... */`: Additional constraints
 
 
 ## Expressions
@@ -429,10 +429,6 @@ translation-unit:
     { external-declaration }+
 
 external-declaration:
-    function-definition
-    declaration
-
-external-declaration:
     static_assert-declaration
     attribute-specifier-sequence ';'
     attribute-specifier-sequence function-definition-or-declaration-rest
@@ -441,6 +437,6 @@ external-declaration:
 function-definition-or-declaration-rest:
     declaration-specifiers init-declarator-list ';'
     declaration-specifiers init-declarator-list compound-stmt
-        # Each item of init-declarator-list must not have initializer.
-        # The length of init-declarator-list must be one.
+        /* Each item of init-declarator-list must not have initializer. */
+        /* The length of init-declarator-list must be one. */
 ```

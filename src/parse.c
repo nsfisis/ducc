@@ -2607,8 +2607,26 @@ static AstNode* parse_return_stmt(Parser* p) {
     return ast_new_return_stmt(expr);
 }
 
+// static_assert-declaration:
+//     'static_assert' '(' constant-expr ( ',' string-literal )? ')' ';'
+static AstNode* parse_static_assert_declaration(Parser* p) {
+    expect(p, TokenKind_keyword_static_assert);
+    expect(p, TokenKind_paren_l);
+    AstNode* predicate = parse_constant_expr(p);
+    Token* message = NULL;
+    if (consume_token_if(p, TokenKind_comma)) {
+        message = expect(p, TokenKind_literal_str);
+    }
+    // TODO: validate the assertion.
+    (void)predicate;
+    (void)message;
+    expect(p, TokenKind_paren_r);
+    expect(p, TokenKind_semicolon);
+    return NULL;
+}
+
 // external-declaration:
-//     TODO static_assert-declaration
+//     static_assert-declaration
 //     TODO attribute-specifier-sequence ';'
 //     TODO attribute-specifier-sequence function-definition-or-declaration-rest
 //     function-definition-or-declaration-rest
@@ -2617,6 +2635,10 @@ static AstNode* parse_return_stmt(Parser* p) {
 //     declaration-specifiers init-declarator-list ';'
 //     declaration-specifiers init-declarator-list compound-stmt
 static AstNode* parse_external_declaration(Parser* p) {
+    if (peek_token(p)->kind == TokenKind_keyword_static_assert) {
+        return parse_static_assert_declaration(p);
+    }
+
     Type* ty = parse_declaration_specifiers(p);
     if (consume_token_if(p, TokenKind_semicolon)) {
         // Type declaration.
