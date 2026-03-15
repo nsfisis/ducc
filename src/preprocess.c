@@ -296,17 +296,18 @@ typedef struct {
     int pos;
     MacroArray* macros;
     int include_depth;
-    StrArray include_paths;
+    StrArray* include_paths;
     StrArray* included_files;
     bool generate_system_deps;
     bool generate_user_deps;
 } Preprocessor;
 
-static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files,
-                                 StrArray* user_include_dirs, bool generate_system_deps, bool generate_user_deps);
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* include_paths,
+                                 StrArray* included_files, bool generate_system_deps, bool generate_user_deps);
 
 static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, MacroArray* macros,
-                                      StrArray* included_files, bool generate_system_deps, bool generate_user_deps) {
+                                      StrArray* include_paths, StrArray* included_files, bool generate_system_deps,
+                                      bool generate_user_deps) {
     if (include_depth >= 32) {
         fatal_error("include depth limit exceeded");
     }
@@ -315,7 +316,7 @@ static Preprocessor* preprocessor_new(TokenArray* pp_tokens, int include_depth, 
     pp->pp_tokens = pp_tokens;
     pp->macros = macros;
     pp->include_depth = include_depth;
-    strings_init(&pp->include_paths);
+    pp->include_paths = include_paths;
     pp->included_files = included_files;
     pp->generate_system_deps = generate_system_deps;
     pp->generate_user_deps = generate_user_deps;
@@ -385,10 +386,6 @@ static void undef_macro(Preprocessor* pp, int idx) {
     // TODO: Can predefined macro like __FILE__ be undefined?
 }
 
-static void add_include_path(Preprocessor* pp, const char* include_path) {
-    strings_push(&pp->include_paths, include_path);
-}
-
 static void skip_whitespaces(Preprocessor* pp) {
     while (!pp_eof(pp) && consume_pp_token_if(pp, TokenKind_whitespace))
         ;
@@ -431,9 +428,9 @@ static const char* resolve_include_name(Preprocessor* pp, const Token* include_n
         sprintf(buf, "%s/%.*s", current_dir, (int)(strlen(include_name) - 2), include_name + 1);
         return buf;
     } else {
-        for (size_t i = 0; i < pp->include_paths.len; ++i) {
-            char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths.data[i]) + 1, sizeof(char));
-            sprintf(buf, "%s/%.*s", pp->include_paths.data[i], (int)(strlen(include_name) - 2), include_name + 1);
+        for (size_t i = 0; i < pp->include_paths->len; ++i) {
+            char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths->data[i]) + 1, sizeof(char));
+            sprintf(buf, "%s/%.*s", pp->include_paths->data[i], (int)(strlen(include_name) - 2), include_name + 1);
             if (access(buf, F_OK | R_OK) == 0) {
                 return buf;
             }
@@ -445,9 +442,9 @@ static const char* resolve_include_name(Preprocessor* pp, const Token* include_n
 static const char* resolve_next_include_name(Preprocessor* pp, const Token* include_name_token) {
     const char* include_name = include_name_token->value.string;
     char* current_filename = strdup(include_name_token->loc.filename);
-    for (size_t i = 0; i < pp->include_paths.len; ++i) {
-        char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths.data[i]) + 1, sizeof(char));
-        sprintf(buf, "%s/%.*s", pp->include_paths.data[i], (int)(strlen(include_name) - 2), include_name + 1);
+    for (size_t i = 0; i < pp->include_paths->len; ++i) {
+        char* buf = calloc(strlen(include_name) - 2 + 1 + strlen(pp->include_paths->data[i]) + 1, sizeof(char));
+        sprintf(buf, "%s/%.*s", pp->include_paths->data[i], (int)(strlen(include_name) - 2), include_name + 1);
         if (strcmp(buf, current_filename) == 0) {
             // #include_next skips the same file.
             continue;
@@ -503,8 +500,8 @@ static void expand_include_directive(Preprocessor* pp, const char* include_name,
                     original_include_name_tok->loc.line, token_stringify(original_include_name_tok));
     }
 
-    TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros, pp->included_files,
-                                                  NULL, pp->generate_system_deps, pp->generate_user_deps);
+    TokenArray* include_pp_tokens = do_preprocess(include_source, pp->include_depth + 1, pp->macros, pp->include_paths,
+                                                  pp->included_files, pp->generate_system_deps, pp->generate_user_deps);
     tokens_pop(include_pp_tokens); // pop EOF token
     pp->pos = insert_pp_tokens(pp, pp->pos, include_pp_tokens);
 }
@@ -690,8 +687,8 @@ static int expand_macro(Preprocessor* pp, bool skip_newline, MacroExpansionConte
 static void expand_macro_arg(Preprocessor* pp, MacroArg* arg, bool skip_newline, MacroExpansionContext* ctx) {
     tokens_push_new(&arg->tokens)->kind = TokenKind_eof;
 
-    Preprocessor* pp2 = preprocessor_new(&arg->tokens, pp->include_depth, pp->macros, pp->included_files,
-                                         pp->generate_system_deps, pp->generate_user_deps);
+    Preprocessor* pp2 = preprocessor_new(&arg->tokens, pp->include_depth, pp->macros, pp->include_paths,
+                                         pp->included_files, pp->generate_system_deps, pp->generate_user_deps);
 
     size_t arg_token_count = arg->tokens.len;
     size_t processed_token_count = 0;
@@ -1468,36 +1465,38 @@ static char* get_ducc_include_path() {
     return buf;
 }
 
-static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* included_files,
-                                 StrArray* user_include_dirs, bool generate_system_deps, bool generate_user_deps) {
+static TokenArray* do_preprocess(InFile* src, int depth, MacroArray* macros, StrArray* include_paths,
+                                 StrArray* included_files, bool generate_system_deps, bool generate_user_deps) {
     TokenArray* pp_tokens = tokenize(src);
-    Preprocessor* pp =
-        preprocessor_new(pp_tokens, depth, macros, included_files, generate_system_deps, generate_user_deps);
-
-    // Ducc's built-in headers has highest priority.
-    add_include_path(pp, get_ducc_include_path());
-
-    if (user_include_dirs) {
-        for (size_t i = 0; i < user_include_dirs->len; ++i) {
-            add_include_path(pp, user_include_dirs->data[i]);
-        }
-    }
-    add_include_path(pp, "/usr/local/include");
-    add_include_path(pp, "/usr/include/x86_64-linux-gnu");
-    add_include_path(pp, "/usr/include");
+    Preprocessor* pp = preprocessor_new(pp_tokens, depth, macros, include_paths, included_files, generate_system_deps,
+                                        generate_user_deps);
 
     preprocess_preprocessing_file(pp);
     remove_pp_directives(pp);
     return pp->pp_tokens;
 }
 
-TokenArray* preprocess(InFile* src, StrArray* included_files, StrArray* user_include_dirs, StrArray* user_defines,
+TokenArray* preprocess(InFile* src, StrArray* user_defines, StrArray* user_include_dirs, StrArray* included_files,
                        bool generate_system_deps, bool generate_user_deps) {
     MacroArray* macros = macros_new();
     add_predefined_macros(macros);
     add_user_defines(macros, user_defines);
     strings_push(included_files, src->loc.filename);
-    return do_preprocess(src, 0, macros, included_files, user_include_dirs, generate_system_deps, generate_user_deps);
+
+    StrArray* include_paths = calloc(1, sizeof(StrArray));
+    strings_init(include_paths);
+
+    // Ducc's built-in headers has highest priority.
+    strings_push(include_paths, get_ducc_include_path());
+
+    for (size_t i = 0; i < user_include_dirs->len; ++i) {
+        strings_push(include_paths, user_include_dirs->data[i]);
+    }
+    strings_push(include_paths, "/usr/local/include");
+    strings_push(include_paths, "/usr/include/x86_64-linux-gnu");
+    strings_push(include_paths, "/usr/include");
+
+    return do_preprocess(src, 0, macros, include_paths, included_files, generate_system_deps, generate_user_deps);
 }
 
 void concat_adjacent_string_literals(TokenArray* pp_tokens) {

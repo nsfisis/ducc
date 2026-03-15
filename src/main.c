@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     StrArray included_files;
     strings_init(&included_files);
 
-    TokenArray* pp_tokens = preprocess(source, &included_files, &cli_args->include_dirs, &cli_args->defines,
+    TokenArray* pp_tokens = preprocess(source, &cli_args->defines, &cli_args->include_dirs, &included_files,
                                        cli_args->generate_system_deps, cli_args->generate_user_deps);
 
     if (cli_args->preprocess_only) {
