@@ -310,6 +310,9 @@ typedef struct {
 
 typedef struct {
     const char* name;
+    bool is_bitfield;
+    int bitfield_offset;
+    int bitfield_width;
 } StructMemberNode;
 
 typedef struct {
