@@ -1894,7 +1894,6 @@ static AstNode* parse_member_declaration_list(Parser* p) {
 static AstNode* parse_member_declaration(Parser* p) {
     Type* base_ty = parse_specifier_qualifier_list(p);
 
-    AstNode* decls = NULL;
     if (consume_token_if(p, TokenKind_semicolon)) {
         char* name = generate_anonymous_name(p);
         AstNode* decls = ast_new_list(1);
@@ -1905,16 +1904,8 @@ static AstNode* parse_member_declaration(Parser* p) {
         ast_append(decls, member);
         return decls;
     }
-    decls = parse_member_declarator_list(p, base_ty);
-
+    AstNode* decls = parse_member_declarator_list(p, base_ty);
     expect(p, TokenKind_semicolon);
-
-    for (int i = 0; i < decls->as.list->len; i++) {
-        const char* member_name = decls->as.list->items[i].as.declarator->name;
-        decls->as.list->items[i].kind = AstNodeKind_struct_member;
-        decls->as.list->items[i].as.struct_member = calloc(1, sizeof(StructMemberNode));
-        decls->as.list->items[i].as.struct_member->name = member_name;
-    }
     return decls;
 }
 
@@ -2115,8 +2106,9 @@ static AstNode* parse_member_declarator(Parser* p, Type* base_ty) {
             fatal_error("parse_member_declarator: invalid bit-field");
         int bit_width;
         memcpy(&bit_width, bit_width_evaluated->blocks[0].as.bytes.buf, sizeof(int));
-        (void)bit_width;
-        // TODO: implement bit-fields.
+        decl->as.struct_member.is_bitfield = true;
+        decl->as.struct_member.bitfield_offset = -1; // TODO
+        decl->as.struct_member.bitfield_width = bit_width;
     }
     return decl;
 }
