@@ -74,3 +74,9 @@ function test_example() {
 
     diff -u expected output
 }
+
+function test_example_compile_only() {
+    filename="../../../examples/$1.c"
+
+    "$ducc" "${CFLAGS:-}" -I ../../../tests -o a.out "$filename"
+}

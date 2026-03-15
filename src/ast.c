@@ -662,8 +662,15 @@ int type_sizeof_struct(Type* ty) {
 
     for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
         AstNode* member = &members_of(ty)->as.list->items[i];
-        int size = type_sizeof(member->ty);
-        int align = type_alignof(member->ty);
+        int size, align;
+        if (member->as.struct_member->is_bitfield) {
+            // TODO
+            size = member->as.struct_member->bitfield_width / 8;
+            align = 1;
+        } else {
+            size = type_sizeof(member->ty);
+            align = type_alignof(member->ty);
+        }
 
         next_offset = to_aligned(next_offset, align);
         next_offset += size;
@@ -734,11 +741,23 @@ int type_offsetof(Type* ty, const char* name) {
 
     for (int i = 0; i < members_of(ty)->as.list->len; ++i) {
         AstNode* member = &members_of(ty)->as.list->items[i];
-        int size = type_sizeof(member->ty);
-        int align = type_alignof(member->ty);
+        int size, align;
+        if (member->as.struct_member->is_bitfield) {
+            // TODO
+            size = member->as.struct_member->bitfield_width / 8;
+            align = 1;
+        } else {
+            size = type_sizeof(member->ty);
+            align = type_alignof(member->ty);
+        }
 
         next_offset = to_aligned(next_offset, align);
         if (strcmp(member->as.struct_member->name, name) == 0) {
+            if (member->as.struct_member->is_bitfield) {
+                // C23: 7.21.4
+                // if the specified member is a bit-field, the behavior is undefined.
+                fatal_error("type_offsetof: the result of offsetof(bit-field) is undefined");
+            }
             return next_offset;
         }
         next_offset += size;

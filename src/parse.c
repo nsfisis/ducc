@@ -1898,7 +1898,6 @@ static AstNode* parse_member_declaration_list(Parser* p) {
 static AstNode* parse_member_declaration(Parser* p) {
     Type* base_ty = parse_specifier_qualifier_list(p);
 
-    AstNode* decls = NULL;
     if (consume_token_if(p, TokenKind_semicolon)) {
         char* name = generate_anonymous_name(p);
         AstNode* decls = ast_new_list(1);
@@ -1909,16 +1908,8 @@ static AstNode* parse_member_declaration(Parser* p) {
         ast_append(decls, member);
         return decls;
     }
-    decls = parse_member_declarator_list(p, base_ty);
-
+    AstNode* decls = parse_member_declarator_list(p, base_ty);
     expect(p, TokenKind_semicolon);
-
-    for (int i = 0; i < decls->as.list->len; i++) {
-        const char* member_name = decls->as.list->items[i].as.declarator->name;
-        decls->as.list->items[i].kind = AstNodeKind_struct_member;
-        decls->as.list->items[i].as.struct_member = calloc(1, sizeof(StructMemberNode));
-        decls->as.list->items[i].as.struct_member->name = member_name;
-    }
     return decls;
 }
 
@@ -2104,9 +2095,37 @@ static AstNode* parse_member_declarator_list(Parser* p, Type* base_ty) {
 
 // member-declarator:
 //     declarator
-//     TODO declarator? ':' constant-expr
+//     declarator ':' constant-expr
+//     TODO ':' constant-expr
 static AstNode* parse_member_declarator(Parser* p, Type* base_ty) {
-    return parse_declarator(p, base_ty);
+    AstNode* decl = parse_declarator(p, base_ty);
+
+    const char* name = decl->as.declarator->name;
+    decl->kind = AstNodeKind_struct_member;
+    decl->as.struct_member = calloc(1, sizeof(StructMemberNode));
+    decl->as.struct_member->name = name;
+
+    if (consume_token_if(p, TokenKind_colon)) {
+        AstNode* bit_width_node = parse_constant_expr(p);
+        InitData* bit_width_evaluated = eval_init_expr(bit_width_node, type_new(TypeKind_int));
+        if (bit_width_evaluated->len != 1)
+            fatal_error("parse_member_declarator: invalid bit-field");
+        if (bit_width_evaluated->blocks[0].kind != InitDataBlockKind_bytes)
+            fatal_error("parse_member_declarator: invalid bit-field");
+        if (bit_width_evaluated->blocks[0].as.bytes.len != sizeof(int))
+            fatal_error("parse_member_declarator: invalid bit-field");
+        int bit_width;
+        memcpy(&bit_width, bit_width_evaluated->blocks[0].as.bytes.buf, sizeof(int));
+        if (bit_width < 0)
+            fatal_error("parse_member_declarator: invalid bit-field");
+        if (bit_width % 8 != 0)
+            fatal_error("parse_member_declarator: unimplemented");
+        decl->as.struct_member->is_bitfield = true;
+        decl->as.struct_member->bitfield_offset = -1; // TODO
+        decl->as.struct_member->bitfield_width = bit_width;
+    }
+
+    return decl;
 }
 
 // enum-specifier:
