@@ -1311,11 +1311,8 @@ static AstNode* parse_declaration(Parser* p) {
         return parse_static_assert_declaration(p);
     }
 
-    // TODO
-    consume_token_if(p, TokenKind_keyword_static);
-
-    Type* base_ty = parse_type_name(p);
-    AstNode* decls = parse_init_declarator_list(p, base_ty);
+    Type* ty = parse_declaration_specifiers(p);
+    AstNode* decls = parse_init_declarator_list(p, ty);
     expect(p, TokenKind_semicolon);
     process_declarations(p, &decls->as.list->items[decls->as.list->len - 1]);
     return decls;
