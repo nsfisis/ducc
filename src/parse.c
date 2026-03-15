@@ -379,8 +379,8 @@ static Type* parse_function_declarator_suffix(Parser*, Type*);
 static AstNode* parse_direct_declarator(Parser*, Type*);
 static AstNode* parse_declarator(Parser*, Type*);
 static AstNode* parse_init_declarator_list(Parser*, Type*);
-static AstNode* parse_var_decl(Parser*);
-static AstNode* parse_func_def(Parser*, AstNode*);
+static AstNode* parse_declaration(Parser*);
+static AstNode* parse_function_definition(Parser*, AstNode*);
 static Type* parse_declaration_specifiers(Parser*);
 static AstNode* parse_init_declarator(Parser*, Type*);
 static Type* parse_struct_specifier(Parser*);
@@ -404,20 +404,23 @@ static AstNode* parse_attribute(Parser*);
 static AstNode* parse_attribute_argument_clause(Parser*);
 static AstNode* parse_balanced_token_sequence(Parser*);
 static AstNode* parse_stmt(Parser*);
-static AstNode* parse_empty_stmt(Parser*);
-static AstNode* parse_block_stmt(Parser*);
+static AstNode* parse_unlabaled_stmt(Parser*);
+static AstNode* parse_compound_stmt(Parser*);
+static AstNode* parse_block_item(Parser*);
 static AstNode* parse_expr_stmt(Parser*);
 static AstNode* parse_if_stmt(Parser*);
 static AstNode* parse_switch_stmt(Parser*);
 static AstNode* parse_while_stmt(Parser*);
 static AstNode* parse_do_while_stmt(Parser*);
 static AstNode* parse_for_stmt(Parser*);
+static AstNode* parse_goto_stmt(Parser*);
 static AstNode* parse_continue_stmt(Parser*);
 static AstNode* parse_break_stmt(Parser*);
 static AstNode* parse_return_stmt(Parser*);
+static AstNode* parse_static_assert_declaration(Parser*);
 static AstNode* parse_external_declaration(Parser*);
 static int eval(AstNode*);
-static void declare_func_or_var(Parser*, AstNode*);
+static void process_declarations(Parser*, AstNode*);
 
 static Token* parse_ident(Parser* p) {
     return expect(p, TokenKind_ident);
@@ -1293,21 +1296,28 @@ static AstNode* parse_init_declarator_list(Parser* p, Type* ty) {
         }
         // Immediately declare to allow following initializer to access previous variables. For example,
         //   int a = 1, b = a;
-        declare_func_or_var(p, &list->as.list->items[list->as.list->len - 1]);
+        process_declarations(p, &list->as.list->items[list->as.list->len - 1]);
     }
     return list;
 }
 
 // declaration:
+//     static_assert-declaration
+//     TODO attribute-specifier-sequence ';'
+//     TODO attribute-specifier-sequence declaration-specifiers init-declarator-list ';'
 //     declaration-specifiers init-declarator-list ';'
-static AstNode* parse_var_decl(Parser* p) {
+static AstNode* parse_declaration(Parser* p) {
+    if (peek_token(p)->kind == TokenKind_keyword_static_assert) {
+        return parse_static_assert_declaration(p);
+    }
+
     // TODO
     consume_token_if(p, TokenKind_keyword_static);
 
     Type* base_ty = parse_type_name(p);
     AstNode* decls = parse_init_declarator_list(p, base_ty);
     expect(p, TokenKind_semicolon);
-    declare_func_or_var(p, &decls->as.list->items[decls->as.list->len - 1]);
+    process_declarations(p, &decls->as.list->items[decls->as.list->len - 1]);
     return decls;
 }
 
@@ -1341,7 +1351,7 @@ static void create_local_initializer(AstNode* list, AstNode* lhs, AstNode* init,
     }
 }
 
-static void declare_func_or_var(Parser* p, AstNode* decl) {
+static void process_declarations(Parser* p, AstNode* decl) {
     const char* name = decl->as.declarator->name;
     if (decl->ty->kind == TypeKind_func) {
         // TODO: refactor
@@ -1351,7 +1361,7 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
         decl->kind = AstNodeKind_func_decl;
     } else {
         if (type_is_unsized(decl->ty)) {
-            fatal_error("declare_func_or_var: invalid type for variable");
+            fatal_error("process_declarations: invalid type for variable");
         }
 
         if (p->scope) {
@@ -1381,7 +1391,7 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
         } else {
             if (find_gvar(p, name) != -1) {
                 // TODO
-                // fatal_error("declare_func_or_var: %s redeclared", name);
+                // fatal_error("process_declarations: %s redeclared", name);
             }
             // TODO: refactor
             Type* base_ty = decl->ty;
@@ -1416,9 +1426,11 @@ static void declare_func_or_var(Parser* p, AstNode* decl) {
     }
 }
 
-static AstNode* parse_func_def(Parser* p, AstNode* decls) {
+// function-definition:
+//     declaration-specifiers init-declarator-list compound-stmt
+static AstNode* parse_function_definition(Parser* p, AstNode* decls) {
     if (decls->as.list->len != 1) {
-        fatal_error("parse_func_def: invalid syntax");
+        fatal_error("parse_function_definition: invalid syntax");
     }
 
     Type* ty = decls->as.list->items[0].ty;
@@ -1434,7 +1446,7 @@ static AstNode* parse_func_def(Parser* p, AstNode* decls) {
     register_func(p, name, ty);
     enter_func(p);
     register_params(p, params);
-    AstNode* body = parse_block_stmt(p);
+    AstNode* body = parse_compound_stmt(p);
     leave_func(p);
 
     int stack_size = 0;
@@ -1447,8 +1459,7 @@ static AstNode* parse_func_def(Parser* p, AstNode* decls) {
     return ast_new_func_def(name, ty, params, body, stack_size);
 }
 
-void parse_typedef_decl(Parser* p, AstNode* decls) {
-    expect(p, TokenKind_semicolon);
+static void process_typedefs(Parser* p, AstNode* decls) {
     for (int i = 0; i < decls->as.list->len; ++i) {
         AstNode* decl = &decls->as.list->items[i];
 
@@ -2365,18 +2376,50 @@ static AstNode* parse_balanced_token_sequence(Parser* p) {
     return NULL;
 }
 
-// stmt:
-//     labeled-stmt
-//     unlabeled-stmt
-//
-// labeled-stmt:
-//     label stmt
-//
+// unlabaled-stmt:
+//     attribute-specifier-sequence? compound-stmt
+//     attribute-specifier-sequence? if-stmt
+//     attribute-specifier-sequence? switch-stmt
+//     attribute-specifier-sequence? while-stmt
+//     attribute-specifier-sequence? do-while-stmt
+//     attribute-specifier-sequence? for-stmt
+//     attribute-specifier-sequence? goto-stmt
+//     attribute-specifier-sequence? continue-stmt
+//     attribute-specifier-sequence? break-stmt
+//     attribute-specifier-sequence? return-stmt
+//     attribute-specifier-sequence? expr-stmt
+static AstNode* parse_unlabaled_stmt(Parser* p) {
+    switch (peek_token(p)->kind) {
+    case TokenKind_brace_l:
+        return parse_compound_stmt(p);
+    case TokenKind_keyword_if:
+        return parse_if_stmt(p);
+    case TokenKind_keyword_switch:
+        return parse_switch_stmt(p);
+    case TokenKind_keyword_while:
+        return parse_while_stmt(p);
+    case TokenKind_keyword_do:
+        return parse_do_while_stmt(p);
+    case TokenKind_keyword_for:
+        return parse_for_stmt(p);
+    case TokenKind_keyword_goto:
+        return parse_goto_stmt(p);
+    case TokenKind_keyword_continue:
+        return parse_continue_stmt(p);
+    case TokenKind_keyword_break:
+        return parse_break_stmt(p);
+    case TokenKind_keyword_return:
+        return parse_return_stmt(p);
+    default:
+        return parse_expr_stmt(p);
+    }
+}
+
 // label:
 //     TODO attribute-specifier-sequence? identifier ':'
 //     TODO attribute-specifier-sequence? 'case' constant-expr ':'
 //     TODO attribute-specifier-sequence? 'default' ':'
-static AstNode* parse_stmt(Parser* p) {
+static AstNode* parse_label(Parser* p) {
     Token* t = peek_token(p);
 
     if (t->kind == TokenKind_keyword_case) {
@@ -2386,74 +2429,62 @@ static AstNode* parse_stmt(Parser* p) {
         expect(p, TokenKind_keyword_case);
         AstNode* value = parse_constant_expr(p);
         expect(p, TokenKind_colon);
-        AstNode* stmt = parse_stmt(p);
-
-        return ast_new_case_label(eval(value), stmt);
+        return ast_new_case_label(eval(value), ast_new_nop());
     } else if (t->kind == TokenKind_keyword_default) {
         if (!p->current_switch) {
             fatal_error("%s:%d: 'default' label not within a switch statement", t->loc.filename, t->loc.line);
         }
         expect(p, TokenKind_keyword_default);
         expect(p, TokenKind_colon);
-        AstNode* stmt = parse_stmt(p);
-
-        return ast_new_default_label(stmt);
-    } else if (t->kind == TokenKind_keyword_return) {
-        return parse_return_stmt(p);
-    } else if (t->kind == TokenKind_keyword_if) {
-        return parse_if_stmt(p);
-    } else if (t->kind == TokenKind_keyword_switch) {
-        return parse_switch_stmt(p);
-    } else if (t->kind == TokenKind_keyword_for) {
-        return parse_for_stmt(p);
-    } else if (t->kind == TokenKind_keyword_while) {
-        return parse_while_stmt(p);
-    } else if (t->kind == TokenKind_keyword_do) {
-        return parse_do_while_stmt(p);
-    } else if (t->kind == TokenKind_keyword_break) {
-        return parse_break_stmt(p);
-    } else if (t->kind == TokenKind_keyword_continue) {
-        return parse_continue_stmt(p);
-    } else if (t->kind == TokenKind_keyword_goto) {
-        expect(p, TokenKind_keyword_goto);
-        Token* label_token = expect(p, TokenKind_ident);
-        expect(p, TokenKind_semicolon);
-
-        return ast_new_goto_stmt(label_token->value.string);
-    } else if (t->kind == TokenKind_brace_l) {
-        return parse_block_stmt(p);
-    } else if (t->kind == TokenKind_semicolon) {
-        return parse_empty_stmt(p);
-    } else if (is_type_token(p, t)) {
-        return parse_var_decl(p);
-    } else if (t->kind == TokenKind_ident && peek_token2(p)->kind == TokenKind_colon) {
-        // Label statement
+        return ast_new_default_label(ast_new_nop());
+    } else {
+        // identifier ':'
         Token* label_token = expect(p, TokenKind_ident);
         expect(p, TokenKind_colon);
-        AstNode* stmt = parse_stmt(p);
-
-        return ast_new_label_stmt(label_token->value.string, stmt);
-    } else {
-        return parse_expr_stmt(p);
+        return ast_new_label_stmt(label_token->value.string, ast_new_nop());
     }
 }
 
-static AstNode* parse_empty_stmt(Parser* p) {
-    consume_token_if(p, TokenKind_semicolon);
-    return ast_new_nop();
+static bool is_label_token(Parser* p) {
+    Token* t = peek_token(p);
+    return t->kind == TokenKind_keyword_case || t->kind == TokenKind_keyword_default ||
+           (t->kind == TokenKind_ident && peek_token2(p)->kind == TokenKind_colon);
+}
+
+// stmt:
+//     label stmt
+//     unlabaled-stmt
+static AstNode* parse_stmt(Parser* p) {
+    if (is_label_token(p)) {
+        AstNode* label = parse_label(p);
+        AstNode* stmt = parse_stmt(p);
+        switch (label->kind) {
+        case AstNodeKind_case_label:
+            label->as.case_label->body = stmt;
+            break;
+        case AstNodeKind_default_label:
+            label->as.default_label->body = stmt;
+            break;
+        case AstNodeKind_label_stmt:
+            label->as.label_stmt->body = stmt;
+            break;
+        default:
+            unreachable();
+            break;
+        }
+        return label;
+    }
+    return parse_unlabaled_stmt(p);
 }
 
 // compound-stmt:
-//     '{' block-item-list? '}'
-//
-// block-item-list:
-//     { block-item }+
-static AstNode* parse_block_stmt(Parser* p) {
+//     '{' { block-item }* '}'
+static AstNode* parse_compound_stmt(Parser* p) {
     AstNode* list = ast_new_list(4);
     expect(p, TokenKind_brace_l);
     enter_scope(p);
     while (peek_token(p)->kind != TokenKind_brace_r) {
-        AstNode* stmt = parse_stmt(p);
+        AstNode* stmt = parse_block_item(p);
         ast_append(list, stmt);
     }
     leave_scope(p);
@@ -2461,15 +2492,35 @@ static AstNode* parse_block_stmt(Parser* p) {
     return list;
 }
 
+// block-item:
+//     declaration
+//     unlabaled-stmt
+//     label
+static AstNode* parse_block_item(Parser* p) {
+    Token* t = peek_token(p);
+
+    if (t->kind == TokenKind_keyword_static_assert || is_type_token(p, t)) {
+        return parse_declaration(p);
+    } else if (is_label_token(p)) {
+        return parse_label(p);
+    } else {
+        return parse_unlabaled_stmt(p);
+    }
+}
+
 // expr-stmt:
 //     TODO attribute-specifier-sequence? expr? ';'
 static AstNode* parse_expr_stmt(Parser* p) {
+    if (consume_token_if(p, TokenKind_semicolon)) {
+        return ast_new_nop();
+    }
+
     AstNode* e = parse_expr(p);
     expect(p, TokenKind_semicolon);
     return ast_new_expr_stmt(e);
 }
 
-// selection-stmt:
+// if-stmt:
 //     'if' '(' expr ')' stmt ( 'else' stmt )?
 static AstNode* parse_if_stmt(Parser* p) {
     expect(p, TokenKind_keyword_if);
@@ -2485,7 +2536,7 @@ static AstNode* parse_if_stmt(Parser* p) {
     return ast_new_if_stmt(cond, then_body, else_body);
 }
 
-// selection-stmt:
+// switch-stmt:
 //     'switch' '(' expr ')' stmt
 static AstNode* parse_switch_stmt(Parser* p) {
     expect(p, TokenKind_keyword_switch);
@@ -2510,7 +2561,7 @@ static AstNode* parse_switch_stmt(Parser* p) {
     return list;
 }
 
-// iteration-stmt:
+// while-stmt:
 //     'while' '(' expr ')' stmt
 static AstNode* parse_while_stmt(Parser* p) {
     expect(p, TokenKind_keyword_while);
@@ -2521,7 +2572,7 @@ static AstNode* parse_while_stmt(Parser* p) {
     return ast_new_for_stmt(NULL, cond, NULL, body);
 }
 
-// iteration-stmt:
+// do-while-stmt:
 //     'do' stmt 'while' '(' expr ')' ';'
 static AstNode* parse_do_while_stmt(Parser* p) {
     expect(p, TokenKind_keyword_do);
@@ -2535,7 +2586,7 @@ static AstNode* parse_do_while_stmt(Parser* p) {
     return ast_new_do_while_stmt(cond, body);
 }
 
-// iteration-stmt:
+// for-stmt:
 //     'for' '(' expr? ';' expr? ';' expr? ')' stmt
 //     'for' '(' declaration expr? ';' expr? ')' stmt
 static AstNode* parse_for_stmt(Parser* p) {
@@ -2547,7 +2598,7 @@ static AstNode* parse_for_stmt(Parser* p) {
     enter_scope(p);
     if (peek_token(p)->kind != TokenKind_semicolon) {
         if (is_type_token(p, peek_token(p))) {
-            AstNode* decls = parse_var_decl(p);
+            AstNode* decls = parse_declaration(p);
             AstNode* initializers = ast_new_list(1);
             for (int i = 0; i < decls->as.list->len; i++) {
                 AstNode* item = &decls->as.list->items[i];
@@ -2578,7 +2629,16 @@ static AstNode* parse_for_stmt(Parser* p) {
     return ast_new_for_stmt(init, cond, update, body);
 }
 
-// jump-stmt:
+// goto-stmt:
+//     'goto' identifier ';'
+static AstNode* parse_goto_stmt(Parser* p) {
+    expect(p, TokenKind_keyword_goto);
+    Token* label_token = expect(p, TokenKind_ident);
+    expect(p, TokenKind_semicolon);
+    return ast_new_goto_stmt(label_token->value.string);
+}
+
+// continue-stmt:
 //     'continue' ';'
 static AstNode* parse_continue_stmt(Parser* p) {
     expect(p, TokenKind_keyword_continue);
@@ -2586,7 +2646,7 @@ static AstNode* parse_continue_stmt(Parser* p) {
     return ast_new_continue_stmt();
 }
 
-// jump-stmt:
+// break-stmt:
 //     'break' ';'
 static AstNode* parse_break_stmt(Parser* p) {
     expect(p, TokenKind_keyword_break);
@@ -2594,7 +2654,7 @@ static AstNode* parse_break_stmt(Parser* p) {
     return ast_new_break_stmt();
 }
 
-// jump-stmt:
+// return-stmt:
 //     'return' expr? ';'
 static AstNode* parse_return_stmt(Parser* p) {
     expect(p, TokenKind_keyword_return);
@@ -2648,15 +2708,15 @@ static AstNode* parse_external_declaration(Parser* p) {
     AstNode* decls = parse_init_declarator_list(p, ty);
 
     if (peek_token(p)->kind == TokenKind_brace_l) {
-        return parse_func_def(p, decls);
+        return parse_function_definition(p, decls);
     }
 
+    expect(p, TokenKind_semicolon);
     if (ty->storage_class == StorageClass_typedef) {
-        parse_typedef_decl(p, decls);
+        process_typedefs(p, decls);
         return NULL;
     } else {
-        expect(p, TokenKind_semicolon);
-        declare_func_or_var(p, &decls->as.list->items[decls->as.list->len - 1]);
+        process_declarations(p, &decls->as.list->items[decls->as.list->len - 1]);
         return decls;
     }
 }

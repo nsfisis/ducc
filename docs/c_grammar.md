@@ -375,49 +375,63 @@ balanced-token:
 
 ```
 stmt:
-    labeled-stmt
-    unlabaled-stmt
-
-unlabaled-stmt:
-    expr-stmt
-    attribute-specifier-sequence? ( primary-block / jump-stmt )
-
-primary-block:
-    compound-stmt
-    selection-stmt
-    iteration-stmt
+    { label }* unlabaled-stmt
 
 label:
     attribute-specifier-sequence? identifier ':'
     attribute-specifier-sequence? 'case' constant-expr ':'
     attribute-specifier-sequence? 'default' ':'
 
-labeled-stmt:
-    label stmt
+unlabaled-stmt:
+    attribute-specifier-sequence? compound-stmt
+    attribute-specifier-sequence? if-stmt
+    attribute-specifier-sequence? switch-stmt
+    attribute-specifier-sequence? while-stmt
+    attribute-specifier-sequence? do-while-stmt
+    attribute-specifier-sequence? for-stmt
+    attribute-specifier-sequence? goto-stmt
+    attribute-specifier-sequence? continue-stmt
+    attribute-specifier-sequence? break-stmt
+    attribute-specifier-sequence? return-stmt
+    attribute-specifier-sequence? expr-stmt
 
 compound-stmt:
-    '{' block-item-list? '}'
+    '{' { block-item }* '}'
 
-block-item-list:
-    { block-item }+
+block-item:
+    declaration
+    unlabaled-stmt
+    label
 
 expr-stmt:
-    attribute-specifier-sequence? expr? ';'
+    expr? ';'
 
-selection-stmt:
+if-stmt:
     'if' '(' expr ')' stmt ( 'else' stmt )?
+
+switch-stmt:
     'switch' '(' expr ')' stmt
 
-iteration-stmt:
+while-stmt:
     'while' '(' expr ')' stmt
+
+do-while-stmt:
     'do' stmt 'while' '(' expr ')' ';'
+
+for-stmt:
     'for' '(' expr? ';' expr? ';' expr? ')' stmt
     'for' '(' declaration expr? ';' expr? ')' stmt
 
-jump-stmt:
+goto-stmt:
     'goto' identifier ';'
+
+continue-stmt:
     'continue' ';'
+
+break-stmt:
     'break' ';'
+
+return-stmt:
     'return' expr? ';'
 ```
 
