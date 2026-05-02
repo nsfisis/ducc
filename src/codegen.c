@@ -777,6 +777,9 @@ static void codegen_block_stmt(CodeGen* g, AstNode* ast) {
 }
 
 static void codegen_stmt(CodeGen* g, AstNode* ast) {
+    // TODO: support multiple files.
+    fprintf(g->out, "  .loc 1 %d 0\n", ast->loc.line);
+
     if (ast->kind == AstNodeKind_list) {
         codegen_block_stmt(g, ast);
     } else if (ast->kind == AstNodeKind_return_stmt) {
@@ -864,10 +867,13 @@ static void codegen_global_var(CodeGen* g, AstNode* var) {
     }
 }
 
-void codegen(Program* prog, FILE* out) {
+void codegen(Program* prog, const char* input_filename, FILE* out) {
     CodeGen* g = codegen_new(prog, out);
 
     fprintf(g->out, ".intel_syntax noprefix\n\n");
+
+    // TODO: support multiple files.
+    fprintf(g->out, ".file 1 \"%s\"\n\n", input_filename);
 
     // For GNU ld:
     // https://sourceware.org/binutils/docs/ld/Options.html

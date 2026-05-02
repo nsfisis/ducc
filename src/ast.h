@@ -2,6 +2,7 @@
 #define DUCC_AST_H
 
 #include "ducc.h"
+#include "io.h"
 
 typedef enum {
     StorageClass_unspecified,
@@ -328,6 +329,8 @@ typedef struct {
 
 struct AstNode {
     AstNodeKind kind;
+    // TODO: currently only limited set of ast nodes have loc field.
+    SourceLocation loc;
     Type* ty;
     union {
         IntExprNode* int_expr;

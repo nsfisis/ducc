@@ -11,6 +11,7 @@ typedef struct {
     bool preprocess_only;
     bool generate_system_deps;
     bool generate_user_deps;
+    bool generate_debug_info;
     bool totally_deligate_to_gcc;
     bool wasm;
     const char* gcc_command;

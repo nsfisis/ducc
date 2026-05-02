@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
     if (cli_args->wasm) {
         codegen_wasm(prog, assembly_file);
     } else {
-        codegen(prog, assembly_file);
+        codegen(prog, cli_args->input_filename, assembly_file);
     }
     fclose(assembly_file);
 

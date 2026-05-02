@@ -3,6 +3,6 @@
 
 #include "ast.h"
 
-void codegen(Program* prog, FILE* out);
+void codegen(Program* prog, const char* input_filename, FILE* out);
 
 #endif
