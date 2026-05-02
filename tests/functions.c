@@ -100,6 +100,12 @@ int f10() {
     return 12345;
 }
 
+int f11(int* a, int* b, int* c, int* d, int* e, int* f, int* g) {
+    int x = 99;
+    int* local = &x;
+    return *a + *b + *c + *d + *e + *f + *g + *local;
+}
+
 int sum(int n, ...) {
     va_list args;
     va_start(args, n);
@@ -143,6 +149,9 @@ int main() {
     S s;
     s.x = 5;
     s.y = 6;
+    int v1 = 1, v2 = 2, v3 = 3, v4 = 4, v5 = 5, v6 = 6, v7 = 7;
+    ASSERT_EQ(1 + 2 + 3 + 4 + 5 + 6 + 7 + 99, f11(&v1, &v2, &v3, &v4, &v5, &v6, &v7));
+
     ASSERT_EQ(1, f9(0, 1, 2, 3, 4, s, 7, 8));
     ASSERT_EQ(2, f9(1, 1, 2, 3, 4, s, 7, 8));
     ASSERT_EQ(3, f9(2, 1, 2, 3, 4, s, 7, 8));

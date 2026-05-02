@@ -237,15 +237,16 @@ static int find_lvar(Parser* p, const char* name) {
 }
 
 static int calc_lvar_stack_offset(Parser* p, Type* ty) {
-    int offset;
-    if (p->lvars.len == 0) {
-        offset = 0;
-    } else {
-        offset = p->lvars.data[p->lvars.len - 1].stack_offset;
-        if (offset < 0)
-            offset = 0;
+    int last_offset = 0;
+    for (int i = p->lvars.len - 1; i >= 0; i--) {
+        int offset = p->lvars.data[i].stack_offset;
+        // Skip a passed-by-stack parameter.
+        if (offset <= 0)
+            continue;
+        last_offset = offset;
+        break;
     }
-    return to_aligned(offset + type_sizeof(ty), type_alignof(ty));
+    return to_aligned(last_offset + type_sizeof(ty), type_alignof(ty));
 }
 
 static int add_lvar(Parser* p, const char* name, Type* ty, int stack_offset) {
