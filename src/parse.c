@@ -1762,7 +1762,7 @@ static AstNode* parse_init_declarator(Parser* p, Type* ty) {
 //     'struct' TODO attribute-specifier-sequence? identifier? '{' member-declaration-list '}'
 //     'struct' TODO attribute-specifier-sequence? identifier
 static Type* parse_struct_specifier(Parser* p) {
-    SourceLocation struct_kw_pos = peek_token(p)->loc;
+    SourceLocation struct_kw_loc = current_location(p);
     next_token(p);
 
     const Token* name;
@@ -1772,7 +1772,7 @@ static Type* parse_struct_specifier(Parser* p) {
         Token* anonymous_token = calloc(1, sizeof(Token));
         anonymous_token->kind = TokenKind_ident;
         anonymous_token->value.string = anonymous_name;
-        anonymous_token->loc = struct_kw_pos;
+        anonymous_token->loc = struct_kw_loc;
         name = anonymous_token;
     } else {
         name = parse_ident(p);
@@ -1823,7 +1823,7 @@ static Type* parse_struct_specifier(Parser* p) {
 //     'union' TODO attribute-specifier-sequence? identifier? '{' member-declaration-list '}'
 //     'union' TODO attribute-specifier-sequence? identifier
 static Type* parse_union_specifier(Parser* p) {
-    SourceLocation union_kw_pos = peek_token(p)->loc;
+    SourceLocation union_kw_loc = current_location(p);
     next_token(p);
 
     const Token* name;
@@ -1833,7 +1833,7 @@ static Type* parse_union_specifier(Parser* p) {
         Token* anonymous_token = calloc(1, sizeof(Token));
         anonymous_token->kind = TokenKind_ident;
         anonymous_token->value.string = anonymous_name;
-        anonymous_token->loc = union_kw_pos;
+        anonymous_token->loc = union_kw_loc;
         name = anonymous_token;
     } else {
         name = parse_ident(p);
@@ -2133,7 +2133,7 @@ static AstNode* parse_member_declarator(Parser* p, Type* base_ty) {
 //     'enum' TODO attribute-specifier-sequence? identifier? TODO enum-type-specifier? '{' enumerator-list ','? '}'
 //     'enum' identifier TODO enum-type-specifier?
 static Type* parse_enum_specifier(Parser* p) {
-    SourceLocation enum_kw_pos = peek_token(p)->loc;
+    SourceLocation enum_kw_loc = current_location(p);
     next_token(p);
 
     const Token* name;
@@ -2143,7 +2143,7 @@ static Type* parse_enum_specifier(Parser* p) {
         Token* anonymous_token = calloc(1, sizeof(Token));
         anonymous_token->kind = TokenKind_ident;
         anonymous_token->value.string = anonymous_name;
-        anonymous_token->loc = enum_kw_pos;
+        anonymous_token->loc = enum_kw_loc;
         name = anonymous_token;
     } else {
         name = parse_ident(p);
