@@ -73,6 +73,7 @@ Type* type_new_static_string(int len);
 Type* type_array_to_ptr(Type* ty);
 Type* type_new_func(Type* result, AstNode* params);
 bool type_is_unsized(Type* ty);
+bool type_is_unsigned(Type* ty);
 
 int type_sizeof_struct(Type* ty);
 int type_sizeof_union(Type* ty);

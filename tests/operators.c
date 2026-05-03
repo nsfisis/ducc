@@ -116,6 +116,51 @@ int main() {
     k >>= 3;
     ASSERT_EQ(8, k);
 
+    // unsigned division / modulo
+    // (unsigned long)-1 = 0xFFFFFFFFFFFFFFFF
+    // 0xFFFFFFFFFFFFFFFF / 9 = 0x1C71C71C71C71C71 (huge positive)
+    // 0xFFFFFFFFFFFFFFFF % 9 = 6
+    // signed: -1 / 9 == 0 and -1 % 9 == -1
+    unsigned long u_max = -1L;
+    ASSERT_EQ(6L, u_max % 9);
+    ASSERT_EQ(1L, u_max % 7);
+    ASSERT_EQ(0, u_max / 9 == 0);
+    ASSERT_EQ(u_max, (u_max / 9) * 9 + u_max % 9);
+
+    long s_neg = -1L;
+    ASSERT_EQ(0L, s_neg / 9);
+    ASSERT_EQ(-1L, s_neg % 9);
+
+    // unsigned right shift (logical, fills 0)
+    // 0xFFFFFFFFFFFFFFFF >> 1 = 0x7FFFFFFFFFFFFFFF
+    unsigned long highbit = 1L;
+    for (int p = 0; p < 63; p += 1)
+        highbit *= 2; // 0x8000000000000000
+    unsigned long lmax = highbit - 1; // 0x7FFFFFFFFFFFFFFF
+    ASSERT_EQ(lmax, ((unsigned long)-1L) >> 1);
+
+    // signed right shift (arithmetic, preserves sign)
+    long s_neg2 = -1L;
+    ASSERT_EQ(-1L, s_neg2 >> 1);
+    ASSERT_EQ(-2L, (-8L) >> 2);
+
+    // compound assignment
+    unsigned long u_div = -1L;
+    u_div /= 9;
+    ASSERT_EQ(0, u_div == 0);
+
+    unsigned long u_mod = -1L;
+    u_mod %= 9;
+    ASSERT_EQ(6L, u_mod);
+
+    unsigned long u_shr = -1L;
+    u_shr >>= 1;
+    ASSERT_EQ(lmax, u_shr);
+
+    long s_shr = -1L;
+    s_shr >>= 1;
+    ASSERT_EQ(-1L, s_shr);
+
     // ternary operator
     ASSERT_EQ(2, 1 ? 2 : 3);
     ASSERT_EQ(5, 0 ? 4 : 5);

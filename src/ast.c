@@ -126,6 +126,11 @@ bool type_is_unsized(Type* ty) {
     return ty->kind == TypeKind_void;
 }
 
+bool type_is_unsigned(Type* ty) {
+    return ty->kind == TypeKind_uchar || ty->kind == TypeKind_ushort || ty->kind == TypeKind_uint ||
+           ty->kind == TypeKind_ulong || ty->kind == TypeKind_ullong || ty->kind == TypeKind_bool;
+}
+
 int type_sizeof(Type* ty) {
     if (type_is_unsized(ty)) {
         fatal_error("type_sizeof: type size cannot be determined");

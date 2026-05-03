@@ -205,11 +205,21 @@ static void codegen_binary_expr(CodeGen* g, BinaryExprNode* expr, GenMode gen_mo
     } else if (expr->op == TokenKind_star) {
         fprintf(g->out, "  imul rax, rdi\n");
     } else if (expr->op == TokenKind_slash) {
-        fprintf(g->out, "  cqo\n");
-        fprintf(g->out, "  idiv rdi\n");
+        if (type_is_unsigned(expr->lhs->ty)) {
+            fprintf(g->out, "  xor rdx, rdx\n");
+            fprintf(g->out, "  div rdi\n");
+        } else {
+            fprintf(g->out, "  cqo\n");
+            fprintf(g->out, "  idiv rdi\n");
+        }
     } else if (expr->op == TokenKind_percent) {
-        fprintf(g->out, "  cqo\n");
-        fprintf(g->out, "  idiv rdi\n");
+        if (type_is_unsigned(expr->lhs->ty)) {
+            fprintf(g->out, "  xor rdx, rdx\n");
+            fprintf(g->out, "  div rdi\n");
+        } else {
+            fprintf(g->out, "  cqo\n");
+            fprintf(g->out, "  idiv rdi\n");
+        }
         fprintf(g->out, "  mov rax, rdx\n");
     } else if (expr->op == TokenKind_and) {
         fprintf(g->out, "  and rax, rdi\n");
@@ -221,9 +231,12 @@ static void codegen_binary_expr(CodeGen* g, BinaryExprNode* expr, GenMode gen_mo
         fprintf(g->out, "  mov rcx, rdi\n");
         fprintf(g->out, "  shl rax, cl\n");
     } else if (expr->op == TokenKind_rshift) {
-        // TODO: check if the operand is signed or unsigned
         fprintf(g->out, "  mov rcx, rdi\n");
-        fprintf(g->out, "  sar rax, cl\n");
+        if (type_is_unsigned(expr->lhs->ty)) {
+            fprintf(g->out, "  shr rax, cl\n");
+        } else {
+            fprintf(g->out, "  sar rax, cl\n");
+        }
     } else if (expr->op == TokenKind_eq) {
         fprintf(g->out, "  cmp rax, rdi\n");
         fprintf(g->out, "  sete al\n");
@@ -274,11 +287,21 @@ static void codegen_assign_expr_helper(CodeGen* g, AssignExprNode* expr) {
     } else if (expr->op == TokenKind_assign_mul) {
         fprintf(g->out, "  imul rax, rdi\n");
     } else if (expr->op == TokenKind_assign_div) {
-        fprintf(g->out, "  cqo\n");
-        fprintf(g->out, "  idiv rdi\n");
+        if (type_is_unsigned(expr->lhs->ty)) {
+            fprintf(g->out, "  xor rdx, rdx\n");
+            fprintf(g->out, "  div rdi\n");
+        } else {
+            fprintf(g->out, "  cqo\n");
+            fprintf(g->out, "  idiv rdi\n");
+        }
     } else if (expr->op == TokenKind_assign_mod) {
-        fprintf(g->out, "  cqo\n");
-        fprintf(g->out, "  idiv rdi\n");
+        if (type_is_unsigned(expr->lhs->ty)) {
+            fprintf(g->out, "  xor rdx, rdx\n");
+            fprintf(g->out, "  div rdi\n");
+        } else {
+            fprintf(g->out, "  cqo\n");
+            fprintf(g->out, "  idiv rdi\n");
+        }
         fprintf(g->out, "  mov rax, rdx\n");
     } else if (expr->op == TokenKind_assign_or) {
         fprintf(g->out, "  or rax, rdi\n");
@@ -291,7 +314,11 @@ static void codegen_assign_expr_helper(CodeGen* g, AssignExprNode* expr) {
         fprintf(g->out, "  shl rax, cl\n");
     } else if (expr->op == TokenKind_assign_rshift) {
         fprintf(g->out, "  mov rcx, rdi\n");
-        fprintf(g->out, "  sar rax, cl\n");
+        if (type_is_unsigned(expr->lhs->ty)) {
+            fprintf(g->out, "  shr rax, cl\n");
+        } else {
+            fprintf(g->out, "  sar rax, cl\n");
+        }
     } else {
         unreachable();
     }
