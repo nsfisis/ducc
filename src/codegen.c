@@ -102,7 +102,7 @@ static void codegen_ref_expr(CodeGen* g, RefExprNode* expr) {
 }
 
 static void codegen_lval2rval(CodeGen* g, Type* ty) {
-    if (ty->kind == TypeKind_array) {
+    if (ty->kind == TypeKind_array || ty->kind == TypeKind_func) {
         return;
     }
 

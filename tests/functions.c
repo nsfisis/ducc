@@ -168,8 +168,11 @@ int main() {
 
     int (*fp1)() = f10;
     ASSERT_EQ(12345, fp1());
+    ASSERT_EQ(12345, (*fp1)());
+    ASSERT_EQ(12345, (**fp1)());
     int (*fp2)(int, int, int, int, int, int) = f;
     ASSERT_EQ(1, fp2(1, 2, 3, 4, 5, 6));
+    ASSERT_EQ(1, (*fp2)(1, 2, 3, 4, 5, 6));
     int (*fp3)(int, int, int, int, int, int) = f6;
     ASSERT_EQ(6, fp3(1, 2, 3, 4, 5, 6));
     int (*fp4)(int, int, int, int, int, int, int, int, int, int, int) = f7;
