@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "common.h"
+#include "../lib/common.h"
 #include "version.h"
 
 static void print_version() {

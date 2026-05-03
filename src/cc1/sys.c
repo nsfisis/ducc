@@ -2,7 +2,7 @@
 #include <libgen.h>
 #include <linux/limits.h>
 #include <unistd.h>
-#include "ducc.h"
+#include "../lib/ducc.h"
 
 static char* get_self_path() {
     char* buf = calloc(PATH_MAX, sizeof(char));

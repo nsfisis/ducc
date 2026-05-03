@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "common.h"
-#include "json.h"
+#include "../lib/common.h"
+#include "../lib/json.h"
 
 void sourcelocation_build_json(JsonBuilder* builder, SourceLocation* loc) {
     jsonbuilder_object_start(builder);

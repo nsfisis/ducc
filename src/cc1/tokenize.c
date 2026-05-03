@@ -1,6 +1,6 @@
 #include "tokenize.h"
 #include <ctype.h>
-#include "common.h"
+#include "../lib/common.h"
 
 typedef struct {
     InFile* src;

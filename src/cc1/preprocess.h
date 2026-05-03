@@ -1,7 +1,7 @@
 #ifndef DUCC_PREPROCESS_H
 #define DUCC_PREPROCESS_H
 
-#include "common.h"
+#include "../lib/common.h"
 #include "io.h"
 #include "token.h"
 

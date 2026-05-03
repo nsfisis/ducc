@@ -4,26 +4,28 @@ BUILD_ROOT_DIR := build
 BUILD_DIR := $(BUILD_ROOT_DIR)/.$(TARGET)
 
 OBJECTS := \
-	$(BUILD_DIR)/main.o \
-	$(BUILD_DIR)/ast.o \
-	$(BUILD_DIR)/cli.o \
-	$(BUILD_DIR)/codegen.o \
-	$(BUILD_DIR)/codegen_wasm.o \
-	$(BUILD_DIR)/common.o \
-	$(BUILD_DIR)/fs.o \
-	$(BUILD_DIR)/io.o \
-	$(BUILD_DIR)/json.o \
-	$(BUILD_DIR)/parse.o \
-	$(BUILD_DIR)/preprocess.o \
-	$(BUILD_DIR)/sys.o \
-	$(BUILD_DIR)/token.o \
-	$(BUILD_DIR)/tokenize.o
+	$(BUILD_DIR)/cc1/ast.o \
+	$(BUILD_DIR)/cc1/codegen.o \
+	$(BUILD_DIR)/cc1/codegen_wasm.o \
+	$(BUILD_DIR)/cc1/fs.o \
+	$(BUILD_DIR)/cc1/io.o \
+	$(BUILD_DIR)/cc1/parse.o \
+	$(BUILD_DIR)/cc1/preprocess.o \
+	$(BUILD_DIR)/cc1/sys.o \
+	$(BUILD_DIR)/cc1/token.o \
+	$(BUILD_DIR)/cc1/tokenize.o \
+	$(BUILD_DIR)/ducc/cli.o \
+	$(BUILD_DIR)/ducc/main.o \
+	$(BUILD_DIR)/lib/common.o \
+	$(BUILD_DIR)/lib/json.o
 
 .PHONY: all
 all: $(BUILD_DIR) $(BUILD_ROOT_DIR)/$(TARGET)
 
 $(BUILD_DIR):
-	@mkdir -p $(BUILD_DIR)
+	@mkdir -p $(BUILD_DIR)/cc1
+	@mkdir -p $(BUILD_DIR)/ducc
+	@mkdir -p $(BUILD_DIR)/lib
 
 # TODO: provide release build?
 # TODO: use -std=c23 instead of -std=gnu23

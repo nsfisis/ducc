@@ -1,7 +1,7 @@
 #ifndef DUCC_IO_H
 #define DUCC_IO_H
 
-#include "json.h"
+#include "../lib/json.h"
 
 typedef struct {
     const char* filename;

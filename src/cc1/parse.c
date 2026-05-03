@@ -1,5 +1,5 @@
 #include "parse.h"
-#include "common.h"
+#include "../lib/common.h"
 #include "tokenize.h"
 
 typedef struct {

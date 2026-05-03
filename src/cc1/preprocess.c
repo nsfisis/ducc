@@ -1,7 +1,7 @@
 #include "preprocess.h"
 #include <libgen.h>
 #include <unistd.h>
-#include "common.h"
+#include "../lib/common.h"
 #include "parse.h"
 #include "sys.h"
 #include "tokenize.h"

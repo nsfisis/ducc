@@ -1,8 +1,8 @@
 #ifndef DUCC_PARSE_H
 #define DUCC_PARSE_H
 
+#include "../lib/common.h"
 #include "ast.h"
-#include "common.h"
 #include "preprocess.h"
 
 Program* parse(TokenArray* tokens);

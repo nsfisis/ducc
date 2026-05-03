@@ -1,13 +1,13 @@
-#include "ast.h"
+#include "../cc1/ast.h"
+#include "../cc1/codegen.h"
+#include "../cc1/codegen_wasm.h"
+#include "../cc1/fs.h"
+#include "../cc1/io.h"
+#include "../cc1/parse.h"
+#include "../cc1/preprocess.h"
+#include "../cc1/tokenize.h"
+#include "../lib/common.h"
 #include "cli.h"
-#include "codegen.h"
-#include "codegen_wasm.h"
-#include "common.h"
-#include "fs.h"
-#include "io.h"
-#include "parse.h"
-#include "preprocess.h"
-#include "tokenize.h"
 
 int main(int argc, char** argv) {
     CliArgs* cli_args = parse_cli_args(argc, argv);

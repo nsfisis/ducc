@@ -1,6 +1,6 @@
 #include "token.h"
-#include "common.h"
-#include "json.h"
+#include "../lib/common.h"
+#include "../lib/json.h"
 
 const char* token_kind_stringify(TokenKind k) {
     if (k == TokenKind_eof)

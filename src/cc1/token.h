@@ -1,7 +1,7 @@
 #ifndef DUCC_TOKEN_H
 #define DUCC_TOKEN_H
 
-#include "ducc.h"
+#include "../lib/ducc.h"
 #include "io.h"
 
 typedef enum {

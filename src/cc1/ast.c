@@ -1,5 +1,5 @@
 #include "ast.h"
-#include "common.h"
+#include "../lib/common.h"
 #include "preprocess.h"
 
 const char* storageclass_stringify(StorageClass s) {
